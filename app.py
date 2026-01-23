@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from datetime import date
 
 # --- CONFIGURAZIONE PAGINA ---
-st.set_page_config(page_title="Mathbet fc Pro - Ultimate Fixed", page_icon="⚽", layout="wide")
+st.set_page_config(page_title="Mathbet fc Pro - Ultimate Edition", page_icon="⚽", layout="wide")
 
 # --- AUTOMAZIONE ELO (CACHING) ---
 @st.cache_data(ttl=3600) 
@@ -55,7 +55,6 @@ def calculate_kelly(prob_true, odds_book):
 
 def calculate_player_probability(metric_per90, expected_mins, team_match_xg, team_avg_xg):
     base_lambda = (metric_per90 / 90.0) * expected_mins
-    # Evitiamo divisioni per zero
     if team_avg_xg <= 0: team_avg_xg = 0.01
     match_factor = team_match_xg / team_avg_xg
     final_lambda = base_lambda * match_factor
@@ -76,6 +75,10 @@ with st.sidebar:
     m_type = st.radio("Tipo di Incontro", ["Standard", "Derby (Stesso Stadio)", "Campo Neutro"])
     is_big_match = st.checkbox("🔥 Big Match (Scontro Diretto)", help="Riduce l'aspettativa di gol per tensione tattica.")
     
+    st.markdown("---")
+    # NUOVA INTEGRAZIONE 1: Toggle xG
+    use_xg_mode = st.toggle("📊 Usa Modalità xG (Expected Goals)", value=False, help="Attivalo se hai i dati xG. Sostituiscono i Gol Fatti/Subiti.")
+    
     CURRENT_RHO = L_DATA.get("rho", -0.13)
 
 st.title("Mathbet fc ⚽")
@@ -89,16 +92,27 @@ with st.expander("🔗 Link Utili (Scraper Dati)", expanded=False):
 st.markdown("---")
 
 # --- INPUT SQUADRE ---
-# Utilizziamo chiavi univoche (key=...) per ogni widget. Questo salva automaticamente i valori in st.session_state.
-
 col_h, col_a = st.columns(2)
 h_uo_input, a_uo_input = {}, {}
+
+# Definizioni etichette dinamiche (Gol vs xG)
+lbl_gf_s = "xG Fatti Totali" if use_xg_mode else "GF Stag."
+lbl_gs_s = "xG Subiti Totali" if use_xg_mode else "GS Stag."
+lbl_gf_ha = "xG Fatti Casa" if use_xg_mode else "GF Casa"
+lbl_gs_ha = "xG Subiti Casa" if use_xg_mode else "GS Casa"
+
+lbl_gf_s_a = "xG Fatti Totali" if use_xg_mode else "GF Stag."
+lbl_gs_s_a = "xG Subiti Totali" if use_xg_mode else "GS Stag."
+lbl_gf_ha_a = "xG Fatti Fuori" if use_xg_mode else "GF Fuori"
+lbl_gs_ha_a = "xG Subiti Fuori" if use_xg_mode else "GS Fuori"
+
+# Options per Strength of Schedule
+sos_options = ["Media (Standard)", "Difficili (Top Team)", "Facili (Bassa Classifica)"]
 
 with col_h:
     st.subheader("🏠 Squadra Casa")
     h_name = st.text_input("Nome Casa", "Inter", key="h_n")
     
-    # Suggeritore nomi
     auto_elo_h = float(ELO_DB.get(h_name, 1600.0))
     if h_name not in ELO_DB and h_name != "":
         matches = [k for k in ELO_DB.keys() if h_name.lower() in k.lower()]
@@ -106,17 +120,25 @@ with col_h:
     
     h_elo = st.number_input("Rating Casa", 1000.0, 2500.0, value=auto_elo_h, key="helo")
     h_str = st.slider("Titolari Casa %", 50, 100, 100, key="hs")
+    
+    # NUOVA INTEGRAZIONE 2: Slider Riposo
+    h_rest = st.slider("Giorni Riposo (vs Ultima Partita)", 2, 10, 7, key="h_rest", help="Meno di 4 giorni applica penalità per stanchezza.")
+    
     c_h1, c_h2 = st.columns(2)
     h_m_a, h_m_d = c_h1.checkbox("Manca Bomber (C)", key="h_ma"), c_h2.checkbox("Manca Difesa (C)", key="h_md")
     
-    with st.expander("📊 Stats Gol"):
-        # Chiavi fondamentali per il recupero dati
-        h_gf_s = st.number_input("GF Stag.", 0.0, 5.0, 1.4, key="h_gf_s")
-        h_gs_s = st.number_input("GS Stag.", 0.0, 5.0, 1.0, key="h_gs_s")
-        h_gf_h = st.number_input("GF Casa", 0.0, 5.0, 1.6, key="h_gf_h")
-        h_gs_h = st.number_input("GS Casa", 0.0, 5.0, 0.8, key="h_gs_h")
-        h_gf_l5 = st.number_input("GF L5", 0, 25, 7, key="h_gf_l5")
-        h_gs_l5 = st.number_input("GS L5", 0, 25, 5, key="h_gs_l5")
+    with st.expander("📊 Stats Gol / xG", expanded=True):
+        h_gf_s = st.number_input(lbl_gf_s, 0.0, 5.0, 1.45, step=0.01, key="h_gf_s")
+        h_gs_s = st.number_input(lbl_gs_s, 0.0, 5.0, 1.05, step=0.01, key="h_gs_s")
+        h_gf_h = st.number_input(lbl_gf_ha, 0.0, 5.0, 1.65, step=0.01, key="h_gf_h")
+        h_gs_h = st.number_input(lbl_gs_ha, 0.0, 5.0, 0.85, step=0.01, key="h_gs_h")
+        
+        st.markdown("---")
+        # NUOVA INTEGRAZIONE 3: SoS (Strength of Schedule)
+        h_sos = st.selectbox("Livello Avversari L5", sos_options, index=0, key="h_sos", help="Chi hanno affrontato nelle ultime 5?")
+        h_gf_l5 = st.number_input("GF/xG Ultime 5 (Forma)", 0.0, 25.0, 7.0, step=0.5, key="h_gf_l5")
+        h_gs_l5 = st.number_input("GS/xGA Ultime 5 (Forma)", 0.0, 25.0, 5.0, step=0.5, key="h_gs_l5")
+
     with st.expander("📈 Over %"):
         for l in [0.5, 1.5, 2.5, 3.5, 4.5]: h_uo_input[l] = st.slider(f"O{l} Casa", 0, 100, 50, key=f"ho{l}")
 
@@ -124,7 +146,6 @@ with col_a:
     st.subheader("✈️ Squadra Ospite")
     a_name = st.text_input("Nome Ospite", "Milan", key="a_n")
     
-    # Suggeritore nomi
     auto_elo_a = float(ELO_DB.get(a_name, 1550.0))
     if a_name not in ELO_DB and a_name != "":
         matches = [k for k in ELO_DB.keys() if a_name.lower() in k.lower()]
@@ -132,16 +153,25 @@ with col_a:
 
     a_elo = st.number_input("Rating Ospite", 1000.0, 2500.0, value=auto_elo_a, key="aelo")
     a_str = st.slider("Titolari Ospite %", 50, 100, 100, key="as")
+
+    # NUOVA INTEGRAZIONE 2: Slider Riposo Ospite
+    a_rest = st.slider("Giorni Riposo (vs Ultima Partita)", 2, 10, 7, key="a_rest", help="Meno di 4 giorni applica penalità per stanchezza.")
+
     c_a1, c_a2 = st.columns(2)
     a_m_a, a_m_d = c_a1.checkbox("Manca Bomber (O)", key="a_ma"), c_a2.checkbox("Manca Difesa (O)", key="a_md")
     
-    with st.expander("📊 Stats Gol "):
-        a_gf_s = st.number_input("GF Stag. ", 0.0, 5.0, 1.2, key="a_gf_s")
-        a_gs_s = st.number_input("GS Stag. ", 0.0, 5.0, 1.3, key="a_gs_s")
-        a_gf_a = st.number_input("GF Fuori", 0.0, 5.0, 1.0, key="a_gf_a")
-        a_gs_a = st.number_input("GS Fuori", 0.0, 5.0, 1.5, key="a_gs_a")
-        a_gf_l5 = st.number_input("GF L5 ", 0, 25, 5, key="a_gf_l5")
-        a_gs_l5 = st.number_input("GS L5 ", 0, 25, 6, key="a_gs_l5")
+    with st.expander("📊 Stats Gol / xG ", expanded=True):
+        a_gf_s = st.number_input(lbl_gf_s_a, 0.0, 5.0, 1.25, step=0.01, key="a_gf_s")
+        a_gs_s = st.number_input(lbl_gs_s_a, 0.0, 5.0, 1.35, step=0.01, key="a_gs_s")
+        a_gf_a = st.number_input(lbl_gf_ha_a, 0.0, 5.0, 1.10, step=0.01, key="a_gf_a")
+        a_gs_a = st.number_input(lbl_gs_ha_a, 0.0, 5.0, 1.55, step=0.01, key="a_gs_a")
+        
+        st.markdown("---")
+        # NUOVA INTEGRAZIONE 3: SoS Ospite
+        a_sos = st.selectbox("Livello Avversari L5 ", sos_options, index=0, key="a_sos", help="Chi hanno affrontato nelle ultime 5?")
+        a_gf_l5 = st.number_input("GF/xG Ultime 5 (Forma) ", 0.0, 25.0, 5.0, step=0.5, key="a_gf_l5")
+        a_gs_l5 = st.number_input("GS/xGA Ultime 5 (Forma) ", 0.0, 25.0, 6.0, step=0.5, key="a_gs_l5")
+
     with st.expander("📈 Over % "):
         for l in [0.5, 1.5, 2.5, 3.5, 4.5]: a_uo_input[l] = st.slider(f"O{l} Ospite", 0, 100, 50, key=f"ao{l}")
 
@@ -159,27 +189,63 @@ if st.button("🚀 ANALIZZA PARTITA", type="primary", use_container_width=True):
     if m_type == "Campo Neutro": ha_val = 0.0
     elif m_type == "Derby (Stesso Stadio)": ha_val *= 0.5
     
-    # 2. Calcolo Attacco/Difesa basato sul contesto
-    if m_type == "Campo Neutro":
-        h_att_val = (h_gf_s * 0.7 + h_gf_l5/5.0 * 0.3)
-        h_def_val = (h_gs_s * 0.7 + h_gs_l5/5.0 * 0.3)
-        a_att_val = (a_gf_s * 0.7 + a_gf_l5/5.0 * 0.3)
-        a_def_val = (a_gs_s * 0.7 + a_gs_l5/5.0 * 0.3)
+    # 2. Applicazione Strength of Schedule (SoS) alle statistiche L5
+    # Fattori moltiplicativi per correggere i gol/xG recenti
+    h_gf_l5_c, h_gs_l5_c = h_gf_l5, h_gs_l5
+    a_gf_l5_c, a_gs_l5_c = a_gf_l5, a_gs_l5
+
+    if h_sos == "Difficili (Top Team)":
+        h_gf_l5_c *= 1.25 # Segnare ai forti vale di più
+        h_gs_l5_c *= 0.85 # Subire dai forti è perdonabile
+    elif h_sos == "Facili (Bassa Classifica)":
+        h_gf_l5_c *= 0.85 # Segnare ai deboli vale meno
+        h_gs_l5_c *= 1.20 # Subire dai deboli è grave
+    
+    if a_sos == "Difficili (Top Team)":
+        a_gf_l5_c *= 1.25
+        a_gs_l5_c *= 0.85
+    elif a_sos == "Facili (Bassa Classifica)":
+        a_gf_l5_c *= 0.85
+        a_gs_l5_c *= 1.20
+
+    # 3. Calcolo Attacco/Difesa (Logica Avanzata xG vs Standard)
+    if use_xg_mode:
+        # PESI xG: Fiducia alta nei dati stagionali e Casa/Fuori (85%), bassa nella forma (15%)
+        w_seas, w_ha, w_l5 = 0.50, 0.35, 0.15
     else:
-        h_att_val = (h_gf_s * 0.4 + h_gf_h * 0.35 + h_gf_l5/5.0 * 0.25)
-        h_def_val = (h_gs_s * 0.4 + h_gs_h * 0.35 + h_gs_l5/5.0 * 0.25)
-        a_att_val = (a_gf_s * 0.4 + a_gf_a * 0.35 + a_gf_l5/5.0 * 0.25)
-        a_def_val = (a_gs_s * 0.4 + a_gs_a * 0.35 + a_gs_l5/5.0 * 0.25)
+        # PESI STANDARD: La forma recente conta di più (25%)
+        w_seas, w_ha, w_l5 = 0.40, 0.35, 0.25
+
+    if m_type == "Campo Neutro":
+        w_tot_neutro = w_seas + w_l5 
+        h_att_val = (h_gf_s * (w_seas/w_tot_neutro) + h_gf_l5_c/5.0 * (w_l5/w_tot_neutro))
+        h_def_val = (h_gs_s * (w_seas/w_tot_neutro) + h_gs_l5_c/5.0 * (w_l5/w_tot_neutro))
+        a_att_val = (a_gf_s * (w_seas/w_tot_neutro) + a_gf_l5_c/5.0 * (w_l5/w_tot_neutro))
+        a_def_val = (a_gs_s * (w_seas/w_tot_neutro) + a_gs_l5_c/5.0 * (w_l5/w_tot_neutro))
+    else:
+        h_att_val = (h_gf_s * w_seas + h_gf_h * w_ha + h_gf_l5_c/5.0 * w_l5)
+        h_def_val = (h_gs_s * w_seas + h_gs_h * w_ha + h_gs_l5_c/5.0 * w_l5)
+        a_att_val = (a_gf_s * w_seas + a_gf_a * w_ha + a_gf_l5_c/5.0 * w_l5)
+        a_def_val = (a_gs_s * w_seas + a_gs_a * w_ha + a_gs_l5_c/5.0 * w_l5)
     
     xg_s_h, xg_s_a = (h_att_val * a_def_val)/L_DATA["avg"], (a_att_val * h_def_val)/L_DATA["avg"]
     
-    # 3. Calcolo basato su Elo
+    # 4. Calcolo Elo
     exp_h = 1 / (1 + 10 ** (-((h_elo + ha_val*400) - a_elo)/400.0))
     xg_e_h, xg_e_a = L_DATA["avg"]*(exp_h/0.5)**0.85, L_DATA["avg"]*((1-exp_h)/0.5)**0.85
     
-    # 4. Fusione Finale (Elo + Stats)
+    # 5. Fusione Finale e Applicazione Fattori Extra
     f_xh = ((xg_e_h * w_elo) + (xg_s_h * (1-w_elo))) * (h_str/100.0)
     f_xa = ((xg_e_a * w_elo) + (xg_s_a * (1-w_elo))) * (a_str/100.0)
+    
+    # APPLICAZIONE FATTORE STANCHEZZA
+    fatigue_malus = 0.05 # 5% di malus per stanchezza
+    if h_rest <= 3: 
+        f_xh *= (1 - fatigue_malus) # Segna meno
+        f_xa *= (1 + fatigue_malus) # Subisce di più
+    if a_rest <= 3: 
+        f_xa *= (1 - fatigue_malus)
+        f_xh *= (1 + fatigue_malus)
     
     if is_big_match:
         f_xh *= 0.90
@@ -190,7 +256,7 @@ if st.button("🚀 ANALIZZA PARTITA", type="primary", use_container_width=True):
     if a_m_a: f_xa *= 0.85
     if a_m_d: f_xh *= 1.20
 
-    # 5. Dixon-Coles Matrix
+    # 6. Dixon-Coles Matrix
     p1, pX, p2, pGG = 0, 0, 0, 0
     matrix = np.zeros((10,10)); scores = []
     for h_g in range(10):
@@ -208,7 +274,7 @@ if st.button("🚀 ANALIZZA PARTITA", type="primary", use_container_width=True):
         matrix /= total_prob
         p1, pX, p2, pGG = p1/total_prob, pX/total_prob, p2/total_prob, pGG/total_prob
     
-    # Simulazione Stabilità (Monte Carlo)
+    # Simulazione Stabilità
     sim = []
     for _ in range(5000):
         gh = np.random.poisson(max(0.1, np.random.normal(f_xh, 0.15*f_xh)))
@@ -217,11 +283,10 @@ if st.button("🚀 ANALIZZA PARTITA", type="primary", use_container_width=True):
     s1, sX, s2 = sim.count(1)/5000, sim.count(0)/5000, sim.count(2)/5000
     stability = max(0, 100 - ((abs(p1-s1)+abs(pX-sX)+abs(p2-s2))/3*400))
 
-    # --- SALVATAGGIO IN SESSION STATE (SENZA CONFLITTI) ---
+    # --- SALVATAGGIO SESSIONE ---
     st.session_state.analyzed = True
     st.session_state.f_xh = f_xh
     st.session_state.f_xa = f_xa
-    # Salviamo solo i nomi per visualizzazione, gli altri dati li leggiamo dai widget
     st.session_state.home_name_display = h_name
     st.session_state.away_name_display = a_name
     st.session_state.p1, st.session_state.pX, st.session_state.p2 = p1, pX, p2
@@ -275,7 +340,7 @@ if st.button("🚀 ANALIZZA PARTITA", type="primary", use_container_width=True):
         dnb_p = (p1/(p1+p2)) if (p1+p2)>0 else 0
         st.write(f"**Asian DNB (0.0):** Prob 1: {dnb_p:.1%} | Fair: {1/dnb_p:.2f}")
 
-# --- SALVATAGGIO STORICO (FUORI DAL BUTTON MA DENTRO IL FLUSSO) ---
+# --- SALVATAGGIO STORICO ---
 if st.session_state.get('analyzed'):
     if st.button("💾 SALVA IN STORICO"):
         st.session_state.history.append({
@@ -289,14 +354,12 @@ if st.session_state.get('analyzed'):
         })
         st.toast("Salvato con successo!")
 
-# --- PLAYER PROP (MODIFICATO PER LEGGERE DAI WIDGET) ---
+# --- PLAYER PROP ---
 if st.session_state.get('analyzed'):
     st.markdown("---")
     st.header("👤 Marcatore / Assist")
     with st.expander("Calcolatore Giocatore Avanzato", expanded=True):
         pcol1, pcol2 = st.columns(2)
-        
-        # Recuperiamo i nomi dai widget (usando session_state[key])
         n_h = st.session_state.h_n
         n_a = st.session_state.a_n
         
@@ -305,10 +368,8 @@ if st.session_state.get('analyzed'):
         p_m = pcol1.number_input("Minuti attesi", 1, 100, 80)
         p_b = pcol2.number_input("Quota Bookie", 1.01, 100.0, 2.50)
         
-        # Logica xG Squadra
         ctx_xg = st.session_state.f_xh if p_t == n_h else st.session_state.f_xa
-        
-        # Logica Media Gol (Leggiamo direttamente la key del widget: h_gf_s o a_gf_s)
+        # Legge il valore medio dalla widget corretta
         ctx_avg = st.session_state.h_gf_s if p_t == n_h else st.session_state.a_gf_s
         
         prob_p, _ = calculate_player_probability(p_v, p_m, ctx_xg, ctx_avg)
