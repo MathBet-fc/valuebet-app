@@ -13,7 +13,6 @@ st.set_page_config(page_title="Mathbet fc", page_icon="⚽", layout="wide")
 @st.cache_data(ttl=3600) 
 def get_clubelo_database():
     try:
-        # Scarica i dati aggiornati quotidianamente
         date_str = date.today().strftime("%Y-%m-%d")
         url = f"http://api.clubelo.com/{date_str}"
         df = pd.read_csv(url)
@@ -68,8 +67,24 @@ with st.sidebar:
     matchday = st.slider("Giornata", 1, 38, 10)
     w_elo = (L_DATA["w_elo_base"] + 0.10) if 8 < matchday <= 19 else (max(L_DATA["w_elo_base"], 0.75) if matchday <= 8 else L_DATA["w_elo_base"])
     CURRENT_RHO = L_DATA.get("rho", -0.13)
+    st.caption(f"🎯 Elo Weight: {w_elo:.0%}")
 
 st.title("Mathbet fc ⚽")
+
+# --- REINTEGRATA: SEZIONE LINK UTILI ---
+with st.expander("🔗 Link Utili (Scraper Dati)", expanded=False):
+    lc1, lc2, lc3 = st.columns(3)
+    with lc1:
+        st.caption("Rating")
+        st.link_button("ClubElo", "http://clubelo.com")
+    with lc2:
+        st.caption("Stats Gol")
+        st.link_button("FootyStats", "https://footystats.org/it/")
+    with lc3:
+        st.caption("Giocatori")
+        st.link_button("FBref", "https://fbref.com")
+
+st.markdown("---")
 
 # --- INPUT SQUADRE ---
 col_h, col_a = st.columns(2)
@@ -78,11 +93,19 @@ h_uo_input = {}; a_uo_input = {}
 with col_h:
     st.subheader("🏠 Squadra Casa")
     h_name = st.text_input("Nome Casa", "Inter", key="h_n")
+    
+    # REINTEGRATA: LOGICA SUGGERIMENTI "FORSE INTENDEVI"
     auto_elo_h = float(ELO_DB.get(h_name, 1600.0))
+    if h_name not in ELO_DB and h_name != "" and ELO_DB:
+        matches = [k for k in ELO_DB.keys() if h_name.lower() in k.lower()]
+        if matches:
+            st.info(f"Forse intendevi: {', '.join(matches[:3])}?")
+    
     h_elo = st.number_input("Rating Casa", 1000.0, 2500.0, value=auto_elo_h, step=1.0, key="helo")
     h_str = st.slider("Titolari Casa %", 50, 100, 100)
     c_h1, c_h2 = st.columns(2)
     h_m_a, h_m_d = c_h1.checkbox("Manca Bomber (C)"), c_h2.checkbox("Manca Difesa (C)")
+    
     with st.expander("📊 Stats Gol"):
         h_gf_s, h_gs_s = st.number_input("GF Stag.", 0.0, 5.0, 1.4), st.number_input("GS Stag.", 0.0, 5.0, 1.0)
         h_gf_h, h_gs_h = st.number_input("GF Casa", 0.0, 5.0, 1.6), st.number_input("GS Casa", 0.0, 5.0, 0.8)
@@ -93,11 +116,19 @@ with col_h:
 with col_a:
     st.subheader("✈️ Squadra Ospite")
     a_name = st.text_input("Nome Ospite", "Milan", key="a_n")
+    
+    # REINTEGRATA: LOGICA SUGGERIMENTI "FORSE INTENDEVI"
     auto_elo_a = float(ELO_DB.get(a_name, 1550.0))
+    if a_name not in ELO_DB and a_name != "" and ELO_DB:
+        matches = [k for k in ELO_DB.keys() if a_name.lower() in k.lower()]
+        if matches:
+            st.info(f"Forse intendevi: {', '.join(matches[:3])}?")
+            
     a_elo = st.number_input("Rating Ospite", 1000.0, 2500.0, value=auto_elo_a, step=1.0, key="aelo")
     a_str = st.slider("Titolari Ospite %", 50, 100, 100)
     c_a1, c_a2 = st.columns(2)
     a_m_a, a_m_d = c_a1.checkbox("Manca Bomber (O)"), c_a2.checkbox("Manca Difesa (O)")
+    
     with st.expander("📊 Stats Gol "):
         a_gf_s, a_gs_s = st.number_input("GF Stag. ", 0.0, 5.0, 1.2), st.number_input("GS Stag. ", 0.0, 5.0, 1.3)
         a_gf_a, a_gs_a = st.number_input("GF Fuori", 0.0, 5.0, 1.0), st.number_input("GS Fuori", 0.0, 5.0, 1.5)
@@ -111,14 +142,15 @@ b1, bX, b2 = qc1.number_input("Q1", 1.01, 100.0, 2.20), qc2.number_input("QX", 1
 
 # --- ELABORAZIONE ---
 if st.button("🚀 ANALIZZA PARTITA", type="primary", use_container_width=True):
-    # Logica xG
     h_att = (h_gf_s * 0.4) + (h_gf_h * 0.35) + (h_gf_l5/5.0 * 0.25)
     h_def = (h_gs_s * 0.4) + (h_gs_h * 0.35) + (h_gs_l5/5.0 * 0.25)
     a_att = (a_gf_s * 0.4) + (a_gf_a * 0.35) + (a_gf_l5/5.0 * 0.25)
     a_def = (a_gs_s * 0.4) + (a_gs_a * 0.35) + (a_gs_l5/5.0 * 0.25)
+    
     xg_s_h, xg_s_a = (h_att * a_def)/L_DATA["avg"], (a_att * h_def)/L_DATA["avg"]
     exp_h = 1 / (1 + 10 ** (-((h_elo + L_DATA["ha"]*400) - a_elo)/400.0))
     xg_e_h, xg_e_a = L_DATA["avg"]*(exp_h/0.5)**0.85, L_DATA["avg"]*((1-exp_h)/0.5)**0.85
+    
     f_xh = ((xg_e_h * w_elo) + (xg_s_h * (1-w_elo))) * (h_str/100.0)
     f_xa = ((xg_e_a * w_elo) + (xg_s_a * (1-w_elo))) * (a_str/100.0)
     if h_m_a: f_xh *= 0.85
@@ -126,7 +158,6 @@ if st.button("🚀 ANALIZZA PARTITA", type="primary", use_container_width=True):
     if a_m_a: f_xa *= 0.85
     if a_m_d: f_xh *= 1.20
 
-    # Probabilità
     p1, pX, p2, pGG = 0, 0, 0, 0
     matrix = np.zeros((10,10)); scores = []
     for h in range(10):
@@ -141,7 +172,6 @@ if st.button("🚀 ANALIZZA PARTITA", type="primary", use_container_width=True):
     
     tot_m = np.sum(matrix); p1, pX, p2, pGG = p1/tot_m, pX/tot_m, p2/tot_m, pGG/tot_m; matrix /= tot_m
     
-    # Monte Carlo & Stabilità
     sim = []
     for _ in range(5000):
         xh = max(0.1, np.random.normal(f_xh, 0.18*f_xh))
@@ -151,13 +181,11 @@ if st.button("🚀 ANALIZZA PARTITA", type="primary", use_container_width=True):
     s1, sX, s2 = sim.count(1)/5000, sim.count(0)/5000, sim.count(2)/5000
     stability = max(0, 100 - ((abs(p1-s1)+abs(pX-sX)+abs(p2-s2))/3*400))
 
-    # Session Storage
     st.session_state.analyzed = True
     st.session_state.f_xh, st.session_state.f_xa = f_xh, f_xa
     st.session_state.h_gf_s, st.session_state.a_gf_s = h_gf_s, a_gf_s
     st.session_state.h_name, st.session_state.a_name = h_name, a_name
 
-    # UI OUTPUT
     st.header(f"📊 {h_name} - {a_name} ({f_xh:.2f} - {f_xa:.2f})")
     st.metric("Indice Stabilità", f"{stability:.1f}%")
     st.subheader("🏆 Probabilità 1X2")
@@ -175,7 +203,6 @@ if st.button("🚀 ANALIZZA PARTITA", type="primary", use_container_width=True):
     with c2: 
         st.subheader("🔥 Heatmap"); fig, ax = plt.subplots(figsize=(5,3)); sns.heatmap(matrix[:5,:5], annot=True, fmt=".0%", cmap="Blues", cbar=False); st.pyplot(fig)
 
-    # MERCATI ACCESSORI
     st.subheader("📉 Under / Over")
     uo_d = []
     for l in [0.5, 1.5, 2.5, 3.5, 4.5]:
@@ -212,7 +239,7 @@ if st.session_state.history:
         for _, r in val.iterrows():
             o = [1 if r["Risultato"]=="1" else 0, 1 if r["Risultato"]=="X" else 0, 1 if r["Risultato"]=="2" else 0]
             br.append((r["P1"]-o[0])**2 + (r["PX"]-o[1])**2 + (r["P2"]-o[2])**2)
-        st.metric("Brier Score Medio", f"{np.mean(br):.3f}") # 0.440 Target
+        st.metric("Brier Score Medio", f"{np.mean(br):.3f}")
     if st.button("🗑️ Reset"): st.session_state.history = []; st.rerun()
 
 # --- REINTEGRATI: STRUMENTI EXTRA ---
