@@ -7,7 +7,6 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 
 # --- CONFIGURAZIONE PAGINA ---
-# MODIFICA: Rimosso "Pro Ultra" dal titolo della pagina
 st.set_page_config(page_title="Mathbet fc",
                    page_icon="⚽",
                    layout="wide")
@@ -139,7 +138,6 @@ def calculate_player_probability(metric_per90, expected_mins, team_match_xg,
 
 # Sidebar
 with st.sidebar:
-    # MODIFICA: Rimosso "Pro"
     st.title("⚙️ Configurazione")
     st.write("I parametri si adattano automaticamente al campionato scelto.")
     league_name = st.selectbox("Campionato", list(LEAGUES.keys()))
@@ -163,7 +161,6 @@ with st.sidebar:
     Forma (Last 5): {W_FORM*100:.0f}%
     """)
 
-# MODIFICA: Rimosso "Pro Ultra" dal titolo principale
 st.title("Mathbet fc ⚽")
 st.markdown(
     "ℹ️ *Algoritmo Ibrido: Monte Carlo (10k Sim) + Poisson + Pesi Dinamici*")
@@ -216,8 +213,9 @@ with col_h:
                                     1.2,
                                     key="h2")
         st.caption(f"Ultime 5 (Peso: {W_FORM*100:.0f}%)")
-        h_gf_l5 = st.number_input("GF Totali (Last 5)", 0, 20, 7, key="h3")
-        h_gs_l5 = st.number_input("GS Totali (Last 5)", 0, 20, 5, key="h4")
+        # MODIFICA: Etichette aggiornate
+        h_gf_l5 = st.number_input("gol fatti nelle ultime 5 partite", 0, 20, 7, key="h3")
+        h_gs_l5 = st.number_input("gol subiti nelle ultime 5 partite", 0, 20, 5, key="h4")
         st.caption("Casa")
         h_gf_venue = st.number_input("GF Media Casa", 0.0, 5.0, 1.8, key="h5")
         h_gs_venue = st.number_input("GS Media Casa", 0.0, 5.0, 0.9, key="h6")
@@ -254,8 +252,9 @@ with col_a:
                                     1.4,
                                     key="a2")
         st.caption(f"Ultime 5 (Peso: {W_FORM*100:.0f}%)")
-        a_gf_l5 = st.number_input("GF Totali (Last 5)", 0, 20, 5, key="a3")
-        a_gs_l5 = st.number_input("GS Totali (Last 5)", 0, 20, 8, key="a4")
+        # MODIFICA: Etichette aggiornate
+        a_gf_l5 = st.number_input("gol fatti nelle ultime 5 partite", 0, 20, 5, key="a3")
+        a_gs_l5 = st.number_input("gol subiti nelle ultime 5 partite", 0, 20, 8, key="a4")
         st.caption("Trasferta")
         a_gf_venue = st.number_input("GF Media Fuori", 0.0, 5.0, 1.0, key="a5")
         a_gs_venue = st.number_input("GS Media Fuori", 0.0, 5.0, 1.6, key="a6")
@@ -460,12 +459,10 @@ if st.button("🚀 ANALIZZA PARTITA (Simulazione Avanzata)",
     with col_uo:
         st.subheader("📉 Under / Over")
         uo_data = []
-        # AGGIORNATO: Loop esteso per includere 3.5 e 4.5
         for line in [0.5, 1.5, 2.5, 3.5, 4.5]:
             u_math = uo_probs_math[line][0] * factor
             o_math = uo_probs_math[line][1] * factor
             
-            # Qui prende i valori dagli slider. Se non esistono, usa 50 come default
             h_stat_o = h_uo.get(line, 50) / 100.0 
             a_stat_o = a_uo.get(line, 50) / 100.0
             
