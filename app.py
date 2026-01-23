@@ -146,25 +146,19 @@ a_uo_input = {}
 
 with col_h:
     st.subheader("🏠 Squadra Casa")
-    
-    # 1. Input Nome
+    # L'input del nome attiva il ricalcolo immediato
     h_name = st.text_input("Nome Casa", "Inter", key="h_name_input")
     
-    # 2. Ricerca Automatica Elo
-    # Cerca nel DB, se non trova usa 1600.0 come default
-    auto_elo_h = ELO_DB.get(h_name, 1600.0)
+    # Cerchiamo il valore. Se non esiste, usiamo 1600.0
+    auto_elo_h = float(ELO_DB.get(h_name, 1600.0))
     
-    # Suggerimenti (Fuzzy matching semplice)
-    if h_name not in ELO_DB and h_name != "" and ELO_DB:
-        matches = [k for k in ELO_DB.keys() if h_name.lower() in k.lower()]
-        if matches:
-            st.info(f"Forse intendevi: {', '.join(matches[:3])}?")
-    
-    # 3. Campo Numerico (Pre-compilato se trovato)
-    h_elo = st.number_input("ClubElo Rating", 1000.0, 2500.0, float(auto_elo_h), step=1.0, key="helo")
+    # Usiamo auto_elo_h direttamente come 'value'. 
+    # Streamlit aggiornerà il widget ogni volta che auto_elo_h cambia.
+    h_elo = st.number_input("ClubElo Rating", 1000.0, 2500.0, value=auto_elo_h, step=1.0, key="helo")
     
     if h_name in ELO_DB:
-        st.caption(f"✅ Rating aggiornato!")
+        st.success(f"✅ Elo trovato: {auto_elo_h}")
+
 
     h_str = st.slider("Disponibilità Titolari %", 50, 100, 100, key="hstr", help="Forma fisica generale")
     
