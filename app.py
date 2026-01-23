@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 
 # --- CONFIGURAZIONE PAGINA ---
-st.set_page_config(page_title="Mathbet fc",
+st.set_page_config(page_title="Mathbet fc Pro",
                    page_icon="⚽",
                    layout="wide")
 
@@ -65,7 +65,8 @@ LEAGUES = {
 }
 
 # Parametri Globali Fissi
-SCALING_FACTOR = 1000
+# NOTA: SCALING_FACTOR ridotto a 800 per rendere l'Elo più impattante
+SCALING_FACTOR = 800 
 W_VENUE = 0.20
 WEIGHT_HISTORICAL_UO = 0.40
 KELLY_FRACTION = 0.25
@@ -90,24 +91,6 @@ def calculate_kelly(prob_true, odds_book):
     q = 1 - p
     kelly = ((b * p) - q) / b
     return max(0.0, (kelly * KELLY_FRACTION) * 100)
-
-
-# Calcolo xG Dinamico (accetta pesi variabili)
-def calculate_complex_xg_dynamic(elo_h, elo_a, att_h, def_h, att_a, def_a,
-                                 current_avg, current_ha, w_elo_l):
-    # Peso Stats è il rimanente dopo aver tolto il peso Elo
-    w_stats_l = 1.0 - w_elo_l
-
-    diff_h = (elo_h + current_ha) - elo_a
-    diff_a = elo_a - (elo_h + current_ha)
-    xg_elo_h = current_avg * (1 + (diff_h / SCALING_FACTOR))
-    xg_elo_a = current_avg * (1 + (diff_a / SCALING_FACTOR))
-    xg_stats_h = (att_h * def_a) / current_avg
-    xg_stats_a = (att_a * def_h) / current_avg
-
-    final_xg_h = (xg_elo_h * w_elo_l) + (xg_stats_h * w_stats_l)
-    final_xg_a = (xg_elo_a * w_elo_l) + (xg_stats_a * w_stats_l)
-    return final_xg_h, final_xg_a
 
 
 # --- FUNZIONI GIOCATORI ---
@@ -155,7 +138,7 @@ with st.sidebar:
     Avg Gol: {CURRENT_AVG_GOALS}
     Home Adv: {CURRENT_HOME_ADV}
 
-    ⚖️ **Pesi Algoritmo:**
+    ⚖️ **Pesi Algoritmo (Normalizzati nel calcolo):**
     Elo (Blasone): {W_ELO*100:.0f}%
     Stagione: {W_SEASON*100:.0f}%
     Forma (Last 5): {W_FORM*100:.0f}%
@@ -163,7 +146,7 @@ with st.sidebar:
 
 st.title("Mathbet fc ⚽")
 st.markdown(
-    "ℹ️ *Algoritmo Ibrido: Monte Carlo (10k Sim) + Poisson + Pesi Dinamici*")
+    "ℹ️ *Algoritmo Ibrido: Monte Carlo (10k Sim) + Poisson + Pesi Dinamici Corretti*")
 
 # Link Dati
 with st.expander("🔗 Link Utili (Clicca per aprire)", expanded=False):
@@ -213,9 +196,8 @@ with col_h:
                                     1.2,
                                     key="h2")
         st.caption(f"Ultime 5 (Peso: {W_FORM*100:.0f}%)")
-        # MODIFICA: Etichette aggiornate
-        h_gf_l5 = st.number_input("gol fatti nelle ultime 5 partite", 0, 20, 7, key="h3")
-        h_gs_l5 = st.number_input("gol subiti nelle ultime 5 partite", 0, 20, 5, key="h4")
+        h_gf_l5 = st.number_input("Gol fatti nelle ultime 5", 0, 20, 7, key="h3")
+        h_gs_l5 = st.number_input("Gol subiti nelle ultime 5", 0, 20, 5, key="h4")
         st.caption("Casa")
         h_gf_venue = st.number_input("GF Media Casa", 0.0, 5.0, 1.8, key="h5")
         h_gs_venue = st.number_input("GS Media Casa", 0.0, 5.0, 0.9, key="h6")
@@ -252,9 +234,8 @@ with col_a:
                                     1.4,
                                     key="a2")
         st.caption(f"Ultime 5 (Peso: {W_FORM*100:.0f}%)")
-        # MODIFICA: Etichette aggiornate
-        a_gf_l5 = st.number_input("gol fatti nelle ultime 5 partite", 0, 20, 5, key="a3")
-        a_gs_l5 = st.number_input("gol subiti nelle ultime 5 partite", 0, 20, 8, key="a4")
+        a_gf_l5 = st.number_input("Gol fatti nelle ultime 5", 0, 20, 5, key="a3")
+        a_gs_l5 = st.number_input("Gol subiti nelle ultime 5", 0, 20, 8, key="a4")
         st.caption("Trasferta")
         a_gf_venue = st.number_input("GF Media Fuori", 0.0, 5.0, 1.0, key="a5")
         a_gs_venue = st.number_input("GS Media Fuori", 0.0, 5.0, 1.6, key="a6")
@@ -286,29 +267,55 @@ if st.button("🚀 ANALIZZA PARTITA (Simulazione Avanzata)",
              type="primary",
              use_container_width=True):
 
-    # 1. Calcolo Pesi Dinamici
+    # -----------------------------------------------------------
+    # 1. CALCOLO PESI DINAMICI E NORMALIZZAZIONE (FIX APPLICATA)
+    # -----------------------------------------------------------
+    
+    # Calcolo del denominatore per normalizzare a 1.0
+    tot_weight = W_SEASON + W_FORM + W_VENUE
+    w_s_norm = W_SEASON / tot_weight
+    w_f_norm = W_FORM / tot_weight
+    w_v_norm = W_VENUE / tot_weight
+
+    # Medie Gol dalle ultime 5 partite
     h_avg_gf_form = h_gf_l5 / 5.0
     h_avg_gs_form = h_gs_l5 / 5.0
-    # Formula con Pesi Dinamici
-    att_h = (h_gf_seas * W_SEASON) + (h_avg_gf_form * W_FORM) + (h_gf_venue *
-                                                                 W_VENUE)
-    def_h = (h_gs_seas * W_SEASON) + (h_avg_gs_form * W_FORM) + (h_gs_venue *
-                                                                 W_VENUE)
-
     a_avg_gf_form = a_gf_l5 / 5.0
     a_avg_gs_form = a_gs_l5 / 5.0
-    att_a = (a_gf_seas * W_SEASON) + (a_avg_gf_form * W_FORM) + (a_gf_venue *
-                                                                 W_VENUE)
-    def_a = (a_gs_seas * W_SEASON) + (a_avg_gs_form * W_FORM) + (a_gs_venue *
-                                                                 W_VENUE)
 
-    xg_h, xg_a = calculate_complex_xg_dynamic(h_elo, a_elo, att_h, def_h,
-                                              att_a, def_a, CURRENT_AVG_GOALS,
-                                              CURRENT_HOME_ADV, W_ELO)
+    # Calcolo Potenziale Offensivo/Difensivo (Stats) usando i pesi normalizzati
+    att_h = (h_gf_seas * w_s_norm) + (h_avg_gf_form * w_f_norm) + (h_gf_venue * w_v_norm)
+    def_h = (h_gs_seas * w_s_norm) + (h_avg_gs_form * w_f_norm) + (h_gs_venue * w_v_norm)
+
+    att_a = (a_gf_seas * w_s_norm) + (a_avg_gf_form * w_f_norm) + (a_gf_venue * w_v_norm)
+    def_a = (a_gs_seas * w_s_norm) + (a_avg_gs_form * w_f_norm) + (a_gs_venue * w_v_norm)
+
+    # Logica Combinata Elo + Stats
+    w_stats_l = 1.0 - W_ELO
+    
+    # Differenza Elo
+    diff_h = (h_elo + CURRENT_HOME_ADV) - a_elo
+    diff_a = a_elo - (h_elo + CURRENT_HOME_ADV)
+    
+    # xG basato su Elo (usando SCALING_FACTOR = 800)
+    xg_elo_h = CURRENT_AVG_GOALS * (1 + (diff_h / SCALING_FACTOR))
+    xg_elo_a = CURRENT_AVG_GOALS * (1 + (diff_a / SCALING_FACTOR))
+    
+    # xG basato su Stats (Double Poisson)
+    xg_stats_h = (att_h * def_a) / CURRENT_AVG_GOALS
+    xg_stats_a = (att_a * def_h) / CURRENT_AVG_GOALS
+
+    # Fusione Ponderata
+    xg_h = (xg_elo_h * W_ELO) + (xg_stats_h * w_stats_l)
+    xg_a = (xg_elo_a * W_ELO) + (xg_stats_a * w_stats_l)
+
+    # Applicazione Slider Formazione e limiti minimi
     xg_h = max(0.1, xg_h * (h_str / 100.0))
     xg_a = max(0.1, xg_a * (a_str / 100.0))
 
+    # -----------------------------------------------------------
     # 2. Modello Matematico (Poisson + Dixon Coles)
+    # -----------------------------------------------------------
     prob_1, prob_X, prob_2 = 0, 0, 0
     prob_GG, prob_NG = 0, 0
     total_goals_probs = {k: 0 for k in range(20)}
@@ -322,12 +329,15 @@ if st.button("🚀 ANALIZZA PARTITA (Simulazione Avanzata)",
     for h in range(10):
         for a in range(10):
             p = poisson(h, xg_h) * poisson(a, xg_a)
+            # Correzione Dixon-Coles per la dipendenza sui punteggi bassi
             correction = 1.0
             if h == 0 and a == 0: correction = 1.0 - (xg_h * xg_a * RHO)
             elif h == 0 and a == 1: correction = 1.0 + (xg_h * RHO)
             elif h == 1 and a == 0: correction = 1.0 + (xg_a * RHO)
             elif h == 1 and a == 1: correction = 1.0 - RHO
             p = max(0, p * correction)
+            
+            # Draw Boost (Bonus Pareggio per leghe tattiche)
             if h == a: p *= DRAW_BOOST
 
             if h > a: prob_1 += p
@@ -339,7 +349,7 @@ if st.button("🚀 ANALIZZA PARTITA (Simulazione Avanzata)",
 
             tot = h + a
             if tot in total_goals_probs: total_goals_probs[tot] += p
-            # Il ciclo qui funziona automaticamente per tutte le chiavi in uo_probs_math
+            
             for line in uo_probs_math:
                 if tot < line: uo_probs_math[line][0] += p
                 else: uo_probs_math[line][1] += p
@@ -350,7 +360,9 @@ if st.button("🚀 ANALIZZA PARTITA (Simulazione Avanzata)",
             if h < 6 and a < 6:
                 score_matrix[h, a] = p
 
+    # -----------------------------------------------------------
     # 3. Monte Carlo Simulation (10,000 Match)
+    # -----------------------------------------------------------
     n_sims = 10000
     sim_h = np.random.poisson(xg_h, n_sims)
     sim_a = np.random.poisson(xg_a, n_sims)
@@ -358,7 +370,7 @@ if st.button("🚀 ANALIZZA PARTITA (Simulazione Avanzata)",
     sim_X = np.sum(sim_h == sim_a) / n_sims
     sim_2 = np.sum(sim_h < sim_a) / n_sims
 
-    # Normalizzazione Matematica
+    # Normalizzazione Matematica delle probabilità finali
     total_prob = prob_1 + prob_X + prob_2
     factor = 1.0 / total_prob if total_prob > 0 else 1.0
     p1, pX, p2 = prob_1 * factor, prob_X * factor, prob_2 * factor
@@ -367,7 +379,7 @@ if st.button("🚀 ANALIZZA PARTITA (Simulazione Avanzata)",
     # Doppia Chance
     p1X, pX2, p12 = p1 + pX, pX + p2, p1 + p2
 
-    # Multigol
+    # Multigol Helper
     def get_multigol_prob(min_g, max_g):
         prob = 0
         for g in range(min_g, max_g + 1):
@@ -390,7 +402,7 @@ if st.button("🚀 ANALIZZA PARTITA (Simulazione Avanzata)",
 
     # xG e Confronto Monte Carlo
     col_xg1, col_xg2 = st.columns(2)
-    col_xg1.metric("xG Stimati", f"{xg_h:.2f} - {xg_a:.2f}")
+    col_xg1.metric("xG Stimati (Corretti)", f"{xg_h:.2f} - {xg_a:.2f}")
     col_xg2.info(
         f"🎲 **Check Monte Carlo (10k Sim):**\n1: {sim_1:.1%} | X: {sim_X:.1%} | 2: {sim_2:.1%}"
     )
@@ -438,6 +450,8 @@ if st.button("🚀 ANALIZZA PARTITA (Simulazione Avanzata)",
         with cols_cs[i]:
             st.metric(f"Top {i+1}: {item['score']}",
                       f"{item['prob']*100:.1f}%", f"Fair: {fair:.2f}")
+    
+    
 
     # Heatmap
     with st.expander("🗺️ Apri Mappa Probabilità (Heatmap)"):
@@ -597,10 +611,6 @@ with st.expander("Apri Analizzatore Quote Inverse", expanded=False):
 
     # Implied Probability
     implied_prob = 1 / rev_quota
-
-    # Stima xG dominance necessaria (approssimazione euristica basata su Poisson)
-    # Esempio: 50% prob vittoria richiede circa +0.4/0.5 xG dominance
-    # Questa è una stima visuale per aiutare l'utente
 
     st.metric("Probabilità Implicita (senza aggio)",
               f"{implied_prob*100:.1f}%")
