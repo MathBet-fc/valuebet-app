@@ -26,15 +26,16 @@ if 'analyzed' not in st.session_state:
     st.session_state.hist_uo_h = {}
     st.session_state.hist_uo_a = {}
 
-# --- DATABASE CAMPIONATI ---
+# --- DATABASE CAMPIONATI (HOME ADVANTAGE RIDOTTO) ---
 LEAGUES = {
-    "🌐 Generico (Media)": { "avg": 1.35, "ha": 0.35, "w_elo_base": 0.40 }, 
-    "🇮🇹 Serie A":          { "avg": 1.30, "ha": 0.25, "w_elo_base": 0.50 },
-    "🇮🇹 Serie B":          { "avg": 1.15, "ha": 0.30, "w_elo_base": 0.30 },
-    "🇬🇧 Premier League":   { "avg": 1.55, "ha": 0.35, "w_elo_base": 0.55 },
-    "🇩🇪 Bundesliga":       { "avg": 1.65, "ha": 0.40, "w_elo_base": 0.45 },
-    "🇪🇸 La Liga":          { "avg": 1.25, "ha": 0.30, "w_elo_base": 0.55 },
-    "🇫🇷 Ligue 1":          { "avg": 1.30, "ha": 0.28, "w_elo_base": 0.45 },
+    # Ho abbassato l'HA di circa 0.05 per tutti
+    "🌐 Generico (Media)": { "avg": 1.35, "ha": 0.30, "w_elo_base": 0.40 }, 
+    "🇮🇹 Serie A":          { "avg": 1.30, "ha": 0.20, "w_elo_base": 0.50 }, # Era 0.25
+    "🇮🇹 Serie B":          { "avg": 1.15, "ha": 0.25, "w_elo_base": 0.30 }, # Era 0.30
+    "🇬🇧 Premier League":   { "avg": 1.55, "ha": 0.30, "w_elo_base": 0.55 }, # Era 0.35
+    "🇩🇪 Bundesliga":       { "avg": 1.65, "ha": 0.35, "w_elo_base": 0.45 }, # Era 0.40
+    "🇪🇸 La Liga":          { "avg": 1.25, "ha": 0.25, "w_elo_base": 0.55 }, # Era 0.30
+    "🇫🇷 Ligue 1":          { "avg": 1.30, "ha": 0.24, "w_elo_base": 0.45 }, # Era 0.28
 }
 
 # Parametri Globali
@@ -93,7 +94,7 @@ with st.sidebar:
 
 st.title("Mathbet fc ⚽")
 
-# --- LINK UTILI (AGGIORNATI) ---
+# --- LINK UTILI ---
 with st.expander("🔗 Link Utili (Clicca per aprire)", expanded=False):
     lc1, lc2, lc3 = st.columns(3)
     with lc1:
@@ -101,7 +102,6 @@ with st.expander("🔗 Link Utili (Clicca per aprire)", expanded=False):
         st.link_button("ClubElo", "http://clubelo.com")
     with lc2:
         st.caption("Stats Gol")
-        # --- MODIFICA QUI: FOOTYSTATS AL POSTO DI FLASHSCORE ---
         st.link_button("FootyStats", "https://footystats.org/it/")
     with lc3:
         st.caption("Giocatori")
@@ -189,7 +189,8 @@ if st.button("🚀 ANALIZZA PARTITA", type="primary", use_container_width=True):
     xg_stats_a = (a_att_val * h_def_val) / L_DATA["avg"]
 
     # 2. Elo Logic
-    elo_ha_points = 80.0 if league_name == "🇮🇹 Serie A" else L_DATA["ha"] * 400.0
+    # Rimosso hardcode per Serie A, ora usa il valore del dizionario ridotto (0.20 * 400 = 80 punti)
+    elo_ha_points = L_DATA["ha"] * 400.0
     diff_h = (h_elo + elo_ha_points) - a_elo
     expected_score_elo_h = 1 / (1 + 10 ** (-diff_h / 400.0))
     xg_elo_h = L_DATA["avg"] * (expected_score_elo_h / 0.5) ** 0.85
