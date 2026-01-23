@@ -22,26 +22,27 @@ if 'analyzed' not in st.session_state:
     st.session_state.prob_2 = 0
     st.session_state.score_matrix = None
     st.session_state.all_scores = []
-    # Dati storici U/O salvati per calcoli successivi
     st.session_state.hist_uo_h = {}
     st.session_state.hist_uo_a = {}
 
-# --- DATABASE CAMPIONATI (HOME ADVANTAGE RIDOTTO) ---
+# --- DATABASE CAMPIONATI (NOVITÀ: RHO DINAMICO) ---
+# rho: parametro correzione pareggi (-0.13 standard). 
+# Più è basso (es -0.18), più favorisce i pareggi bassi (0-0, 1-1).
 LEAGUES = {
-    "🌐 Generico (Media)": { "avg": 1.35, "ha": 0.30, "w_elo_base": 0.40 }, 
-    "🇮🇹 Serie A":          { "avg": 1.30, "ha": 0.20, "w_elo_base": 0.50 },
-    "🇮🇹 Serie B":          { "avg": 1.15, "ha": 0.25, "w_elo_base": 0.30 },
-    "🇬🇧 Premier League":   { "avg": 1.55, "ha": 0.30, "w_elo_base": 0.55 },
-    "🇩🇪 Bundesliga":       { "avg": 1.65, "ha": 0.35, "w_elo_base": 0.45 },
-    "🇪🇸 La Liga":          { "avg": 1.25, "ha": 0.25, "w_elo_base": 0.55 },
-    "🇫🇷 Ligue 1":          { "avg": 1.30, "ha": 0.24, "w_elo_base": 0.45 },
+    "🌐 Generico (Media)": { "avg": 1.35, "ha": 0.30, "w_elo_base": 0.40, "rho": -0.13 }, 
+    "🇮🇹 Serie A":          { "avg": 1.30, "ha": 0.20, "w_elo_base": 0.50, "rho": -0.14 },
+    "🇮🇹 Serie B":          { "avg": 1.15, "ha": 0.25, "w_elo_base": 0.30, "rho": -0.18 }, # Più pareggi
+    "🇬🇧 Premier League":   { "avg": 1.55, "ha": 0.30, "w_elo_base": 0.55, "rho": -0.12 },
+    "🇩🇪 Bundesliga":       { "avg": 1.65, "ha": 0.35, "w_elo_base": 0.45, "rho": -0.10 }, # Meno pareggi
+    "🇪🇸 La Liga":          { "avg": 1.25, "ha": 0.25, "w_elo_base": 0.55, "rho": -0.14 },
+    "🇫🇷 Ligue 1":          { "avg": 1.30, "ha": 0.24, "w_elo_base": 0.45, "rho": -0.15 },
 }
 
 # Parametri Globali
 SCALING_FACTOR = 400.0  
 KELLY_FRACTION = 0.25
-RHO = -0.13 # Correlazione Dixon-Coles
-WEIGHT_HIST_UO = 0.40 # Quanto pesano i dati storici inseriti dall'utente (40%)
+# RHO rimosso dai globali perché ora è dinamico nel dizionario LEAGUES
+WEIGHT_HIST_UO = 0.40 
 
 # --- FUNZIONI MATEMATICHE ---
 
@@ -90,6 +91,10 @@ with st.sidebar:
     st.markdown("---")
     matchday = st.slider("Giornata Attuale", 1, 38, 10)
     W_ELO_DYN, W_STATS_DYN = calculate_dynamic_weights(matchday, L_DATA["w_elo_base"])
+    
+    # Recupero RHO specifico
+    CURRENT_RHO = L_DATA.get("rho", -0.13)
+    st.caption(f"Rho Attivo: {CURRENT_RHO} (Correzione Pareggi)")
 
 st.title("Mathbet fc ⚽")
 
@@ -119,7 +124,13 @@ with col_h:
     st.subheader("🏠 Squadra Casa")
     h_name = st.text_input("Nome Casa", "Home")
     h_elo = st.number_input("ClubElo Rating", 1000, 2500, 1600, step=10, key="helo")
-    h_str = st.slider("Disponibilità Titolari %", 50, 100, 100, key="hstr")
+    h_str = st.slider("Disponibilità Titolari %", 50, 100, 100, key="hstr", help="Forma fisica generale")
+    
+    # NOVITÀ: ASSENZE SPECIFICHE
+    st.write("🚑 **Assenze Chiave**")
+    c_h1, c_h2 = st.columns(2)
+    h_miss_att = c_h1.checkbox("Manca Top Scorer", key="hma")
+    h_miss_def = c_h2.checkbox("Manca Portiere/Difensore Top", key="hmd")
     
     with st.expander("📊 Stats & Gol (campionato)", expanded=True):
         h_gf_s = st.number_input("GF Media Stagione", 0.0, 5.0, 1.4, key="h1")
@@ -142,7 +153,13 @@ with col_a:
     st.subheader("✈️ Squadra Ospite")
     a_name = st.text_input("Nome Ospite", "Away")
     a_elo = st.number_input("ClubElo Rating", 1000, 2500, 1550, step=10, key="aelo")
-    a_str = st.slider("Disponibilità Titolari %", 50, 100, 100, key="astr")
+    a_str = st.slider("Disponibilità Titolari %", 50, 100, 100, key="astr", help="Forma fisica generale")
+
+    # NOVITÀ: ASSENZE SPECIFICHE
+    st.write("🚑 **Assenze Chiave**")
+    c_a1, c_a2 = st.columns(2)
+    a_miss_att = c_a1.checkbox("Manca Top Scorer", key="ama")
+    a_miss_def = c_a2.checkbox("Manca Portiere/Difensore Top", key="amd")
     
     with st.expander("📊 Stats & Gol (campionato)", expanded=True):
         a_gf_s = st.number_input("GF Media Stagione", 0.0, 5.0, 1.2, key="a1")
@@ -198,41 +215,46 @@ if st.button("🚀 ANALIZZA PARTITA", type="primary", use_container_width=True):
     final_xg_h = (xg_elo_h * W_ELO_DYN) + (xg_stats_h * W_STATS_DYN)
     final_xg_a = (xg_elo_a * W_ELO_DYN) + (xg_stats_a * W_STATS_DYN)
     
-    # 4. Strength Correction
+    # 4. Strength Correction (NOVITÀ: Gestione Assenze Specifiche)
     final_xg_h = final_xg_h * (h_str/100.0)
     final_xg_a = final_xg_a * (a_str/100.0)
+    
+    # Logica Assenze Specifiche
+    if h_miss_att: final_xg_h *= 0.85 # Manca bomber casa -> Attacco casa -15%
+    if h_miss_def: final_xg_a *= 1.20 # Manca portiere casa -> Attacco ospite +20%
+    if a_miss_att: final_xg_a *= 0.85 # Manca bomber ospite -> Attacco ospite -15%
+    if a_miss_def: final_xg_h *= 1.20 # Manca portiere ospite -> Attacco casa +20%
+
     if h_str < 90: final_xg_a *= 1.05 + ((100-h_str)/200.0)
     if a_str < 90: final_xg_h *= 1.05 + ((100-a_str)/200.0)
 
-    # 5. Dixon-Coles Matrix Generation
+    # 5. Dixon-Coles Matrix Generation (Usa CURRENT_RHO)
     prob_1, prob_X, prob_2 = 0, 0, 0
-    prob_gg = 0 # Inizializzazione per GG
+    prob_gg = 0 
     score_matrix = np.zeros((10, 10))
     score_list = []
     
     for h in range(10):
         for a in range(10):
-            p = dixon_coles_probability(h, a, final_xg_h, final_xg_a, RHO)
+            p = dixon_coles_probability(h, a, final_xg_h, final_xg_a, CURRENT_RHO)
             score_matrix[h, a] = p
             
             if h > a: prob_1 += p
             elif h == a: prob_X += p
             else: prob_2 += p
             
-            if h > 0 and a > 0: prob_gg += p # Calcolo GG
+            if h > 0 and a > 0: prob_gg += p 
             
-            if h < 7 and a < 7: # Limitiamo lista punteggi
+            if h < 7 and a < 7: 
                 score_list.append({"Risultato": f"{h}-{a}", "Prob": p})
 
-    # Normalization (Fix somma probabilità ~= 1)
     tot_prob = prob_1 + prob_X + prob_2
     prob_1 /= tot_prob
     prob_X /= tot_prob
     prob_2 /= tot_prob
-    prob_gg /= tot_prob # Normalizzazione GG
+    prob_gg /= tot_prob 
     score_matrix /= tot_prob
     
-    # Save State
     st.session_state.analyzed = True
     st.session_state.xg_h = final_xg_h
     st.session_state.xg_a = final_xg_a
@@ -253,6 +275,26 @@ if st.button("🚀 ANALIZZA PARTITA", type="primary", use_container_width=True):
     st.header(f"📊 Analisi: {h_name} vs {a_name}")
     c1, c2 = st.columns(2)
     c1.metric("xG Attesi (Stimati)", f"{final_xg_h:.2f} - {final_xg_a:.2f}")
+
+    # NOVITÀ: MONTE CARLO AVANZATO (Con Volatilità)
+    volatility = 0.18 # Deviazione standard (18%)
+    n_sims = 10000
+    sim_results = []
+    for _ in range(n_sims):
+        # Simula variazione di forma nel giorno partita
+        xg_h_noisy = max(0.1, np.random.normal(final_xg_h, volatility * final_xg_h))
+        xg_a_noisy = max(0.1, np.random.normal(final_xg_a, volatility * final_xg_a))
+        g_h = np.random.poisson(xg_h_noisy)
+        g_a = np.random.poisson(xg_a_noisy)
+        if g_h > g_a: sim_results.append(1)
+        elif g_h == g_a: sim_results.append(0)
+        else: sim_results.append(2)
+    
+    s1 = sim_results.count(1) / n_sims
+    sX = sim_results.count(0) / n_sims
+    s2 = sim_results.count(2) / n_sims
+    
+    c2.info(f"🎲 Monte Carlo Avanzato (Noise 18%): 1: {s1:.1%} | X: {sX:.1%} | 2: {s2:.1%}")
     
     # 1X2 TABLE
     st.subheader("🏆 Esito Finale & Valore")
@@ -267,11 +309,10 @@ if st.button("🚀 ANALIZZA PARTITA", type="primary", use_container_width=True):
     })
     st.table(df_1x2)
     
-    # --- RISULTATI ESATTI & HEATMAP (REINTEGRATI) ---
+    # --- RISULTATI ESATTI & HEATMAP ---
     col_score, col_heat = st.columns([1, 2])
     with col_score:
         st.subheader("🎯 Risultati Esatti")
-        # Formattazione per visualizzazione
         formatted_scores = []
         for item in score_list[:5]:
             formatted_scores.append({
