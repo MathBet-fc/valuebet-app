@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 
 # --- CONFIGURAZIONE PAGINA ---
-st.set_page_config(page_title="Mathbet fc Pro Ultra", page_icon="⚽", layout="wide")
+st.set_page_config(page_title="Mathbet fc", page_icon="⚽", layout="wide")
 
 # --- DATABASE CAMPIONATI CON PESI DINAMICI ---
 # w_elo: Peso del Blasone storico
