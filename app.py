@@ -185,23 +185,16 @@ with col_h:
 
 with col_a:
     st.subheader("✈️ Squadra Ospite")
-    
-    # 1. Input Nome
     a_name = st.text_input("Nome Ospite", "Milan", key="a_name_input")
     
-    # 2. Ricerca Automatica Elo
-    auto_elo_a = ELO_DB.get(a_name, 1550.0)
+    auto_elo_a = float(ELO_DB.get(a_name, 1550.0))
     
-    if a_name not in ELO_DB and a_name != "" and ELO_DB:
-        matches = [k for k in ELO_DB.keys() if a_name.lower() in k.lower()]
-        if matches:
-            st.info(f"Forse intendevi: {', '.join(matches[:3])}?")
-
-    # 3. Campo Numerico
-    a_elo = st.number_input("ClubElo Rating", 1000.0, 2500.0, float(auto_elo_a), step=1.0, key="aelo")
+    # Collegando il parametro value ad auto_elo_a, il reset è automatico
+    a_elo = st.number_input("ClubElo Rating", 1000.0, 2500.0, value=auto_elo_a, step=1.0, key="aelo")
     
     if a_name in ELO_DB:
-        st.caption(f"✅ Rating aggiornato!")
+        st.success(f"✅ Elo trovato: {auto_elo_a}")
+
 
     a_str = st.slider("Disponibilità Titolari %", 50, 100, 100, key="astr", help="Forma fisica generale")
 
