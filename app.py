@@ -4,11 +4,34 @@ import pandas as pd
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
+from datetime import date
 
 # --- CONFIGURAZIONE PAGINA ---
 st.set_page_config(page_title="Mathbet fc",
                    page_icon="⚽",
                    layout="wide")
+
+# --- FUNZIONE AUTOMAZIONE ELO (CACHING) ---
+# Questa funzione scarica i dati una volta ogni ora e li salva in memoria
+@st.cache_data(ttl=3600) 
+def get_clubelo_database():
+    try:
+        # Scarica i dati di OGGI da ClubElo
+        date_str = date.today().strftime("%Y-%m-%d")
+        url = f"http://api.clubelo.com/{date_str}"
+        
+        # Legge il CSV
+        df = pd.read_csv(url)
+        
+        # Crea un dizionario {NomeSquadra: Elo}
+        elo_dict = dict(zip(df.Club, df.Elo))
+        return elo_dict
+    except Exception as e:
+        # In caso di errore (es. sito offline), restituisce dizionario vuoto
+        return {}
+
+# Carichiamo il Database Elo all'avvio
+ELO_DB = get_clubelo_database()
 
 # --- INIZIALIZZAZIONE SESSION STATE ---
 if 'analyzed' not in st.session_state:
@@ -25,15 +48,13 @@ if 'analyzed' not in st.session_state:
     st.session_state.hist_uo_h = {}
     st.session_state.hist_uo_a = {}
 
-# --- DATABASE CAMPIONATI (NOVITÀ: RHO DINAMICO) ---
-# rho: parametro correzione pareggi (-0.13 standard). 
-# Più è basso (es -0.18), più favorisce i pareggi bassi (0-0, 1-1).
+# --- DATABASE CAMPIONATI ---
 LEAGUES = {
     "🌐 Generico (Media)": { "avg": 1.35, "ha": 0.30, "w_elo_base": 0.40, "rho": -0.13 }, 
     "🇮🇹 Serie A":          { "avg": 1.30, "ha": 0.20, "w_elo_base": 0.50, "rho": -0.14 },
-    "🇮🇹 Serie B":          { "avg": 1.15, "ha": 0.25, "w_elo_base": 0.30, "rho": -0.18 }, # Più pareggi
+    "🇮🇹 Serie B":          { "avg": 1.15, "ha": 0.25, "w_elo_base": 0.30, "rho": -0.18 },
     "🇬🇧 Premier League":   { "avg": 1.55, "ha": 0.30, "w_elo_base": 0.55, "rho": -0.12 },
-    "🇩🇪 Bundesliga":       { "avg": 1.65, "ha": 0.35, "w_elo_base": 0.45, "rho": -0.10 }, # Meno pareggi
+    "🇩🇪 Bundesliga":       { "avg": 1.65, "ha": 0.35, "w_elo_base": 0.45, "rho": -0.10 },
     "🇪🇸 La Liga":          { "avg": 1.25, "ha": 0.25, "w_elo_base": 0.55, "rho": -0.14 },
     "🇫🇷 Ligue 1":          { "avg": 1.30, "ha": 0.24, "w_elo_base": 0.45, "rho": -0.15 },
 }
@@ -41,7 +62,6 @@ LEAGUES = {
 # Parametri Globali
 SCALING_FACTOR = 400.0  
 KELLY_FRACTION = 0.25
-# RHO rimosso dai globali perché ora è dinamico nel dizionario LEAGUES
 WEIGHT_HIST_UO = 0.40 
 
 # --- FUNZIONI MATEMATICHE ---
@@ -92,9 +112,13 @@ with st.sidebar:
     matchday = st.slider("Giornata Attuale", 1, 38, 10)
     W_ELO_DYN, W_STATS_DYN = calculate_dynamic_weights(matchday, L_DATA["w_elo_base"])
     
-    # Recupero RHO specifico
     CURRENT_RHO = L_DATA.get("rho", -0.13)
     st.caption(f"Rho Attivo: {CURRENT_RHO} (Correzione Pareggi)")
+    
+    if ELO_DB:
+        st.success(f"✅ DB ClubElo Caricato ({len(ELO_DB)} squadre)")
+    else:
+        st.warning("⚠️ DB ClubElo Offline (Usa inserimento manuale)")
 
 st.title("Mathbet fc ⚽")
 
@@ -113,20 +137,37 @@ with st.expander("🔗 Link Utili (Clicca per aprire)", expanded=False):
 
 st.markdown("---")
 
-# --- INPUT DATI ---
+# --- INPUT DATI (MODIFICATO CON AUTOMAZIONE ELO) ---
 col_h, col_a = st.columns(2)
 
-# DIZIONARI PER DATI STORICI UTENTE
+# Variabili per dati storici
 h_uo_input = {}
 a_uo_input = {}
 
 with col_h:
     st.subheader("🏠 Squadra Casa")
-    h_name = st.text_input("Nome Casa", "Home")
-    h_elo = st.number_input("ClubElo Rating", 1000, 2500, 1600, step=10, key="helo")
+    
+    # 1. Input Nome
+    h_name = st.text_input("Nome Casa", "Inter", key="h_name_input")
+    
+    # 2. Ricerca Automatica Elo
+    # Cerca nel DB, se non trova usa 1600.0 come default
+    auto_elo_h = ELO_DB.get(h_name, 1600.0)
+    
+    # Suggerimenti (Fuzzy matching semplice)
+    if h_name not in ELO_DB and h_name != "" and ELO_DB:
+        matches = [k for k in ELO_DB.keys() if h_name.lower() in k.lower()]
+        if matches:
+            st.info(f"Forse intendevi: {', '.join(matches[:3])}?")
+    
+    # 3. Campo Numerico (Pre-compilato se trovato)
+    h_elo = st.number_input("ClubElo Rating", 1000.0, 2500.0, float(auto_elo_h), step=1.0, key="helo")
+    
+    if h_name in ELO_DB:
+        st.caption(f"✅ Rating aggiornato!")
+
     h_str = st.slider("Disponibilità Titolari %", 50, 100, 100, key="hstr", help="Forma fisica generale")
     
-    # NOVITÀ: ASSENZE SPECIFICHE
     st.write("🚑 **Assenze Chiave**")
     c_h1, c_h2 = st.columns(2)
     h_miss_att = c_h1.checkbox("Manca Top Scorer", key="hma")
@@ -142,7 +183,6 @@ with col_h:
         h_gs_l5 = st.number_input("GOL SUBITI (Ultime 5)", 0, 25, 5, key="h6")
     
     with st.expander("📈 Trend Under/Over (Storico %)"):
-        st.caption("Inserisci la % di partite terminate Over nelle ultime 10/stagione")
         h_uo_input[0.5] = st.slider("% Over 0.5 Casa", 0, 100, 90, key="ho05")
         h_uo_input[1.5] = st.slider("% Over 1.5 Casa", 0, 100, 75, key="ho15")
         h_uo_input[2.5] = st.slider("% Over 2.5 Casa", 0, 100, 50, key="ho25")
@@ -151,11 +191,26 @@ with col_h:
 
 with col_a:
     st.subheader("✈️ Squadra Ospite")
-    a_name = st.text_input("Nome Ospite", "Away")
-    a_elo = st.number_input("ClubElo Rating", 1000, 2500, 1550, step=10, key="aelo")
+    
+    # 1. Input Nome
+    a_name = st.text_input("Nome Ospite", "Milan", key="a_name_input")
+    
+    # 2. Ricerca Automatica Elo
+    auto_elo_a = ELO_DB.get(a_name, 1550.0)
+    
+    if a_name not in ELO_DB and a_name != "" and ELO_DB:
+        matches = [k for k in ELO_DB.keys() if a_name.lower() in k.lower()]
+        if matches:
+            st.info(f"Forse intendevi: {', '.join(matches[:3])}?")
+
+    # 3. Campo Numerico
+    a_elo = st.number_input("ClubElo Rating", 1000.0, 2500.0, float(auto_elo_a), step=1.0, key="aelo")
+    
+    if a_name in ELO_DB:
+        st.caption(f"✅ Rating aggiornato!")
+
     a_str = st.slider("Disponibilità Titolari %", 50, 100, 100, key="astr", help="Forma fisica generale")
 
-    # NOVITÀ: ASSENZE SPECIFICHE
     st.write("🚑 **Assenze Chiave**")
     c_a1, c_a2 = st.columns(2)
     a_miss_att = c_a1.checkbox("Manca Top Scorer", key="ama")
@@ -171,7 +226,6 @@ with col_a:
         a_gs_l5 = st.number_input("GOL SUBITI (Ultime 5)", 0, 25, 6, key="a6")
         
     with st.expander("📈 Trend Under/Over (Storico %)"):
-        st.caption("Inserisci la % di partite terminate Over nelle ultime 10/stagione")
         a_uo_input[0.5] = st.slider("% Over 0.5 Ospite", 0, 100, 90, key="ao05")
         a_uo_input[1.5] = st.slider("% Over 1.5 Ospite", 0, 100, 70, key="ao15")
         a_uo_input[2.5] = st.slider("% Over 2.5 Ospite", 0, 100, 45, key="ao25")
@@ -219,11 +273,10 @@ if st.button("🚀 ANALIZZA PARTITA", type="primary", use_container_width=True):
     final_xg_h = final_xg_h * (h_str/100.0)
     final_xg_a = final_xg_a * (a_str/100.0)
     
-    # Logica Assenze Specifiche
-    if h_miss_att: final_xg_h *= 0.85 # Manca bomber casa -> Attacco casa -15%
-    if h_miss_def: final_xg_a *= 1.20 # Manca portiere casa -> Attacco ospite +20%
-    if a_miss_att: final_xg_a *= 0.85 # Manca bomber ospite -> Attacco ospite -15%
-    if a_miss_def: final_xg_h *= 1.20 # Manca portiere ospite -> Attacco casa +20%
+    if h_miss_att: final_xg_h *= 0.85 
+    if h_miss_def: final_xg_a *= 1.20 
+    if a_miss_att: final_xg_a *= 0.85 
+    if a_miss_def: final_xg_h *= 1.20 
 
     if h_str < 90: final_xg_a *= 1.05 + ((100-h_str)/200.0)
     if a_str < 90: final_xg_h *= 1.05 + ((100-a_str)/200.0)
@@ -276,12 +329,11 @@ if st.button("🚀 ANALIZZA PARTITA", type="primary", use_container_width=True):
     c1, c2 = st.columns(2)
     c1.metric("xG Attesi (Stimati)", f"{final_xg_h:.2f} - {final_xg_a:.2f}")
 
-    # NOVITÀ: MONTE CARLO AVANZATO (Con Volatilità)
+    # MONTE CARLO AVANZATO (Con Volatilità)
     volatility = 0.18 # Deviazione standard (18%)
     n_sims = 10000
     sim_results = []
     for _ in range(n_sims):
-        # Simula variazione di forma nel giorno partita
         xg_h_noisy = max(0.1, np.random.normal(final_xg_h, volatility * final_xg_h))
         xg_a_noisy = max(0.1, np.random.normal(final_xg_a, volatility * final_xg_a))
         g_h = np.random.poisson(xg_h_noisy)
