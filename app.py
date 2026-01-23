@@ -6,7 +6,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 # --- CONFIGURAZIONE PAGINA ---
-st.set_page_config(page_title="Mathbet fc Pro 3.0",
+st.set_page_config(page_title="Mathbet fc",
                    page_icon="⚽",
                    layout="wide")
 
@@ -15,8 +15,8 @@ if 'analyzed' not in st.session_state:
     st.session_state.analyzed = False
     st.session_state.xg_h = 0
     st.session_state.xg_a = 0
-    st.session_state.team_avg_h = 0 # Serve per i marcatori
-    st.session_state.team_avg_a = 0 # Serve per i marcatori
+    st.session_state.team_avg_h = 0 
+    st.session_state.team_avg_a = 0 
     st.session_state.prob_1 = 0
     st.session_state.prob_X = 0
     st.session_state.prob_2 = 0
@@ -71,7 +71,6 @@ def calculate_kelly(prob_true, odds_book):
     return max(0.0, (kelly * KELLY_FRACTION) * 100)
 
 def calculate_player_probability(metric_per90, expected_mins, team_match_xg, team_avg_xg):
-    """Calcola probabilità Gol/Assist giocatore basandosi sugli xG di squadra."""
     base_lambda = (metric_per90 / 90.0) * expected_mins
     match_factor = 1.0
     if team_avg_xg > 0:
@@ -97,10 +96,10 @@ with st.sidebar:
     Stats Stagionali: **{W_STATS_DYN*100:.0f}%**
     """)
 
-st.title("Mathbet fc Pro 3.0 🧠")
+st.title("Mathbet fc 🧠")
 st.markdown(f"**Core:** Dixon-Coles Precision + Monte Carlo | *League: {league_name}*")
 
-# --- LINK UTILI (Reintegrati) ---
+# --- LINK UTILI ---
 with st.expander("🔗 Link Utili (Clicca per aprire)", expanded=False):
     lc1, lc2, lc3 = st.columns(3)
     with lc1:
@@ -191,33 +190,65 @@ if st.button("🚀 ANALIZZA PARTITA", type="primary", use_container_width=True):
     if h_str < 90: final_xg_a *= 1.05 + ((100-h_str)/200.0)
     if a_str < 90: final_xg_h *= 1.05 + ((100-a_str)/200.0)
 
-    # 5. Dixon-Coles Loop
+    # 5. Dixon-Coles Loop & Accumulatori
     prob_1, prob_X, prob_2 = 0, 0, 0
-    prob_over_25 = 0
+    prob_o25, prob_o35, prob_o45 = 0, 0, 0
     prob_gg = 0
-    score_matrix = np.zeros((7, 7))
+    
+    # Handicap Accumulatori
+    # EH -1 per Casa: Casa deve vincere con 2+ gol di scarto
+    prob_eh_h_min1_1 = 0 # 1 handicap (H vince 2-0, 3-1...)
+    prob_eh_h_min1_X = 0 # X handicap (H vince di 1 gol: 1-0, 2-1...)
+    prob_eh_h_min1_2 = 0 # 2 handicap (Pareggio o vittoria A)
+
+    # EH -1 per Ospite: Ospite deve vincere con 2+ gol
+    prob_eh_a_min1_2 = 0
+
+    score_matrix = np.zeros((8, 8))
     score_list = []
     
-    for h in range(7):
-        for a in range(7):
+    for h in range(8):
+        for a in range(8):
             p = dixon_coles_probability(h, a, final_xg_h, final_xg_a, RHO)
             
+            # 1X2 Base
             if h > a: prob_1 += p
             elif h == a: prob_X += p
             else: prob_2 += p
             
-            if (h+a) > 2.5: prob_over_25 += p
+            # Under/Over
+            tot_goals = h + a
+            if tot_goals > 2.5: prob_o25 += p
+            if tot_goals > 3.5: prob_o35 += p
+            if tot_goals > 4.5: prob_o45 += p
+
+            # Gol / No Gol
             if h > 0 and a > 0: prob_gg += p
+
+            # Handicap Europeo (Home -1)
+            # 1H (Home -1): Casa vince se (h - 1) > a
+            if (h - 1) > a: prob_eh_h_min1_1 += p
+            # XH (Home -1): Pareggio se (h - 1) == a -> h vince di 1 esatto
+            elif (h - 1) == a: prob_eh_h_min1_X += p
+            # 2H (Home -1): Ospite vince ticket se (h - 1) < a -> Pareggio reale o vittoria ospite
+            else: prob_eh_h_min1_2 += p
+
+            # Handicap Europeo (Away -1) - Focus sul 2
+            if (a - 1) > h: prob_eh_a_min1_2 += p
             
             score_matrix[h, a] = p
             score_list.append({"Risultato": f"{h}-{a}", "Prob": p})
 
-    # Normalization
+    # Normalizzazione 1X2 base (per sicurezza)
     tot_prob = prob_1 + prob_X + prob_2
-    prob_1 /= tot_prob
-    prob_X /= tot_prob
-    prob_2 /= tot_prob
+    prob_1 /= tot_prob; prob_X /= tot_prob; prob_2 /= tot_prob
     
+    # Asian Handicap Calculation (Post-Loop)
+    # AH 0.0 (DNB): Se pareggio, rimborso. Prob ricalcolata su P(1) e P(2)
+    ah_dnb_div = prob_1 + prob_2
+    prob_ah0_1 = prob_1 / ah_dnb_div if ah_dnb_div > 0 else 0
+    prob_ah0_2 = prob_2 / ah_dnb_div if ah_dnb_div > 0 else 0
+
     # Save State
     st.session_state.analyzed = True
     st.session_state.xg_h = final_xg_h
@@ -233,19 +264,18 @@ if st.button("🚀 ANALIZZA PARTITA", type="primary", use_container_width=True):
     # --- OUTPUT ---
     st.balloons()
     
-    # KPI + MONTE CARLO (Reintegrato)
-    st.header(f"📊 Analisi: {h_name} vs {a_name}")
+    # KPI + MONTE CARLO
+    st.header(f"📊 {h_name} vs {a_name}")
     c1, c2 = st.columns(2)
     c1.metric("xG Attesi (Dixon-Coles)", f"{final_xg_h:.2f} - {final_xg_a:.2f}")
     
-    # Monte Carlo Sim
-    n_sims = 10000
+    n_sims = 5000
     sim_h = np.random.poisson(final_xg_h, n_sims)
     sim_a = np.random.poisson(final_xg_a, n_sims)
     sim_1 = np.sum(sim_h > sim_a) / n_sims
     sim_X = np.sum(sim_h == sim_a) / n_sims
     sim_2 = np.sum(sim_h < sim_a) / n_sims
-    c2.info(f"🎲 Monte Carlo (10k Sim): 1: {sim_1:.1%} | X: {sim_X:.1%} | 2: {sim_2:.1%}")
+    c2.info(f"🎲 Monte Carlo (Sim): 1: {sim_1:.1%} | X: {sim_X:.1%} | 2: {sim_2:.1%}")
 
     # 1X2 TABLE
     st.subheader("🏆 Esito Finale & Valore")
@@ -260,6 +290,66 @@ if st.button("🚀 ANALIZZA PARTITA", type="primary", use_container_width=True):
     })
     st.table(df_1x2)
     
+    # --- SEZIONE HANDICAP (NUOVA) ---
+    col_eh, col_ah = st.columns(2)
+    
+    with col_eh:
+        st.subheader("🇪🇺 Handicap Europeo")
+        # Logica: Mostriamo l'handicap sulla favorita o casa
+        eh_data = [
+            {"Mkt": f"{h_name} (-1)", "Esito": "1", "Prob": prob_eh_h_min1_1, "Fair": 1/prob_eh_h_min1_1 if prob_eh_h_min1_1>0 else 0},
+            {"Mkt": f"{h_name} (-1)", "Esito": "X", "Prob": prob_eh_h_min1_X, "Fair": 1/prob_eh_h_min1_X if prob_eh_h_min1_X>0 else 0},
+            {"Mkt": f"{a_name} (-1)", "Esito": "2", "Prob": prob_eh_a_min1_2, "Fair": 1/prob_eh_a_min1_2 if prob_eh_a_min1_2>0 else 0},
+        ]
+        df_eh = pd.DataFrame(eh_data)
+        df_eh["Prob"] = df_eh["Prob"].apply(lambda x: f"{x*100:.1f}%")
+        df_eh["Fair"] = df_eh["Fair"].apply(lambda x: f"{x:.2f}")
+        st.dataframe(df_eh, hide_index=True)
+
+    with col_ah:
+        st.subheader("🌏 Asian Handicap")
+        # AH Lines
+        ah_data = [
+            {"Linea": "AH 0.0 (DNB) 1", "Prob": prob_ah0_1, "Fair": 1/prob_ah0_1 if prob_ah0_1>0 else 0},
+            {"Linea": "AH 0.0 (DNB) 2", "Prob": prob_ah0_2, "Fair": 1/prob_ah0_2 if prob_ah0_2>0 else 0},
+            {"Linea": "AH -0.5 (Win 1)", "Prob": prob_1, "Fair": 1/prob_1},
+            {"Linea": "AH +0.5 (1X)", "Prob": prob_1+prob_X, "Fair": 1/(prob_1+prob_X)},
+        ]
+        df_ah = pd.DataFrame(ah_data)
+        df_ah["Prob"] = df_ah["Prob"].apply(lambda x: f"{x*100:.1f}%")
+        df_ah["Fair"] = df_ah["Fair"].apply(lambda x: f"{x:.2f}")
+        st.dataframe(df_ah, hide_index=True)
+
+    # --- SEZIONE OVER/UNDER ESTESA ---
+    st.markdown("---")
+    g1, g2 = st.columns([2, 1])
+    
+    with g1:
+        st.subheader("📉 Linee Gol (Over/Under)")
+        # Creazione Tabella O/U Estesa
+        ou_lines = [2.5, 3.5, 4.5]
+        ou_probs = [prob_o25, prob_o35, prob_o45]
+        
+        ou_list = []
+        for line, p_over in zip(ou_lines, ou_probs):
+            p_under = 1.0 - p_over
+            ou_list.append({
+                "Linea": line,
+                "Over %": f"{p_over*100:.1f}%",
+                "Fair Over": f"{1/p_over:.2f}" if p_over > 0 else "N/A",
+                "Under %": f"{p_under*100:.1f}%",
+                "Fair Under": f"{1/p_under:.2f}" if p_under > 0 else "N/A"
+            })
+        st.dataframe(pd.DataFrame(ou_list), hide_index=True, use_container_width=True)
+
+    with g2:
+        st.subheader("⚽ Gol / No Gol")
+        prob_ng = 1.0 - prob_gg
+        st.dataframe(pd.DataFrame([
+            {"Esito": "GOL", "Prob": f"{prob_gg*100:.1f}%", "Fair": f"{1/prob_gg:.2f}"},
+            {"Esito": "NO GOL", "Prob": f"{prob_ng*100:.1f}%", "Fair": f"{1/prob_ng:.2f}"}
+        ]), hide_index=True)
+
     # SCORES & HEATMAP
     col_score, col_heat = st.columns([1, 2])
     with col_score:
@@ -274,21 +364,7 @@ if st.button("🚀 ANALIZZA PARTITA", type="primary", use_container_width=True):
         plt.xlabel(a_name); plt.ylabel(h_name)
         st.pyplot(fig)
 
-    # U/O & GG
-    st.markdown("---")
-    g1, g2 = st.columns(2)
-    with g1:
-        st.subheader("📉 Under / Over 2.5")
-        prob_under = 1.0 - prob_over_25
-        st.write(f"**Over 2.5:** {prob_over_25:.1%} (Fair: **{1/prob_over_25:.2f}**)")
-        st.write(f"**Under 2.5:** {prob_under:.1%} (Fair: **{1/prob_under:.2f}**)")
-    with g2:
-        st.subheader("⚽ Gol / No Gol")
-        prob_ng = 1.0 - prob_gg
-        st.write(f"**GG:** {prob_gg:.1%} (Fair: **{1/prob_gg:.2f}**)")
-        st.write(f"**NG:** {prob_ng:.1%} (Fair: **{1/prob_ng:.2f}**)")
-
-# --- PLAYER PROP SECTION (Reintegrata) ---
+# --- PLAYER PROP SECTION ---
 st.markdown("---")
 st.header("👤 Marcatore / Assist")
 
@@ -319,7 +395,7 @@ else:
         c_res2.metric("Fair Odd", f"{fair:.2f}")
         c_res3.metric("Valore", f"{edge:+.1f}%", delta_color="normal" if edge<0 else "inverse")
 
-# --- TOOLS EXTRA (Reintegrati) ---
+# --- TOOLS EXTRA ---
 st.markdown("---")
 st.header("🛠️ Strumenti Extra")
 
