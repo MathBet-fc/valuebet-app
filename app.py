@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from datetime import date
 
 # --- CONFIGURAZIONE PAGINA ---
-st.set_page_config(page_title="Mathbet fc", page_icon="⚽", layout="wide")
+st.set_page_config(page_title="Mathbet fc Pro - Ultimate Fixed", page_icon="⚽", layout="wide")
 
 # --- AUTOMAZIONE ELO (CACHING) ---
 @st.cache_data(ttl=3600) 
@@ -55,7 +55,9 @@ def calculate_kelly(prob_true, odds_book):
 
 def calculate_player_probability(metric_per90, expected_mins, team_match_xg, team_avg_xg):
     base_lambda = (metric_per90 / 90.0) * expected_mins
-    match_factor = team_match_xg / team_avg_xg if team_avg_xg > 0 else 1.0
+    # Evitiamo divisioni per zero
+    if team_avg_xg <= 0: team_avg_xg = 0.01
+    match_factor = team_match_xg / team_avg_xg
     final_lambda = base_lambda * match_factor
     return 1 - math.exp(-final_lambda), final_lambda
 
@@ -65,7 +67,15 @@ with st.sidebar:
     league_name = st.selectbox("Campionato", list(LEAGUES.keys()))
     L_DATA = LEAGUES[league_name]
     matchday = st.slider("Giornata", 1, 38, 10)
+    
+    # Peso Elo Automatico
     w_elo = (L_DATA["w_elo_base"] + 0.10) if 8 < matchday <= 19 else (max(L_DATA["w_elo_base"], 0.75) if matchday <= 8 else L_DATA["w_elo_base"])
+    
+    st.markdown("---")
+    st.subheader("🏟️ Contesto Partita")
+    m_type = st.radio("Tipo di Incontro", ["Standard", "Derby (Stesso Stadio)", "Campo Neutro"])
+    is_big_match = st.checkbox("🔥 Big Match (Scontro Diretto)", help="Riduce l'aspettativa di gol per tensione tattica.")
+    
     CURRENT_RHO = L_DATA.get("rho", -0.13)
 
 st.title("Mathbet fc ⚽")
@@ -79,162 +89,234 @@ with st.expander("🔗 Link Utili (Scraper Dati)", expanded=False):
 st.markdown("---")
 
 # --- INPUT SQUADRE ---
+# Utilizziamo chiavi univoche (key=...) per ogni widget. Questo salva automaticamente i valori in st.session_state.
+
 col_h, col_a = st.columns(2)
 h_uo_input, a_uo_input = {}, {}
 
 with col_h:
     st.subheader("🏠 Squadra Casa")
     h_name = st.text_input("Nome Casa", "Inter", key="h_n")
+    
+    # Suggeritore nomi
     auto_elo_h = float(ELO_DB.get(h_name, 1600.0))
     if h_name not in ELO_DB and h_name != "":
         matches = [k for k in ELO_DB.keys() if h_name.lower() in k.lower()]
-        if matches: st.info(f"Forse intendevi: {', '.join(matches[:3])}?")
-    h_elo = st.number_input("Rating Casa", 1000.0, 2500.0, value=auto_elo_h, step=1.0, key="helo")
+        if matches: st.info(f"💡 Suggerimento: {', '.join(matches[:3])}")
+    
+    h_elo = st.number_input("Rating Casa", 1000.0, 2500.0, value=auto_elo_h, key="helo")
     h_str = st.slider("Titolari Casa %", 50, 100, 100, key="hs")
     c_h1, c_h2 = st.columns(2)
-    h_m_a, h_m_d = c_h1.checkbox("Manca Bomber (C)", key="ha"), c_h2.checkbox("Manca Difesa (C)", key="hd")
+    h_m_a, h_m_d = c_h1.checkbox("Manca Bomber (C)", key="h_ma"), c_h2.checkbox("Manca Difesa (C)", key="h_md")
+    
     with st.expander("📊 Stats Gol"):
-        h_gf_s, h_gs_s = st.number_input("GF Stag.", 0.0, 5.0, 1.4, key="hgf"), st.number_input("GS Stag.", 0.0, 5.0, 1.0, key="hgs")
-        h_gf_h, h_gs_h = st.number_input("GF Casa", 0.0, 5.0, 1.6, key="hgfh"), st.number_input("GS Casa", 0.0, 5.0, 0.8, key="hgsh")
-        h_gf_l5, h_gs_l5 = st.number_input("GF L5", 0, 25, 7, key="hgfl5"), st.number_input("GS L5", 0, 25, 5, key="hgsl5")
+        # Chiavi fondamentali per il recupero dati
+        h_gf_s = st.number_input("GF Stag.", 0.0, 5.0, 1.4, key="h_gf_s")
+        h_gs_s = st.number_input("GS Stag.", 0.0, 5.0, 1.0, key="h_gs_s")
+        h_gf_h = st.number_input("GF Casa", 0.0, 5.0, 1.6, key="h_gf_h")
+        h_gs_h = st.number_input("GS Casa", 0.0, 5.0, 0.8, key="h_gs_h")
+        h_gf_l5 = st.number_input("GF L5", 0, 25, 7, key="h_gf_l5")
+        h_gs_l5 = st.number_input("GS L5", 0, 25, 5, key="h_gs_l5")
     with st.expander("📈 Over %"):
         for l in [0.5, 1.5, 2.5, 3.5, 4.5]: h_uo_input[l] = st.slider(f"O{l} Casa", 0, 100, 50, key=f"ho{l}")
 
 with col_a:
     st.subheader("✈️ Squadra Ospite")
     a_name = st.text_input("Nome Ospite", "Milan", key="a_n")
+    
+    # Suggeritore nomi
     auto_elo_a = float(ELO_DB.get(a_name, 1550.0))
     if a_name not in ELO_DB and a_name != "":
         matches = [k for k in ELO_DB.keys() if a_name.lower() in k.lower()]
-        if matches: st.info(f"Forse intendevi: {', '.join(matches[:3])}?")
-    a_elo = st.number_input("Rating Ospite", 1000.0, 2500.0, value=auto_elo_a, step=1.0, key="aelo")
+        if matches: st.info(f"💡 Suggerimento: {', '.join(matches[:3])}")
+
+    a_elo = st.number_input("Rating Ospite", 1000.0, 2500.0, value=auto_elo_a, key="aelo")
     a_str = st.slider("Titolari Ospite %", 50, 100, 100, key="as")
     c_a1, c_a2 = st.columns(2)
-    a_m_a, a_m_d = c_a1.checkbox("Manca Bomber (O)", key="aa"), c_a2.checkbox("Manca Difesa (O)", key="ad")
+    a_m_a, a_m_d = c_a1.checkbox("Manca Bomber (O)", key="a_ma"), c_a2.checkbox("Manca Difesa (O)", key="a_md")
+    
     with st.expander("📊 Stats Gol "):
-        a_gf_s, a_gs_s = st.number_input("GF Stag. ", 0.0, 5.0, 1.2, key="agf"), st.number_input("GS Stag. ", 0.0, 5.0, 1.3, key="ags")
-        a_gf_a, a_gs_a = st.number_input("GF Fuori", 0.0, 5.0, 1.0, key="agfa"), st.number_input("GS Fuori", 0.0, 5.0, 1.5, key="agsa")
-        a_gf_l5, a_gs_l5 = st.number_input("GF L5 ", 0, 25, 5, key="agfl5"), st.number_input("GS L5 ", 0, 25, 6, key="agsl5")
+        a_gf_s = st.number_input("GF Stag. ", 0.0, 5.0, 1.2, key="a_gf_s")
+        a_gs_s = st.number_input("GS Stag. ", 0.0, 5.0, 1.3, key="a_gs_s")
+        a_gf_a = st.number_input("GF Fuori", 0.0, 5.0, 1.0, key="a_gf_a")
+        a_gs_a = st.number_input("GS Fuori", 0.0, 5.0, 1.5, key="a_gs_a")
+        a_gf_l5 = st.number_input("GF L5 ", 0, 25, 5, key="a_gf_l5")
+        a_gs_l5 = st.number_input("GS L5 ", 0, 25, 6, key="a_gs_l5")
     with st.expander("📈 Over % "):
         for l in [0.5, 1.5, 2.5, 3.5, 4.5]: a_uo_input[l] = st.slider(f"O{l} Ospite", 0, 100, 50, key=f"ao{l}")
 
 st.subheader("💰 Quote Bookmaker")
 qc1, qc2, qc3 = st.columns(3)
-b1, bX, b2 = qc1.number_input("Q1", 1.01, 100.0, 2.20), qc2.number_input("QX", 1.01, 100.0, 3.10), qc3.number_input("Q2", 1.01, 100.0, 3.40)
+b1 = qc1.number_input("Q1", 1.01, 100.0, 2.20, key="b1")
+bX = qc2.number_input("QX", 1.01, 100.0, 3.10, key="bX")
+b2 = qc3.number_input("Q2", 1.01, 100.0, 3.40, key="b2")
 
 # --- ANALISI ---
 if st.button("🚀 ANALIZZA PARTITA", type="primary", use_container_width=True):
-    h_att = (h_gf_s * 0.4) + (h_gf_h * 0.35) + (h_gf_l5/5.0 * 0.25)
-    h_def = (h_gs_s * 0.4) + (h_gs_h * 0.35) + (h_gs_l5/5.0 * 0.25)
-    a_att = (a_gf_s * 0.4) + (a_gf_a * 0.35) + (a_gf_l5/5.0 * 0.25)
-    a_def = (a_gs_s * 0.4) + (a_gs_a * 0.35) + (a_gs_l5/5.0 * 0.25)
-    xg_s_h, xg_s_a = (h_att * a_def)/L_DATA["avg"], (a_att * h_def)/L_DATA["avg"]
-    exp_h = 1 / (1 + 10 ** (-((h_elo + L_DATA["ha"]*400) - a_elo)/400.0))
+    
+    # 1. Gestione Home Advantage (HA)
+    ha_val = L_DATA["ha"]
+    if m_type == "Campo Neutro": ha_val = 0.0
+    elif m_type == "Derby (Stesso Stadio)": ha_val *= 0.5
+    
+    # 2. Calcolo Attacco/Difesa basato sul contesto
+    if m_type == "Campo Neutro":
+        h_att_val = (h_gf_s * 0.7 + h_gf_l5/5.0 * 0.3)
+        h_def_val = (h_gs_s * 0.7 + h_gs_l5/5.0 * 0.3)
+        a_att_val = (a_gf_s * 0.7 + a_gf_l5/5.0 * 0.3)
+        a_def_val = (a_gs_s * 0.7 + a_gs_l5/5.0 * 0.3)
+    else:
+        h_att_val = (h_gf_s * 0.4 + h_gf_h * 0.35 + h_gf_l5/5.0 * 0.25)
+        h_def_val = (h_gs_s * 0.4 + h_gs_h * 0.35 + h_gs_l5/5.0 * 0.25)
+        a_att_val = (a_gf_s * 0.4 + a_gf_a * 0.35 + a_gf_l5/5.0 * 0.25)
+        a_def_val = (a_gs_s * 0.4 + a_gs_a * 0.35 + a_gs_l5/5.0 * 0.25)
+    
+    xg_s_h, xg_s_a = (h_att_val * a_def_val)/L_DATA["avg"], (a_att_val * h_def_val)/L_DATA["avg"]
+    
+    # 3. Calcolo basato su Elo
+    exp_h = 1 / (1 + 10 ** (-((h_elo + ha_val*400) - a_elo)/400.0))
     xg_e_h, xg_e_a = L_DATA["avg"]*(exp_h/0.5)**0.85, L_DATA["avg"]*((1-exp_h)/0.5)**0.85
+    
+    # 4. Fusione Finale (Elo + Stats)
     f_xh = ((xg_e_h * w_elo) + (xg_s_h * (1-w_elo))) * (h_str/100.0)
     f_xa = ((xg_e_a * w_elo) + (xg_s_a * (1-w_elo))) * (a_str/100.0)
+    
+    if is_big_match:
+        f_xh *= 0.90
+        f_xa *= 0.90
+    
     if h_m_a: f_xh *= 0.85
     if h_m_d: f_xa *= 1.20
     if a_m_a: f_xa *= 0.85
     if a_m_d: f_xh *= 1.20
 
+    # 5. Dixon-Coles Matrix
     p1, pX, p2, pGG = 0, 0, 0, 0
     matrix = np.zeros((10,10)); scores = []
-    for h in range(10):
-        for a in range(10):
-            p = dixon_coles_probability(h, a, f_xh, f_xa, CURRENT_RHO)
-            matrix[h,a] = p
-            if h > a: p1 += p
-            elif h == a: pX += p
+    for h_g in range(10):
+        for a_g in range(10):
+            p = dixon_coles_probability(h_g, a_g, f_xh, f_xa, CURRENT_RHO)
+            matrix[h_g,a_g] = p
+            if h_g > a_g: p1 += p
+            elif h_g == a_g: pX += p
             else: p2 += p
-            if h>0 and a>0: pGG += p
-            if h<6 and a<6: scores.append({"Risultato": f"{h}-{a}", "Prob": p})
+            if h_g>0 and a_g>0: pGG += p
+            if h_g<6 and a_g<6: scores.append({"Risultato": f"{h_g}-{a_g}", "Prob": p})
     
-    matrix /= np.sum(matrix); p1, pX, p2, pGG = p1/np.sum(matrix), pX/np.sum(matrix), p2/np.sum(matrix), pGG/np.sum(matrix)
+    total_prob = np.sum(matrix)
+    if total_prob > 0:
+        matrix /= total_prob
+        p1, pX, p2, pGG = p1/total_prob, pX/total_prob, p2/total_prob, pGG/total_prob
     
+    # Simulazione Stabilità (Monte Carlo)
     sim = []
     for _ in range(5000):
-        gh, ga = np.random.poisson(max(0.1, np.random.normal(f_xh, 0.18*f_xh))), np.random.poisson(max(0.1, np.random.normal(f_xa, 0.18*f_xa)))
+        gh = np.random.poisson(max(0.1, np.random.normal(f_xh, 0.15*f_xh)))
+        ga = np.random.poisson(max(0.1, np.random.normal(f_xa, 0.15*f_xa)))
         sim.append(1 if gh>ga else (0 if gh==ga else 2))
     s1, sX, s2 = sim.count(1)/5000, sim.count(0)/5000, sim.count(2)/5000
     stability = max(0, 100 - ((abs(p1-s1)+abs(pX-sX)+abs(p2-s2))/3*400))
 
-    st.session_state.analyzed, st.session_state.f_xh, st.session_state.f_xa = True, f_xh, f_xa
-    st.session_state.h_gf_s, st.session_state.a_gf_s = h_gf_s, a_gf_s
-    st.session_state.h_name, st.session_state.a_name = h_name, a_name
+    # --- SALVATAGGIO IN SESSION STATE (SENZA CONFLITTI) ---
+    st.session_state.analyzed = True
+    st.session_state.f_xh = f_xh
+    st.session_state.f_xa = f_xa
+    # Salviamo solo i nomi per visualizzazione, gli altri dati li leggiamo dai widget
+    st.session_state.home_name_display = h_name
+    st.session_state.away_name_display = a_name
+    st.session_state.p1, st.session_state.pX, st.session_state.p2 = p1, pX, p2
+    st.session_state.stability = stability
 
+    # --- OUTPUT GRAFICO ---
     st.header(f"📊 {h_name} - {a_name} ({f_xh:.2f} - {f_xa:.2f})")
     st.metric("Stabilità Modello", f"{stability:.1f}%")
     
     st.subheader("🏆 Probabilità 1X2")
-    st.table(pd.DataFrame({"Esito":["1","X","2"], "Prob %":[f"{p1:.1%}",f"{pX:.1%}",f"{p2:.1%}"], "Fair":[f"{1/p1:.2f}",f"{1/pX:.2f}",f"{1/p2:.2f}"], "Value":[f"{(b1*p1-1):.1%}",f"{(bX*pX-1):.1%}",f"{(b2*p2-1):.1%}"], "Stake":[f"{calculate_kelly(p1,b1):.1f}%",f"{calculate_kelly(pX,bX):.1f}%",f"{calculate_kelly(p2,b2):.1f}%"]}))
-
-    if st.button("💾 SALVA IN STORICO"):
-        st.session_state.history.append({"Data": date.today().strftime("%d/%m"), "Match": f"{h_name}-{a_name}", "P1": p1, "PX": pX, "P2": p2, "Stabilità": stability, "Risultato": "In attesa"})
-        st.toast("Salvato!")
+    st.table(pd.DataFrame({
+        "Esito":["1","X","2"], 
+        "Prob %":[f"{p1:.1%}",f"{pX:.1%}",f"{p2:.1%}"], 
+        "Fair Odd":[f"{1/p1:.2f}",f"{1/pX:.2f}",f"{1/p2:.2f}"], 
+        "Value %":[f"{(b1*p1-1):.1%}",f"{(bX*pX-1):.1%}",f"{(b2*p2-1):.1%}"], 
+        "Stake (Kelly)":[f"{calculate_kelly(p1,b1):.1f}%",f"{calculate_kelly(pX,bX):.1f}%",f"{calculate_kelly(p2,b2):.1f}%"]
+    }))
 
     c1, c2 = st.columns([1,2])
     scores.sort(key=lambda x: x["Prob"], reverse=True)
-    c1.subheader("🎯 Top 5 Score")
-    c1.table(pd.DataFrame([{"Score": s["Risultato"], "%": f"{s['Prob']:.1%}", "Fair": f"{1/s['Prob']:.2f}"} for s in scores[:5]]))
+    with c1:
+        st.subheader("🎯 Top 5 Score")
+        st.table(pd.DataFrame([{"Score": s["Risultato"], "%": f"{s['Prob']:.1%}", "Fair": f"{1/s['Prob']:.2f}"} for s in scores[:5]]))
     with c2: 
-        fig, ax = plt.subplots(figsize=(5,3)); sns.heatmap(matrix[:5,:5], annot=True, fmt=".0%", cmap="Blues", cbar=False); st.pyplot(fig)
+        fig, ax = plt.subplots(figsize=(5,3))
+        sns.heatmap(matrix[:5,:5], annot=True, fmt=".0%", cmap="Greens", cbar=False)
+        plt.xlabel("Ospite"); plt.ylabel("Casa")
+        st.pyplot(fig)
 
     st.subheader("📉 Under / Over")
-    uo_d = []
+    uo_data = []
     for l in [0.5, 1.5, 2.5, 3.5, 4.5]:
-        fo = (np.sum(matrix[np.indices((10,10))[0] + np.indices((10,10))[1] > l]) * 0.6) + ((h_uo_input[l] + a_uo_input[l])/200.0 * 0.4)
-        uo_d.append({"Linea": l, "Under %": f"{(1-fo):.1%}", "Fair U": f"{1/(1-fo):.2f}", "Over %": f"{fo:.1%}", "Fair O": f"{1/fo:.2f}"})
-    st.table(pd.DataFrame(uo_d))
+        p_over = (np.sum(matrix[np.indices((10,10))[0] + np.indices((10,10))[1] > l]) * 0.65) + ((h_uo_input[l] + a_uo_input[l])/200.0 * 0.35)
+        uo_data.append({"Linea": l, "Under %": f"{(1-p_over):.1%}", "Fair U": f"{1/(1-p_over):.2f}", "Over %": f"{p_over:.1%}", "Fair O": f"{1/p_over:.2f}"})
+    st.table(pd.DataFrame(uo_data))
 
-    # --- REINTEGRATI: GG/NG & MULTIGOL & HANDICAP ---
-    cg, ch = st.columns(2)
-    with cg:
+    cm1, cm2 = st.columns(2)
+    with cm1:
         st.subheader("⚽ Mercati Gol")
         st.table(pd.DataFrame([{"Esito": "GG", "Prob": f"{pGG:.1%}", "Fair": f"{1/pGG:.2f}"}, {"Esito": "NG", "Prob": f"{(1-pGG):.1%}", "Fair": f"{1/(1-pGG):.2f}"}]))
-        
         st.subheader("🔢 Multigol")
-        mg_data = []
+        mg_res = []
         for r in [(1,2), (1,3), (2,3), (2,4), (3,5)]:
-            pmg = np.sum(matrix[(np.indices((10,10))[0] + np.indices((10,10))[1] >= r[0]) & (np.indices((10,10))[0] + np.indices((10,10))[1] <= r[1])])
-            mg_data.append({"Multigol": f"{r[0]}-{r[1]}", "Prob": f"{pmg:.1%}", "Fair": f"{1/pmg:.2f}"})
-        st.table(pd.DataFrame(mg_data))
-    
-    with ch:
-        st.subheader("🏁 Handicap")
-        eh1_1 = np.sum(matrix[np.indices((10,10))[0] - 1 > np.indices((10,10))[1]])
-        eh1_X = np.sum(matrix[np.indices((10,10))[0] - 1 == np.indices((10,10))[1]])
-        ehP1_1 = np.sum(matrix[np.indices((10,10))[0] + 1 > np.indices((10,10))[1]])
-        st.write("**Handicap Europeo**")
-        st.table(pd.DataFrame([{"Tipo": "H-1", "1": f"{eh1_1:.1%}", "Fair": f"{1/eh1_1:.2f}", "X": f"{eh1_X:.1%}", "F.X": f"{1/eh1_X:.2f}"}, {"Tipo": "H+1", "1X": f"{ehP1_1:.1%}", "Fair": f"{1/ehP1_1:.2f}"}]))
-        st.write("**Asian Handicap**")
-        st.table(pd.DataFrame([{"Linea": "DNB (0.0)", "Prob": f"{(p1/(p1+p2)):.1%}" if (p1+p2)>0 else "0%", "Fair": f"{(1/(p1/(p1+p2))):.2f}" if (p1+p2)>0 else "0.00"}, {"Linea": "H-0.5 (Win)", "Prob": f"{p1:.1%}", "Fair": f"{1/p1:.2f}"}]))
+            pm = np.sum(matrix[(np.indices((10,10))[0] + np.indices((10,10))[1] >= r[0]) & (np.indices((10,10))[0] + np.indices((10,10))[1] <= r[1])])
+            mg_res.append({"Range": f"{r[0]}-{r[1]}", "Prob": f"{pm:.1%}", "Fair": f"{1/pm:.2f}"})
+        st.table(pd.DataFrame(mg_res))
+    with cm2:
+        st.subheader("🏁 Handicap & Asian")
+        h1_1 = np.sum(matrix[np.indices((10,10))[0] - 1 > np.indices((10,10))[1]])
+        st.write(f"**Handicap Europeo (-1):** Prob 1: {h1_1:.1%} | Fair: {1/h1_1:.2f}")
+        dnb_p = (p1/(p1+p2)) if (p1+p2)>0 else 0
+        st.write(f"**Asian DNB (0.0):** Prob 1: {dnb_p:.1%} | Fair: {1/dnb_p:.2f}")
 
-# --- PLAYER PROP ---
+# --- SALVATAGGIO STORICO (FUORI DAL BUTTON MA DENTRO IL FLUSSO) ---
+if st.session_state.get('analyzed'):
+    if st.button("💾 SALVA IN STORICO"):
+        st.session_state.history.append({
+            "Data": date.today().strftime("%d/%m"), 
+            "Match": f"{st.session_state.home_name_display}-{st.session_state.away_name_display}", 
+            "P1": st.session_state.p1, 
+            "PX": st.session_state.pX, 
+            "P2": st.session_state.p2, 
+            "Stabilità": st.session_state.stability, 
+            "Risultato": "In attesa"
+        })
+        st.toast("Salvato con successo!")
+
+# --- PLAYER PROP (MODIFICATO PER LEGGERE DAI WIDGET) ---
 if st.session_state.get('analyzed'):
     st.markdown("---")
     st.header("👤 Marcatore / Assist")
     with st.expander("Calcolatore Giocatore Avanzato", expanded=True):
         pcol1, pcol2 = st.columns(2)
-        with pcol1:
-            p_n = st.text_input("Giocatore", "Lautaro")
-            p_t = st.radio("Squadra", [st.session_state.h_name, st.session_state.a_name], horizontal=True)
-            p_m = st.number_input("Minuti attesi", 1, 100, 80)
-        with pcol2:
-            p_v = st.number_input("xG/90 o xA/90", 0.01, 2.0, 0.45)
-            p_b = st.number_input("Quota Bookmaker ", 1.01, 100.0, 2.50)
         
-        ctx_xg = st.session_state.f_xh if p_t == st.session_state.h_name else st.session_state.f_xa
-        ctx_avg = st.session_state.h_gf_s if p_t == st.session_state.h_name else st.session_state.a_gf_s
+        # Recuperiamo i nomi dai widget (usando session_state[key])
+        n_h = st.session_state.h_n
+        n_a = st.session_state.a_n
+        
+        p_t = pcol1.radio("Squadra", [n_h, n_a], horizontal=True)
+        p_v = pcol2.number_input("xG/90 o xA/90", 0.01, 2.0, 0.40)
+        p_m = pcol1.number_input("Minuti attesi", 1, 100, 80)
+        p_b = pcol2.number_input("Quota Bookie", 1.01, 100.0, 2.50)
+        
+        # Logica xG Squadra
+        ctx_xg = st.session_state.f_xh if p_t == n_h else st.session_state.f_xa
+        
+        # Logica Media Gol (Leggiamo direttamente la key del widget: h_gf_s o a_gf_s)
+        ctx_avg = st.session_state.h_gf_s if p_t == n_h else st.session_state.a_gf_s
         
         prob_p, _ = calculate_player_probability(p_v, p_m, ctx_xg, ctx_avg)
-        fair_p = 1/prob_p if prob_p > 0 else 0
-        edge_p = ((p_b*prob_p)-1)*100
         
-        pr1, pr2, pr3 = st.columns(3)
-        pr1.metric("Probabilità", f"{prob_p:.1%}")
-        pr2.metric("Fair Odd", f"{fair_p:.2f}")
-        pr3.metric("Valore %", f"{edge_p:+.1f}%")
+        r1, r2, r3 = st.columns(3)
+        r1.metric("Probabilità", f"{prob_p:.1%}")
+        r2.metric("Fair Odd", f"{1/prob_p:.2f}")
+        r3.metric("Valore %", f"{((p_b*prob_p)-1)*100:+.1f}%")
 
 # --- BACKTESTING ---
 st.markdown("---")
@@ -244,18 +326,25 @@ if st.session_state.history:
     ed_df = st.data_editor(df_h, column_config={"Risultato": st.column_config.SelectboxColumn("Esito Reale", options=["1", "X", "2", "In attesa"])})
     val = ed_df[ed_df["Risultato"] != "In attesa"]
     if not val.empty:
-        br = []
+        brier = []
         for _, r in val.iterrows():
             o = [1 if r["Risultato"]=="1" else 0, 1 if r["Risultato"]=="X" else 0, 1 if r["Risultato"]=="2" else 0]
-            br.append((r["P1"]-o[0])**2 + (r["PX"]-o[1])**2 + (r["P2"]-o[2])**2)
-        st.metric("Brier Score Medio", f"{np.mean(br):.3f}")
+            brier.append((r["P1"]-o[0])**2 + (r["PX"]-o[1])**2 + (r["P2"]-o[2])**2)
+        st.metric("Brier Score Medio", f"{np.mean(brier):.3f}", help="0=Perfetto, 2=Pessimo. Un buon modello sta sotto 0.60.")
     if st.button("🗑️ Reset Storico"): st.session_state.history = []; st.rerun()
 
-# --- EXTRA ---
+# --- EXTRA: STRUMENTI MANUALI ---
 st.markdown("---")
-with st.expander("🛠️ Strumenti Manuali"):
+with st.expander("🛠️ Strumenti Manuali Rapidi"):
     col1, col2 = st.columns(2)
-    q_in = col1.number_input("Reverse Quota", 1.01, 100.0, 2.0); col1.write(f"Prob: {1/q_in:.1%}")
-    mp = col2.number_input("Tua Stima %", 1.0, 100.0, 50.0)/100; mq = col2.number_input("Quota", 1.01, 100.0, 2.0)
-    if (mp*mq)-1 > 0: col2.success(f"Value! Stake: {(((mq-1)*mp)-(1-mp))/(mq-1)*25:.1f}%")
- 
+    with col1:
+        q_in = st.number_input("Reverse Quota", 1.01, 100.0, 2.0, key="rev_q")
+        st.write(f"Probabilità: **{1/q_in:.1%}**")
+    with col2:
+        mp = st.number_input("Tua Stima %", 1.0, 100.0, 50.0, key="my_p") / 100
+        mq = st.number_input("Quota", 1.01, 100.0, 2.0, key="my_q")
+        if (mp * mq) - 1 > 0:
+            val_kelly = (((mq - 1) * mp) - (1 - mp)) / (mq - 1) * 25
+            st.success(f"Value! Stake: **{val_kelly:.1f}%**")
+        else:
+            st.error("Nessun valore.")
