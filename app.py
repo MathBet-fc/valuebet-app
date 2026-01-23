@@ -12,17 +12,16 @@ st.set_page_config(page_title="Mathbet fc Pro",
                    layout="wide")
 
 # --- INIZIALIZZAZIONE SESSION STATE (MEMORIA) ---
-# Serve per non far resettare i dati quando usi il calcolatore marcatori
 if 'analyzed' not in st.session_state:
     st.session_state.analyzed = False
     st.session_state.xg_h = 0
     st.session_state.xg_a = 0
     st.session_state.h_avg_seas = 0
     st.session_state.a_avg_seas = 0
-    st.session_state.top_score = ""
     st.session_state.prob_1 = 0
     st.session_state.prob_X = 0
     st.session_state.prob_2 = 0
+    st.session_state.top_score = ""
 
 # --- DATABASE CAMPIONATI ---
 LEAGUES = {
@@ -36,7 +35,7 @@ LEAGUES = {
 }
 
 # Parametri Globali
-SCALING_FACTOR = 800  # Abbassato a 800 per rendere l'Elo più impattante
+SCALING_FACTOR = 800  
 W_VENUE = 0.20
 WEIGHT_HISTORICAL_UO = 0.40
 KELLY_FRACTION = 0.25
@@ -60,7 +59,6 @@ def calculate_kelly(prob_true, odds_book):
     return max(0.0, (kelly * KELLY_FRACTION) * 100)
 
 def calculate_player_probability(metric_per90, expected_mins, team_match_xg, team_avg_xg):
-    # Calcola probabilità giocatore basandosi sugli xG attesi della squadra oggi
     base_lambda = (metric_per90 / 90.0) * expected_mins
     match_factor = 1.0
     if team_avg_xg > 0:
@@ -92,7 +90,6 @@ with st.sidebar:
 st.title("Mathbet fc Pro ⚽")
 st.markdown("ℹ️ *Algoritmo Ibrido: Poisson Pesato + Elo Scaling (800) + Monte Carlo*")
 
-# Link Dati
 with st.expander("🔗 Link Utili (Clicca per aprire)", expanded=False):
     lc1, lc2, lc3 = st.columns(3)
     with lc1:
@@ -107,7 +104,6 @@ with st.expander("🔗 Link Utili (Clicca per aprire)", expanded=False):
 
 st.markdown("---")
 
-# Input Squadre
 col_h, col_a = st.columns(2)
 with col_h:
     st.subheader("🏠 Casa")
@@ -150,16 +146,16 @@ b2 = qc3.number_input("2", 1.01, 100.0, 2.90)
 bGG = qc4.number_input("GG", 1.01, 100.0, 1.75)
 bNG = qc5.number_input("NG", 1.01, 100.0, 2.05)
 
-# --- CORE LOGIC (ANALISI) ---
+# --- CORE LOGIC ---
 if st.button("🚀 ANALIZZA PARTITA", type="primary", use_container_width=True):
     
-    # 1. NORMALIZZAZIONE PESI (FIX LOGICA)
+    # 1. FIX LOGICA: NORMALIZZAZIONE PESI
     tot_weight = W_SEASON + W_FORM + W_VENUE
     w_s_norm = W_SEASON / tot_weight
     w_f_norm = W_FORM / tot_weight
     w_v_norm = W_VENUE / tot_weight
 
-    # 2. CALCOLO METRICHE OFFENSIVE/DIFENSIVE
+    # 2. METRICHE
     h_avg_gf_form = h_gf_l5 / 5.0
     h_avg_gs_form = h_gs_l5 / 5.0
     a_avg_gf_form = a_gf_l5 / 5.0
@@ -170,28 +166,24 @@ if st.button("🚀 ANALIZZA PARTITA", type="primary", use_container_width=True):
     att_a = (a_gf_seas * w_s_norm) + (a_avg_gf_form * w_f_norm) + (a_gf_venue * w_v_norm)
     def_a = (a_gs_seas * w_s_norm) + (a_avg_gs_form * w_f_norm) + (a_gs_venue * w_v_norm)
 
-    # 3. ELO SCALING & XG COMBINATI
+    # 3. ELO & XG COMBINATI
     w_stats_l = 1.0 - W_ELO
     diff_h = (h_elo + CURRENT_HOME_ADV) - a_elo
     diff_a = a_elo - (h_elo + CURRENT_HOME_ADV)
     
-    # xG da Elo (con Scaling 800)
     xg_elo_h = CURRENT_AVG_GOALS * (1 + (diff_h / SCALING_FACTOR))
     xg_elo_a = CURRENT_AVG_GOALS * (1 + (diff_a / SCALING_FACTOR))
     
-    # xG da Stats (Double Poisson)
     xg_stats_h = (att_h * def_a) / CURRENT_AVG_GOALS
     xg_stats_a = (att_a * def_h) / CURRENT_AVG_GOALS
 
-    # xG Finali
     xg_h = (xg_elo_h * W_ELO) + (xg_stats_h * w_stats_l)
     xg_a = (xg_elo_a * W_ELO) + (xg_stats_a * w_stats_l)
     
-    # Applicazione % Formazione
     xg_h = max(0.1, xg_h * (h_str / 100.0))
     xg_a = max(0.1, xg_a * (a_str / 100.0))
 
-    # 4. CALCOLO PROBABILITÀ (POISSON + DIXON COLES)
+    # 4. CALCOLO PROBABILITÀ
     prob_1, prob_X, prob_2 = 0, 0, 0
     prob_GG, prob_NG = 0, 0
     total_goals_probs = {k: 0 for k in range(20)}
@@ -203,7 +195,6 @@ if st.button("🚀 ANALIZZA PARTITA", type="primary", use_container_width=True):
     for h in range(10):
         for a in range(10):
             p = poisson(h, xg_h) * poisson(a, xg_a)
-            # Dixon-Coles Correction
             correction = 1.0
             if h==0 and a==0: correction = 1.0 - (xg_h*xg_a*RHO)
             elif h==0 and a==1: correction = 1.0 + (xg_h*RHO)
@@ -229,22 +220,15 @@ if st.button("🚀 ANALIZZA PARTITA", type="primary", use_container_width=True):
             all_scores_list.append({"score": f"{h}-{a}", "prob": p})
             if h < 6 and a < 6: score_matrix[h, a] = p
 
-    # Normalizzazione Finale
     total_prob = prob_1 + prob_X + prob_2
     factor = 1.0 / total_prob if total_prob > 0 else 1.0
     p1, pX, p2 = prob_1 * factor, prob_X * factor, prob_2 * factor
     p_gg, p_ng = prob_GG * factor, prob_NG * factor
 
-    # Multigol Helper
-    def get_mg(min_g, max_g):
-        prob = sum(total_goals_probs.get(g, 0) for g in range(min_g, max_g+1))
-        return prob * factor
-    
-    # Sort Risultati Esatti
     for item in all_scores_list: item["prob"] *= factor
     all_scores_list.sort(key=lambda x: x["prob"], reverse=True)
 
-    # 5. SALVATAGGIO IN SESSION STATE (Per evitare reset)
+    # 5. SALVATAGGIO IN SESSION STATE
     st.session_state.analyzed = True
     st.session_state.xg_h = xg_h
     st.session_state.xg_a = xg_a
@@ -255,11 +239,10 @@ if st.button("🚀 ANALIZZA PARTITA", type="primary", use_container_width=True):
     st.session_state.prob_2 = p2
     st.session_state.top_score = all_scores_list[0]['score']
 
-    # --- VISUALIZZAZIONE RISULTATI ---
+    # --- OUTPUT ---
     st.balloons()
     st.header(f"📊 {h_name} vs {a_name}")
 
-    # xG e Monte Carlo
     n_sims = 10000
     sim_h = np.random.poisson(xg_h, n_sims)
     sim_a = np.random.poisson(xg_a, n_sims)
@@ -271,7 +254,6 @@ if st.button("🚀 ANALIZZA PARTITA", type="primary", use_container_width=True):
     c1.metric("xG Stimati (Corretti)", f"{xg_h:.2f} - {xg_a:.2f}")
     c2.info(f"🎲 Monte Carlo (10k Sim): 1: {sim_1:.1%} | X: {sim_X:.1%} | 2: {sim_2:.1%}")
 
-    # Tabelle
     col_main, col_dc = st.columns(2)
     with col_main:
         st.subheader("🏆 Esito Finale")
@@ -297,7 +279,6 @@ if st.button("🚀 ANALIZZA PARTITA", type="primary", use_container_width=True):
         })
         st.table(df_dc)
 
-    # Risultati Esatti
     st.subheader("🎯 Risultati Esatti")
     cols = st.columns(3)
     for i in range(3):
@@ -312,16 +293,13 @@ if st.button("🚀 ANALIZZA PARTITA", type="primary", use_container_width=True):
         plt.xlabel(a_name); plt.ylabel(h_name)
         st.pyplot(fig)
 
-    # U/O & GG/NG
     col_uo, col_gg = st.columns(2)
     with col_uo:
         st.subheader("📉 Under / Over")
         uo_list = []
         for line in [1.5, 2.5, 3.5]:
             u_math, o_math = uo_probs_math[line][0] * factor, uo_probs_math[line][1] * factor
-            # Media stat pura dai dati input
             avg_hist_o = (h_uo.get(line,50)/100 + a_uo.get(line,50)/100)/2
-            # Blend
             o_fin = (o_math * (1-WEIGHT_HISTORICAL_UO)) + (avg_hist_o * WEIGHT_HISTORICAL_UO)
             u_fin = 1.0 - o_fin
             uo_list.append({"Linea": line, "U %": f"{u_fin*100:.1f}%", "Fair U": f"{1/u_fin:.2f}", "O %": f"{o_fin*100:.1f}%", "Fair O": f"{1/o_fin:.2f}"})
@@ -336,7 +314,7 @@ if st.button("🚀 ANALIZZA PARTITA", type="primary", use_container_width=True):
             "Book": [bGG, bNG]
         }), hide_index=True)
 
-# --- PLAYER PROP (ORA USA SESSION STATE) ---
+# --- PLAYER PROP ---
 st.markdown("---")
 st.header("👤 Marcatore / Assist")
 
@@ -354,7 +332,6 @@ else:
             val_90 = st.number_input(f"x{'G' if 'GOL' in type_s else 'A'}/90", 0.00, 2.00, 0.40)
             b_odd = st.number_input("Quota Bookmaker", 1.0, 50.0, 2.50)
 
-        # Recupero dati dal Session State
         ctx_xg = st.session_state.xg_h if team_sel == h_name else st.session_state.xg_a
         ctx_avg = st.session_state.h_avg_seas if team_sel == h_name else st.session_state.a_avg_seas
 
@@ -367,11 +344,27 @@ else:
         c_res2.metric("Fair Odd", f"{fair:.2f}")
         c_res3.metric("Valore", f"{edge:+.1f}%", delta_color="normal" if edge<0 else "inverse")
 
-# --- TOOLS EXTRA ---
+# --- TOOLS EXTRA (CON CALCOLATORE MANUALE RIPRISTINATO) ---
 st.markdown("---")
+st.header("🛠️ Strumenti Extra")
+
 with st.expander("🕵️ Reverse Engineering Quote"):
     q = st.number_input("Quota Book", 1.01, 100.0, 1.90)
     st.write(f"Prob Implicita: {1/q:.1%}")
+
+with st.expander("🧮 Calcolatore Manuale (Value Bet)", expanded=False):
+    k1, k2, k3 = st.columns(3)
+    mp = k1.number_input("Probabilità Stimata (%)", 0.1, 100.0, 50.0) / 100
+    mq = k2.number_input("Quota Bookmaker", 1.01, 100.0, 2.0)
+    mb = k3.number_input("Bankroll", 0.0, 10000.0, 1000.0)
+    
+    mev = (mp * mq) - 1
+    if mev > 0:
+        mk = (((mq - 1) * mp) - (1 - mp)) / (mq - 1) * KELLY_FRACTION
+        stake = mb * mk
+        st.success(f"✅ VALUE BET! Edge: {mev*100:.1f}% | Stake (Kelly 1/4): € {stake:.2f}")
+    else:
+        st.error("❌ Nessun Valore")
 
 # CSV DOWNLOAD
 if st.session_state.analyzed:
