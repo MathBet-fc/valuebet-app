@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 
 # --- CONFIGURAZIONE PAGINA ---
+# MODIFICA: Rimosso "Pro Ultra" dal titolo della pagina
 st.set_page_config(page_title="Mathbet fc",
                    page_icon="⚽",
                    layout="wide")
@@ -138,7 +139,8 @@ def calculate_player_probability(metric_per90, expected_mins, team_match_xg,
 
 # Sidebar
 with st.sidebar:
-    st.title("⚙️ Configurazione Pro")
+    # MODIFICA: Rimosso "Pro"
+    st.title("⚙️ Configurazione")
     st.write("I parametri si adattano automaticamente al campionato scelto.")
     league_name = st.selectbox("Campionato", list(LEAGUES.keys()))
 
@@ -161,7 +163,8 @@ with st.sidebar:
     Forma (Last 5): {W_FORM*100:.0f}%
     """)
 
-st.title("Mathbet fc ⚽ - Pro Ultra")
+# MODIFICA: Rimosso "Pro Ultra" dal titolo principale
+st.title("Mathbet fc ⚽")
 st.markdown(
     "ℹ️ *Algoritmo Ibrido: Monte Carlo (10k Sim) + Poisson + Pesi Dinamici*")
 
@@ -224,8 +227,8 @@ with col_h:
             0.5: 95,
             1.5: st.slider("% Over 1.5 Casa", 0, 100, 75, key="h_o15"),
             2.5: st.slider("% Over 2.5 Casa", 0, 100, 50, key="h_o25"),
-            3.5: st.slider("% Over 3.5 Casa", 0, 100, 30, key="h_o35"), # NEW
-            4.5: st.slider("% Over 4.5 Casa", 0, 100, 15, key="h_o45"), # NEW
+            3.5: st.slider("% Over 3.5 Casa", 0, 100, 30, key="h_o35"),
+            4.5: st.slider("% Over 4.5 Casa", 0, 100, 15, key="h_o45"),
         }
 
 with col_a:
@@ -262,8 +265,8 @@ with col_a:
             0.5: 95,
             1.5: st.slider("% Over 1.5 Ospite", 0, 100, 70, key="a_o15"),
             2.5: st.slider("% Over 2.5 Ospite", 0, 100, 45, key="a_o25"),
-            3.5: st.slider("% Over 3.5 Ospite", 0, 100, 25, key="a_o35"), # NEW
-            4.5: st.slider("% Over 4.5 Ospite", 0, 100, 10, key="a_o45"), # NEW
+            3.5: st.slider("% Over 3.5 Ospite", 0, 100, 25, key="a_o35"),
+            4.5: st.slider("% Over 4.5 Ospite", 0, 100, 10, key="a_o45"),
         }
 
 st.markdown("---")
@@ -310,7 +313,7 @@ if st.button("🚀 ANALIZZA PARTITA (Simulazione Avanzata)",
     prob_1, prob_X, prob_2 = 0, 0, 0
     prob_GG, prob_NG = 0, 0
     total_goals_probs = {k: 0 for k in range(20)}
-    # AGGIORNATO: Aggiunte le chiavi 3.5 e 4.5
+    
     uo_probs_math = {0.5: [0, 0], 1.5: [0, 0], 2.5: [0, 0], 3.5: [0, 0], 4.5: [0, 0]}
     RHO = -0.13
 
@@ -462,9 +465,8 @@ if st.button("🚀 ANALIZZA PARTITA (Simulazione Avanzata)",
             u_math = uo_probs_math[line][0] * factor
             o_math = uo_probs_math[line][1] * factor
             
-            # Qui prende i valori dagli slider. Se non esistono, usa 90 (per 0.5)
-            # ma ora abbiamo aggiunto gli slider per 3.5/4.5
-            h_stat_o = h_uo.get(line, 50) / 100.0 # Default a 50 se manca
+            # Qui prende i valori dagli slider. Se non esistono, usa 50 come default
+            h_stat_o = h_uo.get(line, 50) / 100.0 
             a_stat_o = a_uo.get(line, 50) / 100.0
             
             avg_hist_over = (h_stat_o + a_stat_o) / 2.0
