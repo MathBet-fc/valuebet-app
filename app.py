@@ -148,7 +148,7 @@ with st.sidebar:
     use_xg_mode = st.toggle("📊 Usa xG", value=True)
     CURRENT_RHO = L_DATA.get("rho", -0.13)
 
-st.title("Mathbet fc - Ultimate Analysis ⚽")
+st.title("Mathbet fc  ⚽")
 
 # --- INPUT SQUADRE ---
 col_h, col_a = st.columns(2)
