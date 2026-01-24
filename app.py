@@ -5,11 +5,11 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 from datetime import date
-import cloudscraper # <--- QUESTA è la chiave per sbloccare il 403
+import cloudscraper # Libreria anti-blocco
 from io import StringIO
 
 # --- CONFIGURAZIONE PAGINA ---
-st.set_page_config(page_title="Mathbet fc", page_icon="⚽", layout="wide")
+st.set_page_config(page_title="Mathbet fc - Ultimate Full", page_icon="⚽", layout="wide")
 
 # --- AUTOMAZIONE ELO (CACHING) ---
 @st.cache_data(ttl=3600) 
@@ -56,16 +56,22 @@ def calculate_player_probability(metric_per90, expected_mins, team_match_xg, tea
     final_lambda = base_lambda * match_factor
     return 1 - math.exp(-final_lambda), final_lambda
 
-# --- AUTOMAZIONE FBREF (VERSIONE CLOUDSCRAPER ANTI-BLOCCO) ---
+# --- AUTOMAZIONE FBREF (VERSIONE FIREFOX SIMULATED) ---
 @st.cache_data(ttl=3600)
 def load_fbref_data(url):
     try:
-        # Crea uno scraper che si comporta come un utente reale
-        scraper = cloudscraper.create_scraper() 
+        # Configurazione specifica per simulare un PC Windows con Firefox
+        scraper = cloudscraper.create_scraper(
+            browser={
+                'browser': 'firefox',
+                'platform': 'windows',
+                'mobile': False
+            }
+        )
         response = scraper.get(url)
         
         if response.status_code != 200:
-            st.error(f"Errore connessione FBref (Codice {response.status_code}). Riprova o controlla il link.")
+            st.error(f"Errore {response.status_code}: FBref ha bloccato l'accesso. Riprova più tardi.")
             return None
 
         # Parsing HTML
@@ -119,7 +125,7 @@ def load_fbref_data(url):
             new_data.append(stats)
         return pd.DataFrame(new_data)
     except Exception as e:
-        st.error(f"Errore tecnico: {e}") 
+        # st.error(f"Errore: {e}") 
         return None
 
 # --- INIZIALIZZAZIONE SESSION STATE ---
@@ -134,7 +140,7 @@ with st.sidebar:
     if fbref_url:
         fs_df = load_fbref_data(fbref_url)
         if fs_df is not None: st.success(f"✅ Dati ok: {len(fs_df)} squadre")
-        else: st.warning("Tabella non trovata o connessione bloccata.")
+        else: st.warning("Tabella non trovata o blocco 403 attivo.")
 
     st.markdown("---")
     league_name = st.selectbox("Campionato", list(LEAGUES.keys()))
@@ -148,7 +154,7 @@ with st.sidebar:
     use_xg_mode = st.toggle("📊 Usa xG", value=True)
     CURRENT_RHO = L_DATA.get("rho", -0.13)
 
-st.title("Mathbet fc  ⚽")
+st.title("Mathbet fc - Ultimate Analysis ⚽")
 
 # --- INPUT SQUADRE ---
 col_h, col_a = st.columns(2)
