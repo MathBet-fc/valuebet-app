@@ -5,6 +5,8 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 from datetime import date
+import requests
+from io import StringIO
 
 # --- CONFIGURAZIONE PAGINA ---
 st.set_page_config(page_title="Mathbet fc - Ultimate Full", page_icon="⚽", layout="wide")
@@ -54,12 +56,24 @@ def calculate_player_probability(metric_per90, expected_mins, team_match_xg, tea
     final_lambda = base_lambda * match_factor
     return 1 - math.exp(-final_lambda), final_lambda
 
-# --- AUTOMAZIONE FBREF (SCRAPING INTELLIGENTE) ---
+# --- AUTOMAZIONE FBREF (SCRAPING INTELLIGENTE ANTI-BLOCCO) ---
 @st.cache_data(ttl=3600)
 def load_fbref_data(url):
     try:
-        # Legge le tabelle cercando la doppia intestazione (es. Casa -> GF)
-        dfs = pd.read_html(url, header=[0, 1])
+        # 1. Simulazione Browser Reale (Header User-Agent)
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        }
+        
+        # 2. Richiesta HTTP sicura
+        response = requests.get(url, headers=headers)
+        if response.status_code != 200:
+            st.error(f"Errore connessione FBref (Codice {response.status_code}).")
+            return None
+
+        # 3. Parsing HTML tramite StringIO per compatibilità Pandas
+        dfs = pd.read_html(StringIO(response.text), header=[0, 1])
+        
         df = None
         for table in dfs:
             cols_flat = [c[1].lower() if isinstance(c, tuple) else str(c).lower() for c in table.columns]
@@ -107,7 +121,9 @@ def load_fbref_data(url):
             
             new_data.append(stats)
         return pd.DataFrame(new_data)
-    except: return None
+    except Exception as e:
+        # st.error(f"Debug: {e}") # Scommentare solo per debug
+        return None
 
 # --- INIZIALIZZAZIONE SESSION STATE ---
 if 'history' not in st.session_state: st.session_state.history = []
@@ -121,7 +137,7 @@ with st.sidebar:
     if fbref_url:
         fs_df = load_fbref_data(fbref_url)
         if fs_df is not None: st.success(f"✅ Dati ok: {len(fs_df)} squadre")
-        else: st.warning("Tabella non trovata.")
+        else: st.warning("Tabella non trovata. Controlla il link.")
 
     st.markdown("---")
     league_name = st.selectbox("Campionato", list(LEAGUES.keys()))
