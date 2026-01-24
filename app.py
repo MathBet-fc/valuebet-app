@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from datetime import date
 
 # --- CONFIGURAZIONE PAGINA ---
-st.set_page_config(page_title="Mathbet fc", page_icon="⚽", layout="wide")
+st.set_page_config(page_title="Mathbet fc - ML Edition", page_icon="🧠", layout="wide")
 
 # --- PARAMETRI CAMPIONATI (IL CUORE DEL MACHINE LEARNING) ---
 # Questi sono i valori che il tuo "Allenatore" calcolerà.
