@@ -5,7 +5,7 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 from datetime import date
-import requests
+import cloudscraper # Libreria specifica anti-blocco 403
 from io import StringIO
 
 # --- CONFIGURAZIONE PAGINA ---
@@ -56,22 +56,19 @@ def calculate_player_probability(metric_per90, expected_mins, team_match_xg, tea
     final_lambda = base_lambda * match_factor
     return 1 - math.exp(-final_lambda), final_lambda
 
-# --- AUTOMAZIONE FBREF (SCRAPING INTELLIGENTE ANTI-BLOCCO) ---
+# --- AUTOMAZIONE FBREF (VERSIONE CLOUDSCRAPER ANTI-403) ---
 @st.cache_data(ttl=3600)
 def load_fbref_data(url):
     try:
-        # 1. Simulazione Browser Reale (Header User-Agent)
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-        }
+        # Crea uno scraper che bypassa le protezioni Cloudflare
+        scraper = cloudscraper.create_scraper()
+        response = scraper.get(url)
         
-        # 2. Richiesta HTTP sicura
-        response = requests.get(url, headers=headers)
         if response.status_code != 200:
-            st.error(f"Errore connessione FBref (Codice {response.status_code}).")
+            st.error(f"Errore connessione FBref (Codice {response.status_code}). Riprova o controlla il link.")
             return None
 
-        # 3. Parsing HTML tramite StringIO per compatibilità Pandas
+        # Parsing HTML
         dfs = pd.read_html(StringIO(response.text), header=[0, 1])
         
         df = None
@@ -122,7 +119,7 @@ def load_fbref_data(url):
             new_data.append(stats)
         return pd.DataFrame(new_data)
     except Exception as e:
-        # st.error(f"Debug: {e}") # Scommentare solo per debug
+        # st.error(f"Errore: {e}") 
         return None
 
 # --- INIZIALIZZAZIONE SESSION STATE ---
@@ -137,7 +134,7 @@ with st.sidebar:
     if fbref_url:
         fs_df = load_fbref_data(fbref_url)
         if fs_df is not None: st.success(f"✅ Dati ok: {len(fs_df)} squadre")
-        else: st.warning("Tabella non trovata. Controlla il link.")
+        else: st.warning("Tabella non trovata o connessione bloccata.")
 
     st.markdown("---")
     league_name = st.selectbox("Campionato", list(LEAGUES.keys()))
