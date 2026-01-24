@@ -5,8 +5,10 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 from datetime import date
-import cloudscraper # Libreria anti-blocco
+import requests
+from bs4 import BeautifulSoup
 from io import StringIO
+import time
 
 # --- CONFIGURAZIONE PAGINA ---
 st.set_page_config(page_title="Mathbet fc - Ultimate Full", page_icon="⚽", layout="wide")
@@ -56,52 +58,80 @@ def calculate_player_probability(metric_per90, expected_mins, team_match_xg, tea
     final_lambda = base_lambda * match_factor
     return 1 - math.exp(-final_lambda), final_lambda
 
-# --- AUTOMAZIONE FBREF (VERSIONE FIREFOX SIMULATED) ---
+# --- AUTOMAZIONE FBREF (VERSIONE HTML RAW + COMMENT FIX) ---
 @st.cache_data(ttl=3600)
 def load_fbref_data(url):
     try:
-        # Configurazione specifica per simulare un PC Windows con Firefox
-        scraper = cloudscraper.create_scraper(
-            browser={
-                'browser': 'firefox',
-                'platform': 'windows',
-                'mobile': False
-            }
-        )
-        response = scraper.get(url)
+        # 1. Header completi per sembrare un utente reale da Google
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept-Language': 'en-US,en;q=0.9,it;q=0.8',
+            'Referer': 'https://www.google.com/',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
+        }
         
+        # 2. Richiesta con ritardo casuale per evitare ban immediato
+        time.sleep(1) 
+        response = requests.get(url, headers=headers)
+        
+        if response.status_code == 429:
+            st.error("⚠️ Troppe richieste. FBref ci ha messi in pausa momentanea. Riprova tra 1 minuto.")
+            return None
         if response.status_code != 200:
-            st.error(f"Errore {response.status_code}: FBref ha bloccato l'accesso. Riprova più tardi.")
+            st.error(f"Errore {response.status_code}: Accesso negato da FBref.")
             return None
 
-        # Parsing HTML
-        dfs = pd.read_html(StringIO(response.text), header=[0, 1])
+        # 3. IL TRUCCO: FBref nasconde le tabelle nei commenti HTML # Rimuoviamo i simboli di commento per rendere visibili tutte le tabelle
+        clean_html = response.text.replace('', '')
+        
+        # 4. Parsing con Pandas sulla stringa HTML pulita
+        try:
+            dfs = pd.read_html(StringIO(clean_html), header=[0, 1])
+        except ValueError:
+            st.error("Nessuna tabella trovata nell'HTML.")
+            return None
         
         df = None
+        # Cerchiamo la tabella giusta (quella con Casa/Home e Squadra/Squad)
         for table in dfs:
-            cols_flat = [c[1].lower() if isinstance(c, tuple) else str(c).lower() for c in table.columns]
-            top_level = [c[0].lower() if isinstance(c, tuple) else "" for c in table.columns]
-            if ('squadra' in cols_flat or 'squad' in cols_flat) and ('home' in top_level or 'casa' in top_level):
+            # Appiattiamo le colonne per il controllo
+            cols_flat = [str(c[1]).lower() if isinstance(c, tuple) else str(c).lower() for c in table.columns]
+            top_level = [str(c[0]).lower() if isinstance(c, tuple) else "" for c in table.columns]
+            
+            # Controllo robusto: deve avere colonne "partite giocate" e distinzione casa/fuori
+            has_squad = any(x in cols_flat for x in ['squadra', 'squad'])
+            has_home = any(x in top_level for x in ['home', 'casa'])
+            
+            if has_squad and has_home:
                 df = table
                 break
         
         if df is None: return None
 
+        # 5. Estrazione Dati
         new_data = []
         for _, row in df.iterrows():
             team_name = ""
             for col in df.columns:
-                if col[1].lower() in ['squad', 'squadra']:
+                if str(col[1]).lower() in ['squad', 'squadra']:
                     team_name = str(row[col])
                     break
+            
             if not team_name or team_name == "nan": continue
 
+            # Funzione helper sicura
             def get_val(lbl_top_list, lbl_sub):
                 for top in lbl_top_list:
-                    if (top, lbl_sub) in df.columns: return float(row[(top, lbl_sub)])
+                    # Cerca la colonna anche se ha .1, .2 alla fine
+                    matches = [c for c in df.columns if c[0] == top and c[1] == lbl_sub]
+                    if matches:
+                        try: return float(row[matches[0]])
+                        except: return 0.0
                 return 0.0
 
-            k_h, k_a = ['Home', 'Casa'], ['Away', 'Fuori']
+            k_h = ['Home', 'Casa']
+            k_a = ['Away', 'Fuori']
+            
             mp_h = max(1, get_val(k_h, 'MP') or get_val(k_h, 'PG'))
             mp_a = max(1, get_val(k_a, 'MP') or get_val(k_a, 'PG'))
 
@@ -116,16 +146,19 @@ def load_fbref_data(url):
                 'xg_away': get_val(k_a, 'xG') / mp_a,
                 'xga_away': (get_val(k_a, 'xGA') or get_val(k_a, 'xG.1')) / mp_a,
             }
-            # Fallback xG totali
+            
+            # Calcolo totali ponderati
             stats['xg_tot'] = (stats['xg_home']*mp_h + stats['xg_away']*mp_a) / (mp_h+mp_a)
             stats['xga_tot'] = (stats['xga_home']*mp_h + stats['xga_away']*mp_a) / (mp_h+mp_a)
             stats['gf_tot'] = (stats['gf_home']*mp_h + stats['gf_away']*mp_a) / (mp_h+mp_a)
             stats['gs_tot'] = (stats['gs_home']*mp_h + stats['gs_away']*mp_a) / (mp_h+mp_a)
             
             new_data.append(stats)
+            
         return pd.DataFrame(new_data)
+
     except Exception as e:
-        # st.error(f"Errore: {e}") 
+        # st.error(f"Debug Error: {e}") # Scommentare per debug
         return None
 
 # --- INIZIALIZZAZIONE SESSION STATE ---
@@ -140,7 +173,7 @@ with st.sidebar:
     if fbref_url:
         fs_df = load_fbref_data(fbref_url)
         if fs_df is not None: st.success(f"✅ Dati ok: {len(fs_df)} squadre")
-        else: st.warning("Tabella non trovata o blocco 403 attivo.")
+        else: st.warning("Impossibile caricare dati. Controlla il link o riprova più tardi.")
 
     st.markdown("---")
     league_name = st.selectbox("Campionato", list(LEAGUES.keys()))
