@@ -4,4 +4,4 @@ numpy
 seaborn
 matplotlib
 pdfplumber
- 
+tableauscraper
