@@ -9,7 +9,7 @@ import cloudscraper # <--- QUESTA è la chiave per sbloccare il 403
 from io import StringIO
 
 # --- CONFIGURAZIONE PAGINA ---
-st.set_page_config(page_title="Mathbet fc - Ultimate Full", page_icon="⚽", layout="wide")
+st.set_page_config(page_title="Mathbet fc", page_icon="⚽", layout="wide")
 
 # --- AUTOMAZIONE ELO (CACHING) ---
 @st.cache_data(ttl=3600) 
