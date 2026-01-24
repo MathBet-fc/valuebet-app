@@ -5,7 +5,7 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 from datetime import date
-import cloudscraper # Libreria specifica anti-blocco 403
+import cloudscraper # <--- QUESTA è la chiave per sbloccare il 403
 from io import StringIO
 
 # --- CONFIGURAZIONE PAGINA ---
@@ -56,12 +56,12 @@ def calculate_player_probability(metric_per90, expected_mins, team_match_xg, tea
     final_lambda = base_lambda * match_factor
     return 1 - math.exp(-final_lambda), final_lambda
 
-# --- AUTOMAZIONE FBREF (VERSIONE CLOUDSCRAPER ANTI-403) ---
+# --- AUTOMAZIONE FBREF (VERSIONE CLOUDSCRAPER ANTI-BLOCCO) ---
 @st.cache_data(ttl=3600)
 def load_fbref_data(url):
     try:
-        # Crea uno scraper che bypassa le protezioni Cloudflare
-        scraper = cloudscraper.create_scraper()
+        # Crea uno scraper che si comporta come un utente reale
+        scraper = cloudscraper.create_scraper() 
         response = scraper.get(url)
         
         if response.status_code != 200:
@@ -119,7 +119,7 @@ def load_fbref_data(url):
             new_data.append(stats)
         return pd.DataFrame(new_data)
     except Exception as e:
-        # st.error(f"Errore: {e}") 
+        st.error(f"Errore tecnico: {e}") 
         return None
 
 # --- INIZIALIZZAZIONE SESSION STATE ---
