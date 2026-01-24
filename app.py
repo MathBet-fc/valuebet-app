@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from datetime import date
 
 # --- CONFIGURAZIONE PAGINA ---
-st.set_page_config(page_title="Mathbet fc Pro - Ultimate Edition", page_icon="⚽", layout="wide")
+st.set_page_config(page_title="Mathbet fc Pro - ML Edition", page_icon="⚽", layout="wide")
 
 # --- AUTOMAZIONE ELO (CACHING) ---
 @st.cache_data(ttl=3600) 
@@ -27,15 +27,15 @@ if 'history' not in st.session_state:
 if 'analyzed' not in st.session_state:
     st.session_state.analyzed = False
 
-# --- DATABASE CAMPIONATI ---
+# --- DATABASE CAMPIONATI (AGGIORNATO CON ML) ---
+# Nota: Ho mantenuto 'w_elo_base' dai vecchi dati per non rompere la logica della sidebar
 LEAGUES = {
-    "🌐 Generico (Media)": { "avg": 1.35, "ha": 0.30, "w_elo_base": 0.40, "rho": -0.13 }, 
-    "🇮🇹 Serie A":          { "avg": 1.30, "ha": 0.20, "w_elo_base": 0.50, "rho": -0.14 },
-    "🇮🇹 Serie B":          { "avg": 1.15, "ha": 0.25, "w_elo_base": 0.30, "rho": -0.18 },
-    "🇬🇧 Premier League":   { "avg": 1.55, "ha": 0.30, "w_elo_base": 0.55, "rho": -0.12 },
-    "🇩🇪 Bundesliga":       { "avg": 1.65, "ha": 0.35, "w_elo_base": 0.45, "rho": -0.10 },
-    "🇪🇸 La Liga":          { "avg": 1.25, "ha": 0.25, "w_elo_base": 0.55, "rho": -0.14 },
-    "🇫🇷 Ligue 1":          { "avg": 1.30, "ha": 0.24, "w_elo_base": 0.45, "rho": -0.15 },
+    "🌐 Generico (Default)": { "avg": 1.35, "ha": 0.25, "rho": -0.10, "w_elo_base": 0.40 },
+    "🇮🇹 Serie A":          { "avg": 1.28, "ha": 0.046, "rho": -0.022, "w_elo_base": 0.50 },
+    "🇬🇧 Premier League":   { "avg": 1.47, "ha": 0.044, "rho": 0.022, "w_elo_base": 0.55 },
+    "🇪🇸 La Liga":          { "avg": 1.31, "ha": 0.139, "rho": 0.078, "w_elo_base": 0.55 },
+    "🇩🇪 Bundesliga":       { "avg": 1.57, "ha": 0.049, "rho": -0.088, "w_elo_base": 0.45 },
+    "🇫🇷 Ligue 1":          { "avg": 1.49, "ha": 0.120, "rho": -0.015, "w_elo_base": 0.45 },
 }
 
 # --- FUNZIONI CORE ---
@@ -65,6 +65,10 @@ with st.sidebar:
     st.title("⚙️ Configurazione")
     league_name = st.selectbox("Campionato", list(LEAGUES.keys()))
     L_DATA = LEAGUES[league_name]
+    
+    # Visualizzazione parametri attivi (per verifica ML)
+    st.caption(f"Parametri ML Attivi:\nHA: {L_DATA['ha']:.3f} | Rho: {L_DATA['rho']:.3f}")
+
     matchday = st.slider("Giornata", 1, 38, 10)
     
     # Peso Elo Automatico
@@ -81,7 +85,7 @@ with st.sidebar:
     
     CURRENT_RHO = L_DATA.get("rho", -0.13)
 
-st.title("Mathbet fc ⚽")
+st.title("Mathbet fc ⚽ - ML Edition")
 
 with st.expander("🔗 Link Utili (Scraper Dati)", expanded=False):
     lc1, lc2, lc3 = st.columns(3)
