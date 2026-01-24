@@ -29,13 +29,12 @@ if 'analyzed' not in st.session_state:
 
 # --- DATABASE CAMPIONATI ---
 LEAGUES = {
-    "🌐 Generico (Media)": { "avg": 1.35, "ha": 0.30, "w_elo_base": 0.40, "rho": -0.13 }, 
-    "🇮🇹 Serie A":          { "avg": 1.30, "ha": 0.20, "w_elo_base": 0.50, "rho": -0.14 },
-    "🇮🇹 Serie B":          { "avg": 1.15, "ha": 0.25, "w_elo_base": 0.30, "rho": -0.18 },
-    "🇬🇧 Premier League":   { "avg": 1.55, "ha": 0.30, "w_elo_base": 0.55, "rho": -0.12 },
-    "🇩🇪 Bundesliga":       { "avg": 1.65, "ha": 0.35, "w_elo_base": 0.45, "rho": -0.10 },
-    "🇪🇸 La Liga":          { "avg": 1.25, "ha": 0.25, "w_elo_base": 0.55, "rho": -0.14 },
-    "🇫🇷 Ligue 1":          { "avg": 1.30, "ha": 0.24, "w_elo_base": 0.45, "rho": -0.15 },
+    "🌐 Generico (Default)": { "avg": 1.35, "ha": 0.25, "rho": -0.10 },
+    "🇮🇹 Serie A": { "avg": 1.28, "ha": 0.046, "rho": -0.022 },
+    "🇬🇧 Premier League": { "avg": 1.47, "ha": 0.044, "rho": 0.022 },
+    "🇪🇸 La Liga": { "avg": 1.31, "ha": 0.139, "rho": 0.078 },
+    "🇩🇪 Bundesliga": { "avg": 1.57, "ha": 0.049, "rho": -0.088 },
+    "🇫🇷 Ligue 1": { "avg": 1.49, "ha": 0.120, "rho": -0.015 },
 }
 
 # --- FUNZIONI CORE ---
