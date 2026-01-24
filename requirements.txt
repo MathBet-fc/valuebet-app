@@ -1,7 +1,1 @@
-streamlit
-pandas
-numpy
-seaborn
-matplotlib
-pdfplumber
-tableauscraper
+pip install streamlit pandas numpy seaborn matplotlib scipy
