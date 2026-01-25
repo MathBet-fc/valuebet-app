@@ -4,42 +4,27 @@ import pandas as pd
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
-from datetime import date
+import plotly.graph_objects as go
+import plotly.express as px
+import json
+from datetime import datetime
 
 # --- CONFIGURAZIONE PAGINA ---
-st.set_page_config(page_title="Mathbet fc Pro - ML Edition", page_icon="⚽", layout="wide")
+st.set_page_config(page_title="Mathbet fc - ML Ultimate", page_icon="🧠", layout="wide")
 
-# --- AUTOMAZIONE ELO (CACHING) ---
-@st.cache_data(ttl=3600) 
-def get_clubelo_database():
-    try:
-        date_str = date.today().strftime("%Y-%m-%d")
-        url = f"http://api.clubelo.com/{date_str}"
-        df = pd.read_csv(url)
-        return dict(zip(df.Club, df.Elo))
-    except: return {}
-
-ELO_DB = get_clubelo_database()
-
-# --- INIZIALIZZAZIONE SESSION STATE ---
-if 'history' not in st.session_state:
-    st.session_state.history = []
-if 'analyzed' not in st.session_state:
-    st.session_state.analyzed = False
-
-# --- DATABASE CAMPIONATI (AGGIORNATO CON ML) ---
-# Nota: Ho mantenuto 'w_elo_base' dai vecchi dati per non rompere la logica della sidebar
+# --- PARAMETRI ML (GIÀ AGGIORNATI CON I TUOI DATI DEL TRAINING) ---
 LEAGUES = {
-    "🌐 Generico (Default)": { "avg": 1.35, "ha": 0.25, "rho": -0.10, "w_elo_base": 0.40 },
-    "🇮🇹 Serie A":          { "avg": 1.28, "ha": 0.046, "rho": -0.022, "w_elo_base": 0.50 },
-    "🇬🇧 Premier League":   { "avg": 1.47, "ha": 0.044, "rho": 0.022, "w_elo_base": 0.55 },
-    "🇪🇸 La Liga":          { "avg": 1.31, "ha": 0.139, "rho": 0.078, "w_elo_base": 0.55 },
-    "🇩🇪 Bundesliga":       { "avg": 1.57, "ha": 0.049, "rho": -0.088, "w_elo_base": 0.45 },
-    "🇫🇷 Ligue 1":          { "avg": 1.49, "ha": 0.120, "rho": -0.015, "w_elo_base": 0.45 },
+    "🌐 Generico (Default)": { "avg": 1.35, "ha": 0.25, "rho": -0.10 },
+    "🇮🇹 Serie A":          { "avg": 1.28, "ha": 0.059, "rho": -0.032 },
+    "🇬🇧 Premier League":   { "avg": 1.47, "ha": 0.046, "rho": 0.006 },
+    "🇪🇸 La Liga":          { "avg": 1.31, "ha": 0.143, "rho": 0.060 },
+    "🇩🇪 Bundesliga":       { "avg": 1.57, "ha": 0.066, "rho": -0.091 },
+    "🇫🇷 Ligue 1":          { "avg": 1.49, "ha": 0.120, "rho": -0.026 },
 }
 
-# --- FUNZIONI CORE ---
+# --- FUNZIONI MATEMATICHE ---
 def dixon_coles_probability(h_goals, a_goals, mu_h, mu_a, rho):
+    """Calcola la probabilità di un risultato esatto con il modello Dixon-Coles"""
     prob = (math.exp(-mu_h) * (mu_h**h_goals) / math.factorial(h_goals)) * \
            (math.exp(-mu_a) * (mu_a**a_goals) / math.factorial(a_goals))
     if h_goals == 0 and a_goals == 0: prob *= (1.0 - (mu_h * mu_a * rho))
@@ -48,372 +33,622 @@ def dixon_coles_probability(h_goals, a_goals, mu_h, mu_a, rho):
     elif h_goals == 1 and a_goals == 1: prob *= (1.0 - rho)
     return max(0.0, prob)
 
-def calculate_kelly(prob_true, odds_book):
-    if odds_book <= 1.01 or prob_true <= 0: return 0.0
-    kelly = (((odds_book - 1) * prob_true) - (1 - prob_true)) / (odds_book - 1)
-    return max(0.0, kelly * 0.25 * 100)
-
 def calculate_player_probability(metric_per90, expected_mins, team_match_xg, team_avg_xg):
+    """Calcola la probabilità che un giocatore segni"""
     base_lambda = (metric_per90 / 90.0) * expected_mins
     if team_avg_xg <= 0: team_avg_xg = 0.01
     match_factor = team_match_xg / team_avg_xg
     final_lambda = base_lambda * match_factor
-    return 1 - math.exp(-final_lambda), final_lambda
+    return 1 - math.exp(-final_lambda)
 
-# --- SIDEBAR & SETUP ---
-with st.sidebar:
-    st.title("⚙️ Configurazione")
-    league_name = st.selectbox("Campionato", list(LEAGUES.keys()))
-    L_DATA = LEAGUES[league_name]
-    
-    # Visualizzazione parametri attivi (per verifica ML)
-    st.caption(f"Parametri ML Attivi:\nHA: {L_DATA['ha']:.3f} | Rho: {L_DATA['rho']:.3f}")
-
-    matchday = st.slider("Giornata", 1, 38, 10)
-    
-    # Peso Elo Automatico
-    w_elo = (L_DATA["w_elo_base"] + 0.10) if 8 < matchday <= 19 else (max(L_DATA["w_elo_base"], 0.75) if matchday <= 8 else L_DATA["w_elo_base"])
-    
-    st.markdown("---")
-    st.subheader("🏟️ Contesto Partita")
-    m_type = st.radio("Tipo di Incontro", ["Standard", "Derby (Stesso Stadio)", "Campo Neutro"])
-    is_big_match = st.checkbox("🔥 Big Match (Scontro Diretto)", help="Riduce l'aspettativa di gol per tensione tattica.")
-    
-    st.markdown("---")
-    # Toggle xG
-    use_xg_mode = st.toggle("📊 Usa Modalità xG (Expected Goals)", value=False, help="Attivalo se hai i dati xG. Nota: Le ultime 5 restano sempre Gol Reali.")
-    
-    CURRENT_RHO = L_DATA.get("rho", -0.13)
-
-st.title("Mathbet fc ⚽ - ML Edition")
-
-with st.expander("🔗 Link Utili (Scraper Dati)", expanded=False):
-    lc1, lc2, lc3 = st.columns(3)
-    lc1.link_button("ClubElo", "http://clubelo.com")
-    lc2.link_button("FootyStats", "https://footystats.org/it/")
-    lc3.link_button("FBref", "https://fbref.com")
-
-st.markdown("---")
-
-# --- INPUT SQUADRE ---
-col_h, col_a = st.columns(2)
-h_uo_input, a_uo_input = {}, {}
-
-# Definizioni etichette dinamiche (Gol vs xG) per STAGIONE e CASA/FUORI
-lbl_gf_s = "xG Fatti Totali" if use_xg_mode else "GF Stag."
-lbl_gs_s = "xG Subiti Totali" if use_xg_mode else "GS Stag."
-lbl_gf_ha = "xG Fatti Casa" if use_xg_mode else "GF Casa"
-lbl_gs_ha = "xG Subiti Casa" if use_xg_mode else "GS Casa"
-
-lbl_gf_s_a = "xG Fatti Totali" if use_xg_mode else "GF Stag."
-lbl_gs_s_a = "xG Subiti Totali" if use_xg_mode else "GS Stag."
-lbl_gf_ha_a = "xG Fatti Fuori" if use_xg_mode else "GF Fuori"
-lbl_gs_ha_a = "xG Subiti Fuori" if use_xg_mode else "GS Fuori"
-
-# Options per Strength of Schedule
-sos_options = ["Media (Standard)", "Difficili (Top Team)", "Facili (Bassa Classifica)"]
-
-with col_h:
-    st.subheader("🏠 Squadra Casa")
-    h_name = st.text_input("Nome Casa", "Inter", key="h_n")
-    
-    auto_elo_h = float(ELO_DB.get(h_name, 1600.0))
-    if h_name not in ELO_DB and h_name != "":
-        matches = [k for k in ELO_DB.keys() if h_name.lower() in k.lower()]
-        if matches: st.info(f"💡 Suggerimento: {', '.join(matches[:3])}")
-    
-    h_elo = st.number_input("Rating Casa", 1000.0, 2500.0, value=auto_elo_h, key="helo")
-    h_str = st.slider("Titolari Casa %", 50, 100, 100, key="hs")
-    
-    # Slider Riposo
-    h_rest = st.slider("Giorni Riposo (vs Ultima Partita)", 2, 10, 7, key="h_rest", help="Meno di 4 giorni applica penalità per stanchezza.")
-    
-    c_h1, c_h2 = st.columns(2)
-    h_m_a, h_m_d = c_h1.checkbox("Manca Bomber (C)", key="h_ma"), c_h2.checkbox("Manca Difesa (C)", key="h_md")
-    
-    with st.expander("📊 Stats Gol / xG", expanded=True):
-        # Dati Stagionali (Cambiano in xG se attivo)
-        h_gf_s = st.number_input(lbl_gf_s, 0.0, 5.0, 1.45, step=0.01, key="h_gf_s")
-        h_gs_s = st.number_input(lbl_gs_s, 0.0, 5.0, 1.05, step=0.01, key="h_gs_s")
-        h_gf_h = st.number_input(lbl_gf_ha, 0.0, 5.0, 1.65, step=0.01, key="h_gf_h")
-        h_gs_h = st.number_input(lbl_gs_ha, 0.0, 5.0, 0.85, step=0.01, key="h_gs_h")
-        
-        st.markdown("---")
-        # SoS (Strength of Schedule)
-        h_sos = st.selectbox("Livello Avversari L5", sos_options, index=0, key="h_sos", help="Chi hanno affrontato nelle ultime 5?")
-        # --- MODIFICA: Qui l'etichetta è SEMPRE "GF Reali", mai xG ---
-        h_gf_l5 = st.number_input("GF Reali Ultime 5 (Forma)", 0.0, 25.0, 7.0, step=0.5, key="h_gf_l5")
-        h_gs_l5 = st.number_input("GS Reali Ultime 5 (Forma)", 0.0, 25.0, 5.0, step=0.5, key="h_gs_l5")
-
-    with st.expander("📈 Over %"):
-        for l in [0.5, 1.5, 2.5, 3.5, 4.5]: h_uo_input[l] = st.slider(f"O{l} Casa", 0, 100, 50, key=f"ho{l}")
-
-with col_a:
-    st.subheader("✈️ Squadra Ospite")
-    a_name = st.text_input("Nome Ospite", "Milan", key="a_n")
-    
-    auto_elo_a = float(ELO_DB.get(a_name, 1550.0))
-    if a_name not in ELO_DB and a_name != "":
-        matches = [k for k in ELO_DB.keys() if a_name.lower() in k.lower()]
-        if matches: st.info(f"💡 Suggerimento: {', '.join(matches[:3])}")
-
-    a_elo = st.number_input("Rating Ospite", 1000.0, 2500.0, value=auto_elo_a, key="aelo")
-    a_str = st.slider("Titolari Ospite %", 50, 100, 100, key="as")
-
-    # Slider Riposo Ospite
-    a_rest = st.slider("Giorni Riposo (vs Ultima Partita)", 2, 10, 7, key="a_rest", help="Meno di 4 giorni applica penalità per stanchezza.")
-
-    c_a1, c_a2 = st.columns(2)
-    a_m_a, a_m_d = c_a1.checkbox("Manca Bomber (O)", key="a_ma"), c_a2.checkbox("Manca Difesa (O)", key="a_md")
-    
-    with st.expander("📊 Stats Gol / xG ", expanded=True):
-        # Dati Stagionali (Cambiano in xG se attivo)
-        a_gf_s = st.number_input(lbl_gf_s_a, 0.0, 5.0, 1.25, step=0.01, key="a_gf_s")
-        a_gs_s = st.number_input(lbl_gs_s_a, 0.0, 5.0, 1.35, step=0.01, key="a_gs_s")
-        a_gf_a = st.number_input(lbl_gf_ha_a, 0.0, 5.0, 1.10, step=0.01, key="a_gf_a")
-        a_gs_a = st.number_input(lbl_gs_ha_a, 0.0, 5.0, 1.55, step=0.01, key="a_gs_a")
-        
-        st.markdown("---")
-        # SoS Ospite
-        a_sos = st.selectbox("Livello Avversari L5 ", sos_options, index=0, key="a_sos", help="Chi hanno affrontato nelle ultime 5?")
-        # --- MODIFICA: Qui l'etichetta è SEMPRE "GF Reali", mai xG ---
-        a_gf_l5 = st.number_input("GF Reali Ultime 5 (Forma) ", 0.0, 25.0, 5.0, step=0.5, key="a_gf_l5")
-        a_gs_l5 = st.number_input("GS Reali Ultime 5 (Forma) ", 0.0, 25.0, 6.0, step=0.5, key="a_gs_l5")
-
-    with st.expander("📈 Over % "):
-        for l in [0.5, 1.5, 2.5, 3.5, 4.5]: a_uo_input[l] = st.slider(f"O{l} Ospite", 0, 100, 50, key=f"ao{l}")
-
-st.subheader("💰 Quote Bookmaker")
-qc1, qc2, qc3 = st.columns(3)
-b1 = qc1.number_input("Q1", 1.01, 100.0, 2.20, key="b1")
-bX = qc2.number_input("QX", 1.01, 100.0, 3.10, key="bX")
-b2 = qc3.number_input("Q2", 1.01, 100.0, 3.40, key="b2")
-
-# --- ANALISI ---
-if st.button("🚀 ANALIZZA PARTITA", type="primary", use_container_width=True):
-    
-    # 1. Gestione Home Advantage (HA)
-    ha_val = L_DATA["ha"]
-    if m_type == "Campo Neutro": ha_val = 0.0
-    elif m_type == "Derby (Stesso Stadio)": ha_val *= 0.5
-    
-    # 2. Applicazione Strength of Schedule (SoS) alle statistiche L5
-    h_gf_l5_c, h_gs_l5_c = h_gf_l5, h_gs_l5
-    a_gf_l5_c, a_gs_l5_c = a_gf_l5, a_gs_l5
-
-    if h_sos == "Difficili (Top Team)":
-        h_gf_l5_c *= 1.25 # Segnare ai forti vale di più
-        h_gs_l5_c *= 0.85 # Subire dai forti è perdonabile
-    elif h_sos == "Facili (Bassa Classifica)":
-        h_gf_l5_c *= 0.85 
-        h_gs_l5_c *= 1.20 
-    
-    if a_sos == "Difficili (Top Team)":
-        a_gf_l5_c *= 1.25
-        a_gs_l5_c *= 0.85
-    elif a_sos == "Facili (Bassa Classifica)":
-        a_gf_l5_c *= 0.85
-        a_gs_l5_c *= 1.20
-
-    # 3. Calcolo Attacco/Difesa (Logica Avanzata xG vs Standard)
-    if use_xg_mode:
-        # PESI xG: Fiducia alta nei dati stagionali e Casa/Fuori (85%), bassa nella forma (15%)
-        # Nota: La forma usa i GOL REALI (come richiesto), ma pesano meno nel mix totale
-        w_seas, w_ha, w_l5 = 0.50, 0.35, 0.15
-    else:
-        # PESI STANDARD: La forma recente conta di più (25%)
-        w_seas, w_ha, w_l5 = 0.40, 0.35, 0.25
-
-    if m_type == "Campo Neutro":
-        w_tot_neutro = w_seas + w_l5 
-        h_att_val = (h_gf_s * (w_seas/w_tot_neutro) + h_gf_l5_c/5.0 * (w_l5/w_tot_neutro))
-        h_def_val = (h_gs_s * (w_seas/w_tot_neutro) + h_gs_l5_c/5.0 * (w_l5/w_tot_neutro))
-        a_att_val = (a_gf_s * (w_seas/w_tot_neutro) + a_gf_l5_c/5.0 * (w_l5/w_tot_neutro))
-        a_def_val = (a_gs_s * (w_seas/w_tot_neutro) + a_gs_l5_c/5.0 * (w_l5/w_tot_neutro))
-    else:
-        h_att_val = (h_gf_s * w_seas + h_gf_h * w_ha + h_gf_l5_c/5.0 * w_l5)
-        h_def_val = (h_gs_s * w_seas + h_gs_h * w_ha + h_gs_l5_c/5.0 * w_l5)
-        a_att_val = (a_gf_s * w_seas + a_gf_a * w_ha + a_gf_l5_c/5.0 * w_l5)
-        a_def_val = (a_gs_s * w_seas + a_gs_a * w_ha + a_gs_l5_c/5.0 * w_l5)
-    
-    xg_s_h, xg_s_a = (h_att_val * a_def_val)/L_DATA["avg"], (a_att_val * h_def_val)/L_DATA["avg"]
-    
-    # 4. Calcolo Elo
-    exp_h = 1 / (1 + 10 ** (-((h_elo + ha_val*400) - a_elo)/400.0))
-    xg_e_h, xg_e_a = L_DATA["avg"]*(exp_h/0.5)**0.85, L_DATA["avg"]*((1-exp_h)/0.5)**0.85
-    
-    # 5. Fusione Finale e Applicazione Fattori Extra
-    f_xh = ((xg_e_h * w_elo) + (xg_s_h * (1-w_elo))) * (h_str/100.0)
-    f_xa = ((xg_e_a * w_elo) + (xg_s_a * (1-w_elo))) * (a_str/100.0)
-    
-    # APPLICAZIONE FATTORE STANCHEZZA
-    fatigue_malus = 0.05 
-    if h_rest <= 3: 
-        f_xh *= (1 - fatigue_malus) 
-        f_xa *= (1 + fatigue_malus) 
-    if a_rest <= 3: 
-        f_xa *= (1 - fatigue_malus)
-        f_xh *= (1 + fatigue_malus)
-    
-    if is_big_match:
-        f_xh *= 0.90
-        f_xa *= 0.90
-    
-    if h_m_a: f_xh *= 0.85
-    if h_m_d: f_xa *= 1.20
-    if a_m_a: f_xa *= 0.85
-    if a_m_d: f_xh *= 1.20
-
-    # 6. Dixon-Coles Matrix
-    p1, pX, p2, pGG = 0, 0, 0, 0
-    matrix = np.zeros((10,10)); scores = []
-    for h_g in range(10):
-        for a_g in range(10):
-            p = dixon_coles_probability(h_g, a_g, f_xh, f_xa, CURRENT_RHO)
-            matrix[h_g,a_g] = p
-            if h_g > a_g: p1 += p
-            elif h_g == a_g: pX += p
-            else: p2 += p
-            if h_g>0 and a_g>0: pGG += p
-            if h_g<6 and a_g<6: scores.append({"Risultato": f"{h_g}-{a_g}", "Prob": p})
-    
-    total_prob = np.sum(matrix)
-    if total_prob > 0:
-        matrix /= total_prob
-        p1, pX, p2, pGG = p1/total_prob, pX/total_prob, p2/total_prob, pGG/total_prob
-    
-    # Simulazione Stabilità
+@st.cache_data
+def monte_carlo_simulation(f_xh, f_xa, n_sims=5000):
+    """Simulazione Monte Carlo con caching per performance migliori"""
     sim = []
-    for _ in range(5000):
+    for _ in range(n_sims):
         gh = np.random.poisson(max(0.1, np.random.normal(f_xh, 0.15*f_xh)))
         ga = np.random.poisson(max(0.1, np.random.normal(f_xa, 0.15*f_xa)))
         sim.append(1 if gh>ga else (0 if gh==ga else 2))
-    s1, sX, s2 = sim.count(1)/5000, sim.count(0)/5000, sim.count(2)/5000
-    stability = max(0, 100 - ((abs(p1-s1)+abs(pX-sX)+abs(p2-s2))/3*400))
+    return sim
 
-    # --- SALVATAGGIO SESSIONE ---
-    st.session_state.analyzed = True
-    st.session_state.f_xh = f_xh
-    st.session_state.f_xa = f_xa
-    st.session_state.home_name_display = h_name
-    st.session_state.away_name_display = a_name
-    st.session_state.p1, st.session_state.pX, st.session_state.p2 = p1, pX, p2
-    st.session_state.stability = stability
+def calcola_forza_squadra(att_season, def_season, att_form, def_form, w_season):
+    """Calcola la forza di una squadra bilanciando stagione e forma"""
+    att = (att_season * w_season) + ((att_form/5.0) * (1-w_season))
+    def_ = (def_season * w_season) + ((def_form/5.0) * (1-w_season))
+    return att, def_
 
-    # --- OUTPUT GRAFICO ---
-    st.header(f"📊 {h_name} - {a_name} ({f_xh:.2f} - {f_xa:.2f})")
-    st.metric("Stabilità Modello", f"{stability:.1f}%")
+def valida_input(avg_goals, f_xh, f_xa):
+    """Validazione input per prevenire errori"""
+    errors = []
+    if avg_goals <= 0:
+        errors.append("⚠️ Media gol del campionato non valida")
+    if f_xh < 0:
+        errors.append("⚠️ xG Casa negativo - controlla i parametri")
+    if f_xa < 0:
+        errors.append("⚠️ xG Ospite negativo - controlla i parametri")
+    return errors
+
+def salva_storico_json():
+    """Salva lo storico su file JSON"""
+    try:
+        with open('mathbet_history.json', 'w') as f:
+            json.dump(st.session_state.history, f, indent=2, default=str)
+        return True
+    except Exception as e:
+        st.error(f"Errore nel salvataggio: {e}")
+        return False
+
+def carica_storico_json():
+    """Carica lo storico da file JSON"""
+    try:
+        with open('mathbet_history.json', 'r') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return []
+    except Exception as e:
+        st.error(f"Errore nel caricamento: {e}")
+        return []
+
+def export_risultati_csv(data):
+    """Esporta i risultati in formato CSV"""
+    df = pd.DataFrame([data])
+    return df.to_csv(index=False).encode('utf-8')
+
+# --- INIZIALIZZAZIONE ---
+if 'history' not in st.session_state: 
+    st.session_state.history = carica_storico_json()
+if 'analyzed' not in st.session_state: 
+    st.session_state.analyzed = False
+
+# --- SIDEBAR ---
+with st.sidebar:
+    st.title("🧠 Configurazione ML")
+    league_name = st.selectbox("Campionato", list(LEAGUES.keys()), 
+                               help="Seleziona il campionato per utilizzare parametri ML ottimizzati")
+    L_DATA = LEAGUES[league_name]
     
-    st.subheader("🏆 Probabilità 1X2")
-    st.table(pd.DataFrame({
-        "Esito":["1","X","2"], 
-        "Prob %":[f"{p1:.1%}",f"{pX:.1%}",f"{p2:.1%}"], 
-        "Fair Odd":[f"{1/p1:.2f}",f"{1/pX:.2f}",f"{1/p2:.2f}"], 
-        "Value %":[f"{(b1*p1-1):.1%}",f"{(bX*pX-1):.1%}",f"{(b2*p2-1):.1%}"], 
-        "Stake (Kelly)":[f"{calculate_kelly(p1,b1):.1f}%",f"{calculate_kelly(pX,bX):.1f}%",f"{calculate_kelly(p2,b2):.1f}%"]
-    }))
-
-    c1, c2 = st.columns([1,2])
-    scores.sort(key=lambda x: x["Prob"], reverse=True)
-    with c1:
-        st.subheader("🎯 Top 5 Score")
-        st.table(pd.DataFrame([{"Score": s["Risultato"], "%": f"{s['Prob']:.1%}", "Fair": f"{1/s['Prob']:.2f}"} for s in scores[:5]]))
-    with c2: 
-        fig, ax = plt.subplots(figsize=(5,3))
-        sns.heatmap(matrix[:5,:5], annot=True, fmt=".0%", cmap="Greens", cbar=False)
-        plt.xlabel("Ospite"); plt.ylabel("Casa")
-        st.pyplot(fig)
-
-    st.subheader("📉 Under / Over")
-    uo_data = []
-    for l in [0.5, 1.5, 2.5, 3.5, 4.5]:
-        p_over = (np.sum(matrix[np.indices((10,10))[0] + np.indices((10,10))[1] > l]) * 0.65) + ((h_uo_input[l] + a_uo_input[l])/200.0 * 0.35)
-        uo_data.append({"Linea": l, "Under %": f"{(1-p_over):.1%}", "Fair U": f"{1/(1-p_over):.2f}", "Over %": f"{p_over:.1%}", "Fair O": f"{1/p_over:.2f}"})
-    st.table(pd.DataFrame(uo_data))
-
-    cm1, cm2 = st.columns(2)
-    with cm1:
-        st.subheader("⚽ Mercati Gol")
-        st.table(pd.DataFrame([{"Esito": "GG", "Prob": f"{pGG:.1%}", "Fair": f"{1/pGG:.2f}"}, {"Esito": "NG", "Prob": f"{(1-pGG):.1%}", "Fair": f"{1/(1-pGG):.2f}"}]))
-        st.subheader("🔢 Multigol")
-        mg_res = []
-        for r in [(1,2), (1,3), (2,3), (2,4), (3,5)]:
-            pm = np.sum(matrix[(np.indices((10,10))[0] + np.indices((10,10))[1] >= r[0]) & (np.indices((10,10))[0] + np.indices((10,10))[1] <= r[1])])
-            mg_res.append({"Range": f"{r[0]}-{r[1]}", "Prob": f"{pm:.1%}", "Fair": f"{1/pm:.2f}"})
-        st.table(pd.DataFrame(mg_res))
-    with cm2:
-        st.subheader("🏁 Handicap & Asian")
-        h1_1 = np.sum(matrix[np.indices((10,10))[0] - 1 > np.indices((10,10))[1]])
-        st.write(f"**Handicap Europeo (-1):** Prob 1: {h1_1:.1%} | Fair: {1/h1_1:.2f}")
-        dnb_p = (p1/(p1+p2)) if (p1+p2)>0 else 0
-        st.write(f"**Asian DNB (0.0):** Prob 1: {dnb_p:.1%} | Fair: {1/dnb_p:.2f}")
-
-# --- SALVATAGGIO STORICO ---
-if st.session_state.get('analyzed'):
-    if st.button("💾 SALVA IN STORICO"):
-        st.session_state.history.append({
-            "Data": date.today().strftime("%d/%m"), 
-            "Match": f"{st.session_state.home_name_display}-{st.session_state.away_name_display}", 
-            "P1": st.session_state.p1, 
-            "PX": st.session_state.pX, 
-            "P2": st.session_state.p2, 
-            "Stabilità": st.session_state.stability, 
-            "Risultato": "In attesa"
-        })
-        st.toast("Salvato con successo!")
-
-# --- PLAYER PROP ---
-if st.session_state.get('analyzed'):
+    # Mostriamo i parametri attivi per conferma
+    st.info(f"**Parametri Attivi (ML):**\n\n🏠 Home Advantage: {L_DATA['ha']:.3f}\n\n🔗 Rho (Correlazione): {L_DATA['rho']:.3f}\n\n⚽ Media Gol: {L_DATA['avg']:.2f}")
+    
     st.markdown("---")
-    st.header("👤 Marcatore / Assist")
-    with st.expander("Calcolatore Giocatore Avanzato", expanded=True):
-        pcol1, pcol2 = st.columns(2)
-        n_h = st.session_state.h_n
-        n_a = st.session_state.a_n
-        
-        p_t = pcol1.radio("Squadra", [n_h, n_a], horizontal=True)
-        p_v = pcol2.number_input("xG/90 o xA/90", 0.01, 2.0, 0.40)
-        p_m = pcol1.number_input("Minuti attesi", 1, 100, 80)
-        p_b = pcol2.number_input("Quota Bookie", 1.01, 100.0, 2.50)
-        
-        ctx_xg = st.session_state.f_xh if p_t == n_h else st.session_state.f_xa
-        # Legge il valore medio dalla widget corretta
-        ctx_avg = st.session_state.h_gf_s if p_t == n_h else st.session_state.a_gf_s
-        
-        prob_p, _ = calculate_player_probability(p_v, p_m, ctx_xg, ctx_avg)
-        
-        r1, r2, r3 = st.columns(3)
-        r1.metric("Probabilità", f"{prob_p:.1%}")
-        r2.metric("Fair Odd", f"{1/prob_p:.2f}")
-        r3.metric("Valore %", f"{((p_b*prob_p)-1)*100:+.1f}%")
+    matchday = st.slider("Giornata (Peso Stagione)", 1, 38, 10, 
+                        help="Più alta è la giornata, più contano i dati stagionali rispetto alla forma recente. Giornata 1 = 32% stagione, Giornata 38 = 90% stagione")
+    # Calcolo peso dinamico: Giornata 1 = 32% stagione, Giornata 38 = 90% stagione
+    w_seas = min(0.90, 0.30 + (matchday * 0.02)) 
+    st.caption(f"Peso Stagionale: {w_seas:.0%} | Peso Forma: {(1-w_seas):.0%}")
+    
+    st.markdown("---")
+    m_type = st.radio("Contesto", ["Standard", "Derby", "Campo Neutro"],
+                     help="Standard: vantaggio casa normale | Derby: vantaggio casa ridotto | Campo Neutro: nessun vantaggio")
+    is_big_match = st.checkbox("🔥 Big Match", 
+                              help="Partite importanti tendono ad avere meno gol del previsto")
+    
+    st.markdown("---")
+    st.subheader("📊 Storico")
+    if st.session_state.history:
+        st.metric("Analisi Salvate", len(st.session_state.history))
+        if st.button("💾 Salva su File", use_container_width=True):
+            if salva_storico_json():
+                st.success("✅ Salvato!")
+    
+    st.markdown("---")
+    st.caption("🧠 Mathbet FC ML v2.0")
+    st.caption("Powered by Dixon-Coles Model")
 
-# --- BACKTESTING ---
-st.markdown("---")
-st.header("📈 Backtesting Performance")
-if st.session_state.history:
-    df_h = pd.DataFrame(st.session_state.history)
-    ed_df = st.data_editor(df_h, column_config={"Risultato": st.column_config.SelectboxColumn("Esito Reale", options=["1", "X", "2", "In attesa"])})
-    val = ed_df[ed_df["Risultato"] != "In attesa"]
-    if not val.empty:
-        brier = []
-        for _, r in val.iterrows():
-            o = [1 if r["Risultato"]=="1" else 0, 1 if r["Risultato"]=="X" else 0, 1 if r["Risultato"]=="2" else 0]
-            brier.append((r["P1"]-o[0])**2 + (r["PX"]-o[1])**2 + (r["P2"]-o[2])**2)
-        st.metric("Brier Score Medio", f"{np.mean(brier):.3f}", help="0=Perfetto, 2=Pessimo. Un buon modello sta sotto 0.60.")
-    if st.button("🗑️ Reset Storico"): st.session_state.history = []; st.rerun()
+st.title("Mathbet fc - ML Ultimate Edition 🚀")
+st.caption("Sistema avanzato di previsione calcistica basato su Machine Learning")
 
-# --- EXTRA: STRUMENTI MANUALI ---
-st.markdown("---")
-with st.expander("🛠️ Strumenti Manuali Rapidi"):
-    col1, col2 = st.columns(2)
-    with col1:
-        q_in = st.number_input("Reverse Quota", 1.01, 100.0, 2.0, key="rev_q")
-        st.write(f"Probabilità: **{1/q_in:.1%}**")
-    with col2:
-        mp = st.number_input("Tua Stima %", 1.0, 100.0, 50.0, key="my_p") / 100
-        mq = st.number_input("Quota", 1.01, 100.0, 2.0, key="my_q")
-        if (mp * mq) - 1 > 0:
-            val_kelly = (((mq - 1) * mp) - (1 - mp)) / (mq - 1) * 25
-            st.success(f"Value! Stake: **{val_kelly:.1f}%**")
+# --- INPUT PRINCIPALE ---
+col_h, col_a = st.columns(2)
+h_uo_input, a_uo_input = {}, {}
+
+# SQUADRA CASA
+with col_h:
+    st.subheader("🏠 Squadra Casa")
+    h_name = st.text_input("Nome Casa", "Inter")
+    h_elo = st.number_input("Rating Elo Casa", 1000.0, 2500.0, 1600.0, step=10.0,
+                           help="Rating Elo: 1800+ = Top Team | 1600 = Medio-Alto | 1400 = Media | 1200- = Basso")
+    
+    with st.expander("📊 Dati & Forma", expanded=True):
+        st.caption("Media Gol (Stagionali)")
+        c1, c2 = st.columns(2)
+        h_att = c1.number_input("Gol Fatti/Partita (C)", 0.0, 5.0, 1.85, 0.01,
+                               help="Media gol fatti per partita in tutta la stagione")
+        h_def = c2.number_input("Gol Subiti/Partita (C)", 0.0, 5.0, 0.95, 0.01,
+                               help="Media gol subiti per partita in tutta la stagione")
+        
+        st.caption("Forma Recente (Totale L5)")
+        c3, c4 = st.columns(2)
+        h_form_att = c3.number_input("Gol Fatti L5 (C)", 0.0, 25.0, 9.0, 0.5,
+                                    help="Totale gol fatti nelle ultime 5 partite")
+        h_form_def = c4.number_input("Gol Subiti L5 (C)", 0.0, 25.0, 4.0, 0.5,
+                                    help="Totale gol subiti nelle ultime 5 partite")
+
+    with st.expander("📈 Trend Over (Opzionale)", expanded=False):
+        st.caption("Percentuale storica di Over nelle partite della squadra")
+        for l in [0.5, 1.5, 2.5, 3.5, 4.5]: 
+            h_uo_input[l] = st.slider(f"Over {l} % Casa", 0, 100, 50, key=f"ho{l}",
+                                     help=f"% di partite con più di {l} gol totali")
+
+# SQUADRA OSPITE
+with col_a:
+    st.subheader("✈️ Squadra Ospite")
+    a_name = st.text_input("Nome Ospite", "Juventus")
+    a_elo = st.number_input("Rating Elo Ospite", 1000.0, 2500.0, 1550.0, step=10.0,
+                           help="Rating Elo: 1800+ = Top Team | 1600 = Medio-Alto | 1400 = Media | 1200- = Basso")
+
+    with st.expander("📊 Dati & Forma", expanded=True):
+        st.caption("Media Gol (Stagionali)")
+        c5, c6 = st.columns(2)
+        a_att = c5.number_input("Gol Fatti/Partita (O)", 0.0, 5.0, 1.45, 0.01,
+                               help="Media gol fatti per partita in tutta la stagione")
+        a_def = c6.number_input("Gol Subiti/Partita (O)", 0.0, 5.0, 0.85, 0.01,
+                               help="Media gol subiti per partita in tutta la stagione")
+        
+        st.caption("Forma Recente (Totale L5)")
+        c7, c8 = st.columns(2)
+        a_form_att = c7.number_input("Gol Fatti L5 (O)", 0.0, 25.0, 7.0, 0.5,
+                                    help="Totale gol fatti nelle ultime 5 partite")
+        a_form_def = c8.number_input("Gol Subiti L5 (O)", 0.0, 25.0, 3.0, 0.5,
+                                    help="Totale gol subiti nelle ultime 5 partite")
+
+    with st.expander("📈 Trend Over (Opzionale)", expanded=False):
+        st.caption("Percentuale storica di Over nelle partite della squadra")
+        for l in [0.5, 1.5, 2.5, 3.5, 4.5]: 
+            a_uo_input[l] = st.slider(f"Over {l} % Ospite", 0, 100, 50, key=f"ao{l}",
+                                     help=f"% di partite con più di {l} gol totali")
+
+st.subheader("💰 Quote Bookmaker")
+st.caption("Inserisci le quote per calcolare il value bet")
+qc1, qc2, qc3 = st.columns(3)
+b1 = qc1.number_input("Quota 1", 1.01, 100.0, 2.10, help="Quota vittoria casa")
+bX = qc2.number_input("Quota X", 1.01, 100.0, 3.20, help="Quota pareggio")
+b2 = qc3.number_input("Quota 2", 1.01, 100.0, 3.60, help="Quota vittoria ospite")
+
+# --- OPZIONI AVANZATE (FINE TUNING - FUNZIONE ORIGINALE) ---
+with st.expander("⚙️ Fine Tuning (Stanchezza & Assenze)"):
+    st.caption("Regola gli xG in base a turnover, riposo e assenze chiave")
+    c_str1, c_str2 = st.columns(2)
+    h_str = c_str1.slider("Titolari % Casa", 50, 100, 100, 
+                         help="% di titolari in campo - influenza la qualità complessiva")
+    a_str = c_str2.slider("Titolari % Ospite", 50, 100, 100,
+                         help="% di titolari in campo - influenza la qualità complessiva")
+    h_rest = c_str1.slider("Riposo Casa (gg)", 2, 10, 7,
+                          help="Giorni di riposo - meno di 4 giorni causa stanchezza")
+    a_rest = c_str2.slider("Riposo Ospite (gg)", 2, 10, 7,
+                          help="Giorni di riposo - meno di 4 giorni causa stanchezza")
+    h_m_a = c_str1.checkbox("No Bomber Casa", help="Assenza attaccante principale (-15% xG)")
+    a_m_a = c_str2.checkbox("No Bomber Ospite", help="Assenza attaccante principale (-15% xG)")
+    h_m_d = c_str1.checkbox("No Difensore Casa", help="Assenza difensore chiave (+20% xG avversario)")
+    a_m_d = c_str2.checkbox("No Difensore Ospite", help="Assenza difensore chiave (+20% xG avversario)")
+
+# --- CALCOLO CORE ---
+if st.button("🚀 ANALIZZA CON ML", type="primary", use_container_width=True):
+    
+    with st.spinner("🔄 Elaborazione in corso..."):
+        progress_bar = st.progress(0)
+        
+        # 1. Recupero Parametri ML ottimizzati
+        progress_bar.progress(10)
+        home_adv_goals = L_DATA["ha"]
+        rho_val = L_DATA["rho"]
+        avg_goals_league = L_DATA["avg"]
+        
+        # Adattamento contesto
+        if m_type == "Campo Neutro": home_adv_goals = 0.0
+        elif m_type == "Derby": home_adv_goals *= 0.5
+
+        # 2. Calcolo Forza Squadre (Mix pesato Stagione/Forma)
+        progress_bar.progress(25)
+        h_a_val, h_d_val = calcola_forza_squadra(h_att, h_def, h_form_att, h_form_def, w_seas)
+        a_a_val, a_d_val = calcola_forza_squadra(a_att, a_def, a_form_att, a_form_def, w_seas)
+        
+        # 3. Calcolo xG Base (Attacco x Difesa / Media)
+        progress_bar.progress(40)
+        xg_h_stats = (h_a_val * a_d_val) / avg_goals_league
+        xg_a_stats = (a_a_val * h_d_val) / avg_goals_league
+        
+        # 4. Elo Adjustment (Correzione basata sulla forza storica)
+        elo_diff = (h_elo + (100 if m_type=="Standard" else 0)) - a_elo
+        elo_factor_h = 1 + (elo_diff / 1000.0)
+        elo_factor_a = 1 - (elo_diff / 1000.0)
+        
+        # 5. Lambda Definitivi (Con Home Adv ottimizzato da ML)
+        progress_bar.progress(50)
+        f_xh = (xg_h_stats * elo_factor_h) + home_adv_goals
+        f_xa = (xg_a_stats * elo_factor_a)
+        
+        # VALIDAZIONE INPUT
+        errors = valida_input(avg_goals_league, f_xh, f_xa)
+        if errors:
+            progress_bar.empty()
+            for error in errors:
+                st.error(error)
+            st.stop()
+        
+        # 6. Applicazione Malus Fine Tuning (FUNZIONE ORIGINALE)
+        progress_bar.progress(60)
+        fatigue_malus = 0.05 
+        if h_rest <= 3: f_xh *= (1 - fatigue_malus); f_xa *= (1 + fatigue_malus) 
+        if a_rest <= 3: f_xa *= (1 - fatigue_malus); f_xh *= (1 + fatigue_malus)
+        f_xh *= (h_str/100.0)
+        f_xa *= (a_str/100.0)
+        
+        if is_big_match: f_xh *= 0.90; f_xa *= 0.90
+        if h_m_a: f_xh *= 0.85
+        if h_m_d: f_xa *= 1.20
+        if a_m_a: f_xa *= 0.85
+        if a_m_d: f_xh *= 1.20
+
+        # 7. Generazione Matrice Dixon-Coles
+        progress_bar.progress(75)
+        p1, pX, p2, pGG = 0, 0, 0, 0
+        matrix = np.zeros((10,10)); scores = []
+        
+        for h_g in range(10):
+            for a_g in range(10):
+                p = dixon_coles_probability(h_g, a_g, f_xh, f_xa, rho_val)
+                matrix[h_g,a_g] = p
+                if h_g > a_g: p1 += p
+                elif h_g == a_g: pX += p
+                else: p2 += p
+                if h_g>0 and a_g>0: pGG += p
+                if h_g<6 and a_g<6: scores.append({"Risultato": f"{h_g}-{a_g}", "Prob": p})
+                
+        # Normalizzazione
+        tot = np.sum(matrix)
+        if tot > 0: matrix /= tot; p1 /= tot; pX /= tot; p2 /= tot; pGG /= tot
+        p1X, pX2, p12 = p1+pX, pX+p2, p1+p2
+
+        # 8. Calcolo Stabilità (Simulazione Monte Carlo con CACHE)
+        progress_bar.progress(90)
+        sim = monte_carlo_simulation(f_xh, f_xa, 5000)
+        s1, sX, s2 = sim.count(1)/5000, sim.count(0)/5000, sim.count(2)/5000
+        stability = max(0, 100 - ((abs(p1-s1)+abs(pX-sX)+abs(p2-s2))/3*400))
+
+        # Salvataggio Stato
+        progress_bar.progress(100)
+        st.session_state.analyzed = True
+        st.session_state.f_xh = f_xh; st.session_state.f_xa = f_xa
+        st.session_state.h_name = h_name; st.session_state.a_name = a_name
+        st.session_state.p1 = p1; st.session_state.pX = pX; st.session_state.p2 = p2
+        st.session_state.p1X = p1X; st.session_state.pX2 = pX2; st.session_state.p12 = p12
+        st.session_state.pGG = pGG; st.session_state.stability = stability
+        st.session_state.matrix = matrix; st.session_state.scores = scores
+        st.session_state.b1 = b1; st.session_state.bX = bX; st.session_state.b2 = b2
+        st.session_state.league = league_name
+        st.session_state.avg_goals_league = avg_goals_league
+        
+        progress_bar.empty()
+        st.success("✅ Analisi completata con successo!")
+
+# --- OUTPUT VISIVO ---
+if st.session_state.analyzed:
+    st.markdown("---")
+    st.header(f"📊 {st.session_state.h_name} vs {st.session_state.a_name}")
+    
+    col_m1, col_m2, col_m3 = st.columns(3)
+    col_m1.metric("Expected Goals (xG)", 
+                  f"{st.session_state.f_xh:.2f} - {st.session_state.f_xa:.2f}")
+    col_m2.metric("Stabilità Modello", 
+                  f"{st.session_state.stability:.1f}%",
+                  delta="Eccellente" if st.session_state.stability > 85 else "Buona" if st.session_state.stability > 70 else "Media")
+    col_m3.metric("Campionato",
+                  st.session_state.league.split(" ")[-1] if " " in st.session_state.league else "Generico")
+
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["🏆 Esito", "⚽ Gol", "👤 Marcatori", "📊 Grafici", "📝 Storico"])
+
+    with tab1:
+        c1, c2 = st.columns(2)
+        
+        with c1:
+            st.subheader("Probabilità 1X2")
+            df_1x2 = pd.DataFrame({
+                "Esito": ["1 (Casa)", "X (Pareggio)", "2 (Ospite)", "1X", "X2", "12"],
+                "Prob %": [f"{st.session_state.p1:.1%}", f"{st.session_state.pX:.1%}", f"{st.session_state.p2:.1%}", 
+                          f"{st.session_state.p1X:.1%}", f"{st.session_state.pX2:.1%}", f"{st.session_state.p12:.1%}"],
+                "Fair Odd": [f"{1/st.session_state.p1:.2f}", f"{1/st.session_state.pX:.2f}", f"{1/st.session_state.p2:.2f}", 
+                            f"{1/st.session_state.p1X:.2f}", f"{1/st.session_state.pX2:.2f}", f"{1/st.session_state.p12:.2f}"],
+                "Bookie": [st.session_state.b1, st.session_state.bX, st.session_state.b2, "-", "-", "-"],
+                "Value %": [f"{(st.session_state.b1*st.session_state.p1-1)*100:.1f}%", 
+                           f"{(st.session_state.bX*st.session_state.pX-1)*100:.1f}%", 
+                           f"{(st.session_state.b2*st.session_state.p2-1)*100:.1f}%", "-", "-", "-"]
+            })
+            
+            # Evidenzia value bet
+            def highlight_value(row):
+                if row['Esito'] in ['1 (Casa)', 'X (Pareggio)', '2 (Ospite)']:
+                    val = float(row['Value %'].strip('%'))
+                    if val > 5:
+                        return ['background-color: #90EE90'] * len(row)
+                    elif val > 0:
+                        return ['background-color: #FFFFE0'] * len(row)
+                return [''] * len(row)
+            
+            st.dataframe(df_1x2.style.apply(highlight_value, axis=1), hide_index=True, use_container_width=True)
+            
+            st.caption("🟢 Verde = Value Bet forte (>5%) | 🟡 Giallo = Value Bet (>0%)")
+            
+        with c2:
+            st.subheader("Risultati Esatti Top")
+            scores = st.session_state.scores.copy()
+            scores.sort(key=lambda x: x["Prob"], reverse=True)
+            df_scores = pd.DataFrame([{
+                "Score": s["Risultato"], 
+                "Probabilità": f"{s['Prob']:.1%}", 
+                "Quota Fair": f"{1/s['Prob']:.2f}"
+            } for s in scores[:8]])
+            st.dataframe(df_scores, hide_index=True, use_container_width=True)
+            
+            st.caption("Heatmap Probabilità Risultati")
+            fig, ax = plt.subplots(figsize=(6,4))
+            sns.heatmap(st.session_state.matrix[:6,:6], annot=True, fmt=".1%", 
+                       cmap="RdYlGn", cbar=True, xticklabels=range(6), yticklabels=range(6))
+            plt.xlabel("Gol Ospite"); plt.ylabel("Gol Casa")
+            plt.title("Matrice Dixon-Coles")
+            st.pyplot(fig)
+
+    with tab2:
+        c1, c2 = st.columns(2)
+        
+        with c1:
+            st.subheader("Under / Over")
+            uo_res = []
+            for l in [0.5, 1.5, 2.5, 3.5, 4.5]:
+                p_pure = np.sum(st.session_state.matrix[np.indices((10,10))[0] + np.indices((10,10))[1] > l])
+                # Mix tra calcolo puro e trend inserito dall'utente
+                trend = (h_uo_input.get(l,50) + a_uo_input.get(l,50))/200.0
+                p_final = (p_pure * 0.7) + (trend * 0.3) 
+                uo_res.append({
+                    "Linea": f"O/U {l}", 
+                    "Under %": f"{(1-p_final):.1%}", 
+                    "Quota U": f"{1/(1-p_final):.2f}", 
+                    "Over %": f"{p_final:.1%}", 
+                    "Quota O": f"{1/p_final:.2f}"
+                })
+            st.dataframe(pd.DataFrame(uo_res), hide_index=True, use_container_width=True)
+            
+        with c2:
+            st.subheader("Gol & Handicap")
+            df_gg = pd.DataFrame([
+                {"Esito": "Goal (GG)", "Probabilità": f"{st.session_state.pGG:.1%}", "Quota Fair": f"{1/st.session_state.pGG:.2f}"}, 
+                {"Esito": "No Goal (NG)", "Probabilità": f"{(1-st.session_state.pGG):.1%}", "Quota Fair": f"{1/(1-st.session_state.pGG):.2f}"}
+            ])
+            st.dataframe(df_gg, hide_index=True, use_container_width=True)
+            
+            st.markdown("**Handicap Asiatico**")
+            h_hand = np.sum(st.session_state.matrix[np.indices((10,10))[0] - 1 > np.indices((10,10))[1]])
+            a_hand = np.sum(st.session_state.matrix[np.indices((10,10))[0] + 1 < np.indices((10,10))[1]])
+            
+            st.write(f"🏠 **Casa (-1):** {h_hand:.1%} (@{1/h_hand:.2f})")
+            st.write(f"✈️ **Ospite (-1):** {a_hand:.1%} (@{1/a_hand:.2f})")
+            
+            # Multigol
+            st.markdown("**Multigol**")
+            mg_1_2 = np.sum(st.session_state.matrix[(np.indices((10,10))[0] + np.indices((10,10))[1] >= 1) & 
+                                                    (np.indices((10,10))[0] + np.indices((10,10))[1] <= 2)])
+            mg_2_3 = np.sum(st.session_state.matrix[(np.indices((10,10))[0] + np.indices((10,10))[1] >= 2) & 
+                                                    (np.indices((10,10))[0] + np.indices((10,10))[1] <= 3)])
+            mg_3_4 = np.sum(st.session_state.matrix[(np.indices((10,10))[0] + np.indices((10,10))[1] >= 3) & 
+                                                    (np.indices((10,10))[0] + np.indices((10,10))[1] <= 4)])
+            st.write(f"1-2 Gol: {mg_1_2:.1%} (@{1/mg_1_2:.2f})")
+            st.write(f"2-3 Gol: {mg_2_3:.1%} (@{1/mg_2_3:.2f})")
+            st.write(f"3-4 Gol: {mg_3_4:.1%} (@{1/mg_3_4:.2f})")
+
+    with tab3:
+        st.subheader("🎯 Calcolatore Marcatore")
+        st.caption("Stima la probabilità che un giocatore segni in base ai suoi xG e ai minuti previsti")
+        
+        c1, c2 = st.columns(2)
+        pl_n = c1.text_input("Nome Giocatore", "Vlahovic")
+        pl_xg = c1.number_input("xG per 90 minuti", 0.01, 2.0, 0.45, 0.01,
+                               help="Expected Goals medi ogni 90 minuti giocati")
+        pl_min = c2.number_input("Minuti Previsti", 1, 100, 85, 1,
+                                help="Minuti che il giocatore dovrebbe giocare")
+        is_home_team = c1.checkbox("È della squadra di Casa?", value=True)
+        
+        # Usa gli xG totali calcolati per la squadra e la media del campionato
+        team_xg = st.session_state.f_xh if is_home_team else st.session_state.f_xa
+        team_avg_xg = st.session_state.avg_goals_league
+        
+        p_goal = calculate_player_probability(pl_xg, pl_min, team_xg, team_avg_xg)
+        p_2plus = calculate_player_probability(pl_xg * 1.8, pl_min, team_xg, team_avg_xg)
+        
+        col1, col2, col3 = st.columns(3)
+        col1.metric(f"Prob. Gol {pl_n}", f"{p_goal:.1%}")
+        col2.metric("Quota Fair", f"{1/p_goal:.2f}")
+        col3.metric("Prob. 2+ Gol", f"{p_2plus:.1%}")
+        
+        st.info(f"💡 Con xG di squadra a {team_xg:.2f} e media campionato {team_avg_xg:.2f}, "
+               f"il giocatore ha un fattore moltiplicativo di {team_xg/team_avg_xg:.2f}x")
+
+    with tab4:
+        st.subheader("📊 Visualizzazioni Avanzate")
+        
+        # Grafico a barre probabilità 1X2
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            fig1 = go.Figure(data=[
+                go.Bar(name='Probabilità', 
+                      x=['1 (Casa)', 'X', '2 (Ospite)'], 
+                      y=[st.session_state.p1*100, st.session_state.pX*100, st.session_state.p2*100],
+                      marker_color=['#2E7D32', '#FBC02D', '#C62828'],
+                      text=[f"{st.session_state.p1:.1%}", f"{st.session_state.pX:.1%}", f"{st.session_state.p2:.1%}"],
+                      textposition='auto')
+            ])
+            fig1.update_layout(title="Distribuzione Probabilità 1X2",
+                             yaxis_title="Probabilità %",
+                             showlegend=False,
+                             height=400)
+            st.plotly_chart(fig1, use_container_width=True)
+        
+        with col2:
+            # Confronto Fair Odds vs Bookie
+            fig2 = go.Figure()
+            fig2.add_trace(go.Bar(name='Quota Fair',
+                                 x=['1', 'X', '2'],
+                                 y=[1/st.session_state.p1, 1/st.session_state.pX, 1/st.session_state.p2],
+                                 marker_color='lightblue'))
+            fig2.add_trace(go.Bar(name='Quota Bookmaker',
+                                 x=['1', 'X', '2'],
+                                 y=[st.session_state.b1, st.session_state.bX, st.session_state.b2],
+                                 marker_color='coral'))
+            fig2.update_layout(title="Confronto Quote Fair vs Bookmaker",
+                             yaxis_title="Quota",
+                             barmode='group',
+                             height=400)
+            st.plotly_chart(fig2, use_container_width=True)
+        
+        # Distribuzione gol totali
+        gol_dist = []
+        for tot_gol in range(11):
+            prob = np.sum(st.session_state.matrix[np.indices((10,10))[0] + np.indices((10,10))[1] == tot_gol])
+            gol_dist.append({"Gol": tot_gol, "Probabilità": prob*100})
+        
+        df_gol = pd.DataFrame(gol_dist)
+        fig3 = px.bar(df_gol, x='Gol', y='Probabilità', 
+                     title='Distribuzione Probabilità Gol Totali',
+                     labels={'Probabilità': 'Probabilità %'},
+                     color='Probabilità',
+                     color_continuous_scale='Greens')
+        fig3.update_layout(height=400)
+        st.plotly_chart(fig3, use_container_width=True)
+
+    with tab5:
+        st.subheader("📝 Storico Analisi & Backtesting")
+        
+        col_save1, col_save2 = st.columns([3, 1])
+        
+        with col_save1:
+            if st.button("💾 Salva Risultato Corrente", use_container_width=True):
+                risultato_corrente = {
+                    "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                    "Match": f"{st.session_state.h_name} - {st.session_state.a_name}",
+                    "xG": f"{st.session_state.f_xh:.2f} - {st.session_state.f_xa:.2f}",
+                    "P1": round(st.session_state.p1, 3),
+                    "PX": round(st.session_state.pX, 3),
+                    "P2": round(st.session_state.p2, 3),
+                    "Stabilità": round(st.session_state.stability, 1),
+                    "Campionato": st.session_state.league,
+                    "Esito Reale": "?"
+                }
+                st.session_state.history.append(risultato_corrente)
+                st.success("✅ Risultato salvato nello storico!")
+        
+        with col_save2:
+            if st.session_state.history:
+                # Export CSV
+                csv_data = export_risultati_csv(st.session_state.history[-1])
+                st.download_button(
+                    label="📥 Export CSV",
+                    data=csv_data,
+                    file_name=f"mathbet_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
+        
+        if st.session_state.history:
+            st.markdown("---")
+            st.write(f"**Totale Analisi Salvate:** {len(st.session_state.history)}")
+            
+            # Editor con risultati reali
+            df_history = pd.DataFrame(st.session_state.history)
+            
+            edited_df = st.data_editor(
+                df_history,
+                column_config={
+                    "Esito Reale": st.column_config.SelectboxColumn(
+                        "Esito Reale",
+                        options=["1", "X", "2", "?"],
+                        help="Inserisci il risultato reale della partita",
+                        required=True
+                    ),
+                    "Timestamp": st.column_config.TextColumn("Data/Ora", disabled=True),
+                    "Match": st.column_config.TextColumn("Partita", disabled=True),
+                    "P1": st.column_config.NumberColumn("Prob 1", format="%.3f", disabled=True),
+                    "PX": st.column_config.NumberColumn("Prob X", format="%.3f", disabled=True),
+                    "P2": st.column_config.NumberColumn("Prob 2", format="%.3f", disabled=True),
+                },
+                hide_index=True,
+                use_container_width=True,
+                num_rows="dynamic"
+            )
+            
+            # Aggiorna storico con modifiche
+            st.session_state.history = edited_df.to_dict('records')
+            
+            # Calcolo Brier Score e Accuracy
+            validated = edited_df[edited_df["Esito Reale"] != "?"]
+            
+            if not validated.empty:
+                st.markdown("---")
+                st.subheader("📈 Performance del Modello")
+                
+                col_perf1, col_perf2, col_perf3, col_perf4 = st.columns(4)
+                
+                # Brier Score
+                brier_scores = []
+                correct_predictions = 0
+                
+                for _, row in validated.iterrows():
+                    actual = [1 if row["Esito Reale"]=="1" else 0, 
+                             1 if row["Esito Reale"]=="X" else 0, 
+                             1 if row["Esito Reale"]=="2" else 0]
+                    predicted = [row["P1"], row["PX"], row["P2"]]
+                    
+                    brier = sum((predicted[i] - actual[i])**2 for i in range(3))
+                    brier_scores.append(brier)
+                    
+                    # Check se la previsione con prob più alta è corretta
+                    max_prob_idx = predicted.index(max(predicted))
+                    if actual[max_prob_idx] == 1:
+                        correct_predictions += 1
+                
+                avg_brier = np.mean(brier_scores)
+                accuracy = (correct_predictions / len(validated)) * 100
+                
+                col_perf1.metric("Brier Score", f"{avg_brier:.3f}",
+                               help="0 = Perfetto | <0.25 = Ottimo | <0.50 = Buono | >0.50 = Da migliorare")
+                col_perf2.metric("Accuracy", f"{accuracy:.1f}%",
+                               help="% di previsioni corrette (esito con prob maggiore)")
+                col_perf3.metric("Partite Validate", len(validated))
+                col_perf4.metric("Stabilità Media", f"{validated['Stabilità'].mean():.1f}%")
+                
+                # Grafico performance nel tempo
+                if len(validated) > 1:
+                    fig_perf = go.Figure()
+                    fig_perf.add_trace(go.Scatter(
+                        y=brier_scores,
+                        mode='lines+markers',
+                        name='Brier Score',
+                        line=dict(color='royalblue', width=2),
+                        marker=dict(size=8)
+                    ))
+                    fig_perf.add_hline(y=0.25, line_dash="dash", line_color="green", 
+                                      annotation_text="Soglia Ottimo")
+                    fig_perf.update_layout(
+                        title="Evoluzione Brier Score nel Tempo",
+                        xaxis_title="Partita #",
+                        yaxis_title="Brier Score",
+                        height=300
+                    )
+                    st.plotly_chart(fig_perf, use_container_width=True)
+            
+            # Pulsanti gestione storico
+            col_btn1, col_btn2 = st.columns(2)
+            with col_btn1:
+                if st.button("🗑️ Reset Storico", use_container_width=True):
+                    st.session_state.history = []
+                    st.rerun()
+            with col_btn2:
+                if st.button("💾 Salva su File JSON", use_container_width=True):
+                    if salva_storico_json():
+                        st.success("✅ Storico salvato su mathbet_history.json!")
         else:
-            st.error("Nessun valore.")
+            st.info("📭 Nessuna analisi salvata. Clicca su 'Salva Risultato Corrente' per iniziare il tracking!")
+
+# --- FOOTER ---
+st.markdown("---")
+st.caption("🧠 Mathbet FC - ML Ultimate v2.0 | Modello Dixon-Coles con parametri ottimizzati per campionato")
+st.caption("⚠️ Questo tool è solo a scopo educativo. Gioca responsabilmente.")
