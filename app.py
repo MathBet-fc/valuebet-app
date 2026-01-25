@@ -51,8 +51,21 @@ def monte_carlo_simulation(f_xh, f_xa, n_sims=5000):
         sim.append(1 if gh>ga else (0 if gh==ga else 2))
     return sim
 
-def calcola_forza_squadra(att_season, def_season, att_form, def_form, w_season):
-    """Calcola la forza di una squadra bilanciando stagione e forma"""
+def calcola_forza_squadra(att_tot, def_tot, att_spec, def_spec, att_form, def_form, w_season):
+    """
+    Calcola la forza di una squadra bilanciando:
+    - Dati stagionali totali
+    - Dati specifici (casa/trasferta)
+    - Forma recente
+    
+    Logica: 60% specifico + 40% totale per i dati stagionali, poi mix con forma
+    """
+    # Mix tra dati specifici (casa/trasferta) e totali stagionali
+    # Diamo più peso ai dati specifici (60%) perché sono più rilevanti per il contesto
+    att_season = (att_spec * 0.60) + (att_tot * 0.40)
+    def_season = (def_spec * 0.60) + (def_tot * 0.40)
+    
+    # Poi bilancia stagione vs forma recente
     att = (att_season * w_season) + ((att_form/5.0) * (1-w_season))
     def_ = (def_season * w_season) + ((def_form/5.0) * (1-w_season))
     return att, def_
@@ -149,15 +162,24 @@ with col_h:
     h_elo = st.number_input("Rating Elo Casa", 1000.0, 2500.0, 1600.0, step=10.0,
                            help="Rating Elo: 1800+ = Top Team | 1600 = Medio-Alto | 1400 = Media | 1200- = Basso")
     
-    with st.expander("📊 Dati & Forma", expanded=True):
-        st.caption("Media Gol (Stagionali)")
+    with st.expander("📊 Dati Stagionali Totali", expanded=True):
+        st.caption("Media Gol (Tutta la Stagione - Casa + Trasferta)")
         c1, c2 = st.columns(2)
-        h_att = c1.number_input("Gol Fatti/Partita (C)", 0.0, 5.0, 1.85, 0.01,
-                               help="Media gol fatti per partita in tutta la stagione")
-        h_def = c2.number_input("Gol Subiti/Partita (C)", 0.0, 5.0, 0.95, 0.01,
-                               help="Media gol subiti per partita in tutta la stagione")
+        h_att_tot = c1.number_input("Gol Fatti/Partita Totali (C)", 0.0, 5.0, 1.85, 0.01,
+                               help="Media gol fatti per partita in tutta la stagione (casa+trasferta)")
+        h_def_tot = c2.number_input("Gol Subiti/Partita Totali (C)", 0.0, 5.0, 0.95, 0.01,
+                               help="Media gol subiti per partita in tutta la stagione (casa+trasferta)")
+    
+    with st.expander("🏠 Dati Specifici IN CASA", expanded=True):
+        st.caption("Media Gol nelle partite giocate IN CASA")
+        c1h, c2h = st.columns(2)
+        h_att_home = c1h.number_input("Gol Fatti/Partita in Casa", 0.0, 5.0, 2.10, 0.01,
+                               help="Media gol fatti nelle partite IN CASA")
+        h_def_home = c2h.number_input("Gol Subiti/Partita in Casa", 0.0, 5.0, 0.75, 0.01,
+                               help="Media gol subiti nelle partite IN CASA")
         
-        st.caption("Forma Recente (Totale L5)")
+    with st.expander("📈 Forma Recente (L5)", expanded=False):
+        st.caption("Forma Recente (Totale ultime 5 partite)")
         c3, c4 = st.columns(2)
         h_form_att = c3.number_input("Gol Fatti L5 (C)", 0.0, 25.0, 9.0, 0.5,
                                     help="Totale gol fatti nelle ultime 5 partite")
@@ -177,15 +199,24 @@ with col_a:
     a_elo = st.number_input("Rating Elo Ospite", 1000.0, 2500.0, 1550.0, step=10.0,
                            help="Rating Elo: 1800+ = Top Team | 1600 = Medio-Alto | 1400 = Media | 1200- = Basso")
 
-    with st.expander("📊 Dati & Forma", expanded=True):
-        st.caption("Media Gol (Stagionali)")
+    with st.expander("📊 Dati Stagionali Totali", expanded=True):
+        st.caption("Media Gol (Tutta la Stagione - Casa + Trasferta)")
         c5, c6 = st.columns(2)
-        a_att = c5.number_input("Gol Fatti/Partita (O)", 0.0, 5.0, 1.45, 0.01,
-                               help="Media gol fatti per partita in tutta la stagione")
-        a_def = c6.number_input("Gol Subiti/Partita (O)", 0.0, 5.0, 0.85, 0.01,
-                               help="Media gol subiti per partita in tutta la stagione")
+        a_att_tot = c5.number_input("Gol Fatti/Partita Totali (O)", 0.0, 5.0, 1.45, 0.01,
+                               help="Media gol fatti per partita in tutta la stagione (casa+trasferta)")
+        a_def_tot = c6.number_input("Gol Subiti/Partita Totali (O)", 0.0, 5.0, 0.85, 0.01,
+                               help="Media gol subiti per partita in tutta la stagione (casa+trasferta)")
+    
+    with st.expander("✈️ Dati Specifici IN TRASFERTA", expanded=True):
+        st.caption("Media Gol nelle partite giocate IN TRASFERTA")
+        c5a, c6a = st.columns(2)
+        a_att_away = c5a.number_input("Gol Fatti/Partita in Trasferta", 0.0, 5.0, 1.20, 0.01,
+                               help="Media gol fatti nelle partite IN TRASFERTA")
+        a_def_away = c6a.number_input("Gol Subiti/Partita in Trasferta", 0.0, 5.0, 1.05, 0.01,
+                               help="Media gol subiti nelle partite IN TRASFERTA")
         
-        st.caption("Forma Recente (Totale L5)")
+    with st.expander("📈 Forma Recente (L5)", expanded=False):
+        st.caption("Forma Recente (Totale ultime 5 partite)")
         c7, c8 = st.columns(2)
         a_form_att = c7.number_input("Gol Fatti L5 (O)", 0.0, 25.0, 7.0, 0.5,
                                     help="Totale gol fatti nelle ultime 5 partite")
@@ -238,10 +269,14 @@ if st.button("🚀 ANALIZZA CON ML", type="primary", use_container_width=True):
         if m_type == "Campo Neutro": home_adv_goals = 0.0
         elif m_type == "Derby": home_adv_goals *= 0.5
 
-        # 2. Calcolo Forza Squadre (Mix pesato Stagione/Forma)
+        # 2. Calcolo Forza Squadre (Mix pesato Totale/Specifico/Forma)
         progress_bar.progress(25)
-        h_a_val, h_d_val = calcola_forza_squadra(h_att, h_def, h_form_att, h_form_def, w_seas)
-        a_a_val, a_d_val = calcola_forza_squadra(a_att, a_def, a_form_att, a_form_def, w_seas)
+        # Casa: usa dati IN CASA + totali + forma
+        h_a_val, h_d_val = calcola_forza_squadra(h_att_tot, h_def_tot, h_att_home, h_def_home, 
+                                                  h_form_att, h_form_def, w_seas)
+        # Ospite: usa dati IN TRASFERTA + totali + forma
+        a_a_val, a_d_val = calcola_forza_squadra(a_att_tot, a_def_tot, a_att_away, a_def_away, 
+                                                  a_form_att, a_form_def, w_seas)
         
         # 3. Calcolo xG Base (Attacco x Difesa / Media)
         progress_bar.progress(40)
