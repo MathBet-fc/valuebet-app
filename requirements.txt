@@ -1,9 +1,8 @@
 streamlit
 pandas
 numpy
-requests
-beautifulsoup4
-lxml
-plotly
 seaborn
 matplotlib
+plotly
+json
+requests
