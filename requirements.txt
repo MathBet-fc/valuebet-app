@@ -4,7 +4,7 @@ numpy
 seaborn
 matplotlib
 plotly
+json
 requests
-lxml
-beautifulsoup4
+xlsxwriter
  
