@@ -9,6 +9,7 @@ import plotly.express as px
 import json
 import os
 import io
+import requests
 from datetime import datetime
 
 # --- CONFIGURAZIONE PAGINA ---
@@ -61,8 +62,47 @@ LEAGUES = {
 }
 
 # ==============================================================================
-# 🧠 FUNZIONI DATI & CALCOLO
+# 🧠 FUNZIONI DATI & ELO AUTOMATICO
 # ==============================================================================
+@st.cache_data(ttl=3600)
+def fetch_clubelo_ratings():
+    """Scarica i rating ELO aggiornati da api.clubelo.com"""
+    try:
+        # Scarica il CSV completo di tutti i club attivi
+        df = pd.read_csv("http://api.clubelo.com/Active")
+        # Crea un dizionario {NomeSquadra: Elo}
+        return dict(zip(df.Club, df.Elo))
+    except Exception as e:
+        return {}
+
+def get_team_elo(team_name, elo_dict):
+    """Cerca l'Elo gestendo i nomi diversi tra Understat e ClubElo"""
+    if not elo_dict: return 1600.0
+    
+    # Dizionario di correzione nomi (Understat -> ClubElo)
+    mapping = {
+        "AC Milan": "Milan",
+        "Manchester United": "Man United", 
+        "Manchester City": "Man City",
+        "Paris Saint Germain": "Paris SG",
+        "Atletico Madrid": "Atletico",
+        "Bayer Leverkusen": "Leverkusen",
+        "Borussia M.Gladbach": "Gladbach",
+        "Inter": "Inter", # Di solito coincidono, ma per sicurezza
+        "Verona": "Verona"
+    }
+    
+    # 1. Prova nome esatto
+    if team_name in elo_dict: return elo_dict[team_name]
+    
+    # 2. Prova con mapping
+    if team_name in mapping:
+        mapped_name = mapping[team_name]
+        if mapped_name in elo_dict: return elo_dict[mapped_name]
+    
+    # 3. Fallback (ritorna media base)
+    return 1600.0
+
 @st.cache_data
 def load_league_stats(league_name):
     if league_name not in LEAGUE_FILES: return {}, []
@@ -131,6 +171,7 @@ def load_league_stats(league_name):
     team_list.sort()
     return stats_db, team_list
 
+# --- FUNZIONI MATEMATICHE ---
 def dixon_coles_probability(h_goals, a_goals, mu_h, mu_a, rho):
     prob = (math.exp(-mu_h) * (mu_h**h_goals) / math.factorial(h_goals)) * \
            (math.exp(-mu_a) * (mu_a**a_goals) / math.factorial(a_goals))
@@ -147,7 +188,6 @@ def calculate_player_probability(metric_per90, expected_mins, team_match_xg, tea
     final_lambda = base_lambda * match_factor
     return 1 - math.exp(-final_lambda)
 
-# --- NUOVE FUNZIONI STATS EXTRA ---
 def poisson_probability(k, lamb):
     return (math.exp(-lamb) * (lamb**k)) / math.factorial(k)
 
@@ -247,6 +287,14 @@ with st.sidebar:
     else: st.error("❌ CSV non trovati.")
     st.markdown("---")
     
+    # ELO FETCHING (NUOVO)
+    with st.spinner("Aggiornamento Elo Club..."):
+        elo_dict = fetch_clubelo_ratings()
+        if elo_dict: st.caption(f"✅ Elo Database aggiornato ({len(elo_dict)} squadre)")
+        else: st.caption("⚠️ Impossibile scaricare Elo, uso default")
+
+    st.markdown("---")
+    
     data_mode = st.radio("Dati Analisi", ["Solo Gol Reali", "Solo xG (Expected Goals)", "Ibrido (Consigliato)"], index=2)
     st.markdown("---")
     st.subheader("⚡ Dinamica")
@@ -257,7 +305,6 @@ with st.sidebar:
     m_type = st.radio("Contesto", ["Standard", "Derby", "Campo Neutro"])
     is_big_match = st.checkbox("🔥 Big Match")
     
-    # --- NUOVO INPUT STATS EXTRA ---
     st.markdown("---")
     with st.expander("🔢 Dati Extra Manuali (Stats)", expanded=False):
         st.caption("Inserisci le medie previste (Casa vs Ospite)")
@@ -310,7 +357,10 @@ with col_h:
     h_idx = TEAM_LIST.index("Inter") if TEAM_LIST and "Inter" in TEAM_LIST else 0
     h_name = st.selectbox("Seleziona Casa", TEAM_LIST, index=h_idx, key="h_sel") if TEAM_LIST else st.text_input("Nome Casa", "Inter")
     h_stats = STATS_DB.get(h_name) if STATS_DB else None
-    h_elo = st.number_input("Rating Elo Casa", 1000.0, 2500.0, 1600.0, step=10.0)
+    
+    # ELO AUTOMATICO
+    def_h_elo = get_team_elo(h_name, elo_dict) if TEAM_LIST else 1600.0
+    h_elo = st.number_input("Rating Elo Casa", 1000.0, 2500.0, float(def_h_elo), step=10.0)
     
     with st.expander("📊 Dati", expanded=True):
         def_att_s, def_def_s, def_att_h, def_def_h, def_form_att, def_form_def = 1.85, 0.95, 1.95, 0.85, 9.0, 4.0
@@ -337,7 +387,10 @@ with col_a:
     a_idx = 1 if TEAM_LIST and len(TEAM_LIST) > 1 else 0
     a_name = st.selectbox("Seleziona Ospite", TEAM_LIST, index=a_idx, key="a_sel") if TEAM_LIST else st.text_input("Nome Ospite", "Juve")
     a_stats = STATS_DB.get(a_name) if STATS_DB else None
-    a_elo = st.number_input("Rating Elo Ospite", 1000.0, 2500.0, 1550.0, step=10.0)
+    
+    # ELO AUTOMATICO
+    def_a_elo = get_team_elo(a_name, elo_dict) if TEAM_LIST else 1550.0
+    a_elo = st.number_input("Rating Elo Ospite", 1000.0, 2500.0, float(def_a_elo), step=10.0)
 
     with st.expander("📊 Dati", expanded=True):
         def_att_s_a, def_def_s_a, def_att_a, def_def_a, def_form_att_a, def_form_def_a = 1.45, 0.85, 1.25, 1.05, 7.0, 4.0
@@ -410,7 +463,6 @@ if st.button("🚀 ANALIZZA", type="primary", use_container_width=True):
         s1, sX, s2 = sim.count(1)/5000, sim.count(0)/5000, sim.count(2)/5000
         stability = max(0, 100 - ((abs(p1-s1)+abs(pX-sX)+abs(p2-s2))/3*400))
 
-        # --- CALCOLO STATS EXTRA ---
         corn_1, corn_X, corn_2, corn_lines = calculate_stats_probs(c_corn_h, c_corn_a)
         card_1, card_X, card_2, card_lines = calculate_stats_probs(c_card_h, c_card_a)
         shot_1, shot_X, shot_2, shot_lines = calculate_stats_probs(c_shot_h, c_shot_a)
@@ -511,32 +563,51 @@ if st.session_state.analyzed:
 
     with tab4:
         st.subheader("⛳ Angoli, Cartellini e Tiri")
+        
         c_stats_1, c_stats_2 = st.columns(2)
+        
         with c_stats_1:
             st.markdown("### 🚩 Angoli")
             corn = st.session_state.stats["corners"]
-            st.table(pd.DataFrame({"Esito": ["1", "X", "2"], "Prob %": [f"{corn['1']:.1%}", f"{corn['X']:.1%}", f"{corn['2']:.1%}"], "Fair Odd": [f"{1/corn['1']:.2f}", f"{1/corn['X']:.2f}", f"{1/corn['2']:.2f}"]}))
-            st.write("**Totale Angoli**")
-            st.dataframe(pd.DataFrame([{"Linea": k, "Over %": f"{v['prob']:.1%}", "Quota": f"{v['odd']:.2f}"} for k,v in corn["lines"].items()]), hide_index=True)
+            st.table(pd.DataFrame({
+                "Esito": ["1 (Casa)", "X", "2 (Ospite)"],
+                "Prob %": [f"{corn['1']:.1%}", f"{corn['X']:.1%}", f"{corn['2']:.1%}"],
+                "Fair Odd": [f"{1/corn['1']:.2f}", f"{1/corn['X']:.2f}", f"{1/corn['2']:.2f}"]
+            }))
+            st.write("**Totale Angoli (Linee)**")
+            df_corn = pd.DataFrame([{"Linea": k, "Over %": f"{v['prob']:.1%}", "Quota": f"{v['odd']:.2f}"} for k,v in corn["lines"].items()])
+            st.dataframe(df_corn, hide_index=True)
 
             st.markdown("### 🟨 Cartellini")
             card = st.session_state.stats["cards"]
-            st.table(pd.DataFrame({"Esito": ["1", "X", "2"], "Prob %": [f"{card['1']:.1%}", f"{card['X']:.1%}", f"{card['2']:.1%}"], "Fair Odd": [f"{1/card['1']:.2f}", f"{1/card['X']:.2f}", f"{1/card['2']:.2f}"]}))
-            st.dataframe(pd.DataFrame([{"Linea": k, "Over %": f"{v['prob']:.1%}", "Quota": f"{v['odd']:.2f}"} for k,v in card["lines"].items()]), hide_index=True)
+            st.table(pd.DataFrame({
+                "Esito": ["1 (Casa)", "X", "2 (Ospite)"],
+                "Prob %": [f"{card['1']:.1%}", f"{card['X']:.1%}", f"{card['2']:.1%}"],
+                "Fair Odd": [f"{1/card['1']:.2f}", f"{1/card['X']:.2f}", f"{1/card['2']:.2f}"]
+            }))
+            df_card = pd.DataFrame([{"Linea": k, "Over %": f"{v['prob']:.1%}", "Quota": f"{v['odd']:.2f}"} for k,v in card["lines"].items()])
+            st.dataframe(df_card, hide_index=True)
 
         with c_stats_2:
             st.markdown("### 🥅 Tiri Totali")
             shot = st.session_state.stats["shots"]
-            st.table(pd.DataFrame({"Esito": ["1", "X", "2"], "Prob %": [f"{shot['1']:.1%}", f"{shot['X']:.1%}", f"{shot['2']:.1%}"], "Quota": [f"{1/shot['1']:.2f}", f"{1/shot['X']:.2f}", f"{1/shot['2']:.2f}"]}))
-            st.dataframe(pd.DataFrame([{"Linea": k, "Over %": f"{v['prob']:.1%}", "Quota": f"{v['odd']:.2f}"} for k,v in shot["lines"].items()]), hide_index=True)
+            st.table(pd.DataFrame({
+                "Esito": ["1 (Casa)", "X", "2 (Ospite)"],
+                "Prob %": [f"{shot['1']:.1%}", f"{shot['X']:.1%}", f"{shot['2']:.1%}"],
+                "Quota": [f"{1/shot['1']:.2f}", f"{1/shot['X']:.2f}", f"{1/shot['2']:.2f}"]
+            }))
+            df_shot = pd.DataFrame([{"Linea": k, "Over %": f"{v['prob']:.1%}", "Quota": f"{v['odd']:.2f}"} for k,v in shot["lines"].items()])
+            st.dataframe(df_shot, hide_index=True)
 
             st.markdown("### 🎯 Tiri in Porta")
             sot = st.session_state.stats["sot"]
-            st.dataframe(pd.DataFrame([{"Linea": k, "Over %": f"{v['prob']:.1%}", "Quota": f"{v['odd']:.2f}"} for k,v in sot["lines"].items()]), hide_index=True)
+            df_sot = pd.DataFrame([{"Linea": k, "Over %": f"{v['prob']:.1%}", "Quota": f"{v['odd']:.2f}"} for k,v in sot["lines"].items()])
+            st.dataframe(df_sot, hide_index=True)
             
             st.markdown("### 🛑 Falli")
             foul = st.session_state.stats["fouls"]
-            st.dataframe(pd.DataFrame([{"Linea": k, "Over %": f"{v['prob']:.1%}", "Quota": f"{v['odd']:.2f}"} for k,v in foul["lines"].items()]), hide_index=True)
+            df_foul = pd.DataFrame([{"Linea": k, "Over %": f"{v['prob']:.1%}", "Quota": f"{v['odd']:.2f}"} for k,v in foul["lines"].items()])
+            st.dataframe(df_foul, hide_index=True)
 
     with tab5:
         c1, c2 = st.columns(2)
@@ -547,3 +618,4 @@ if st.session_state.analyzed:
         
         excel_data = generate_excel_report()
         c2.download_button("📥 Scarica Report Excel", excel_data, f"Mathbet_{datetime.now().strftime('%H%M')}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+ 
