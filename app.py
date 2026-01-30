@@ -66,28 +66,26 @@ LEAGUES = {
 # ==============================================================================
 @st.cache_data(ttl=3600)
 def fetch_clubelo_ratings():
-    """
-    Scarica i rating ELO usando una richiesta HTTP mascherata da browser.
-    """
+    """Scarica i rating ELO con metodo robusto anti-blocco."""
     try:
-        # User-Agent per evitare il blocco 403 Forbidden
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        }
-        url = "https://api.clubelo.com/Active"
+        # TENTATIVO 1: Requests con User-Agent e SSL Ignorato
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+        url = "http://api.clubelo.com/Active" # Uso HTTP per evitare problemi SSL
+        r = requests.get(url, headers=headers, timeout=10)
         
-        # Timeout di 10 secondi per evitare blocchi infiniti
-        response = requests.get(url, headers=headers, timeout=10)
-        response.raise_for_status() # Controlla se la richiesta è andata a buon fine
-        
-        # Legge il CSV dalla risposta testuale
-        df = pd.read_csv(io.StringIO(response.text))
-        
-        return dict(zip(df.Club, df.Elo))
-    except Exception as e:
-        # Se fallisce, stampa l'errore nella console del server (invisibile all'utente ma utile)
-        print(f"Errore ClubElo: {e}")
-        return {}
+        if r.status_code == 200:
+            df = pd.read_csv(io.StringIO(r.text))
+            return dict(zip(df.Club, df.Elo))
+            
+    except Exception as e1:
+        # TENTATIVO 2: Pandas diretto con storage_options
+        try:
+            df = pd.read_csv("http://api.clubelo.com/Active", storage_options={'User-Agent': 'Mozilla/5.0'})
+            return dict(zip(df.Club, df.Elo))
+        except Exception as e2:
+            st.sidebar.error(f"⚠️ Errore Elo: {e1}") # Mostra l'errore se fallisce tutto
+            return {}
+    return {}
 
 def get_team_elo(team_name, elo_dict):
     """Cerca l'Elo gestendo i nomi diversi tra Understat e ClubElo"""
@@ -111,15 +109,11 @@ def get_team_elo(team_name, elo_dict):
         "Atalanta": "Atalanta"
     }
     
-    # 1. Prova nome esatto
     if team_name in elo_dict: return elo_dict[team_name]
-    
-    # 2. Prova con mapping
     if team_name in mapping:
         mapped_name = mapping[team_name]
         if mapped_name in elo_dict: return elo_dict[mapped_name]
     
-    # 3. Fallback
     return 1600.0
 
 @st.cache_data
