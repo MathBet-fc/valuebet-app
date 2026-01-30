@@ -147,14 +147,13 @@ def calculate_player_probability(metric_per90, expected_mins, team_match_xg, tea
     final_lambda = base_lambda * match_factor
     return 1 - math.exp(-final_lambda)
 
-# --- NUOVE FUNZIONI PER STATS EXTRA ---
+# --- NUOVE FUNZIONI STATS EXTRA ---
 def poisson_probability(k, lamb):
     return (math.exp(-lamb) * (lamb**k)) / math.factorial(k)
 
 def calculate_stats_probs(avg_h, avg_a):
-    # Calcolo 1X2 Stats (Chi ne fa di più)
     p1, pX, p2 = 0, 0, 0
-    limit = int((avg_h + avg_a) * 3) + 5 # Limite dinamico
+    limit = int((avg_h + avg_a) * 3) + 5
     for h in range(limit):
         for a in range(limit):
             prob = poisson_probability(h, avg_h) * poisson_probability(a, avg_a)
@@ -162,18 +161,14 @@ def calculate_stats_probs(avg_h, avg_a):
             elif h == a: pX += prob
             else: p2 += prob
     
-    # Calcolo Totali Match
     avg_tot = avg_h + avg_a
     lines = {}
-    # Linee standard intorno alla media
     base_line = round(avg_tot)
     for line in [base_line-1.5, base_line-0.5, base_line+0.5, base_line+1.5]:
         if line < 0: continue
-        # Prob Under = sum(P(k) for k <= line)
         p_under = sum(poisson_probability(k, avg_tot) for k in range(int(line) + 1))
         p_over = 1 - p_under
         lines[f"Over {line}"] = {"prob": p_over, "odd": 1/p_over if p_over > 0 else 999}
-        
     return p1, pX, p2, lines
 
 @st.cache_data
@@ -220,7 +215,6 @@ def generate_excel_report():
                 ]
             }
             pd.DataFrame(data_main).to_excel(writer, sheet_name='Analisi Match', index=False)
-            
             data_odds = {
                 "Esito": ["1", "X", "2"],
                 "Prob %": [st.session_state.p1, st.session_state.pX, st.session_state.p2],
@@ -229,11 +223,9 @@ def generate_excel_report():
                 "Value Bet %": [(st.session_state.b1 * st.session_state.p1) - 1, (st.session_state.bX * st.session_state.pX) - 1, (st.session_state.b2 * st.session_state.p2) - 1]
             }
             pd.DataFrame(data_odds).to_excel(writer, sheet_name='Analisi Match', startrow=12, index=False)
-            
             scores = st.session_state.scores.copy()
             scores.sort(key=lambda x: x["Prob"], reverse=True)
             pd.DataFrame(scores[:10]).to_excel(writer, sheet_name='Analisi Match', startrow=18, index=False)
-
         if st.session_state.history:
             df_hist = pd.DataFrame(st.session_state.history)
             df_hist.to_excel(writer, sheet_name='Storico Completo', index=False)
@@ -265,8 +257,8 @@ with st.sidebar:
     m_type = st.radio("Contesto", ["Standard", "Derby", "Campo Neutro"])
     is_big_match = st.checkbox("🔥 Big Match")
     
+    # --- NUOVO INPUT STATS EXTRA ---
     st.markdown("---")
-    # NUOVA SEZIONE DATI MANUALI
     with st.expander("🔢 Dati Extra Manuali (Stats)", expanded=False):
         st.caption("Inserisci le medie previste (Casa vs Ospite)")
         c_corn_h = st.number_input("Angoli Casa (Avg)", 0.0, 20.0, 5.5, 0.1)
@@ -418,16 +410,11 @@ if st.button("🚀 ANALIZZA", type="primary", use_container_width=True):
         s1, sX, s2 = sim.count(1)/5000, sim.count(0)/5000, sim.count(2)/5000
         stability = max(0, 100 - ((abs(p1-s1)+abs(pX-sX)+abs(p2-s2))/3*400))
 
-        # CALCOLO STATS EXTRA (POISSON)
-        # Angoli
+        # --- CALCOLO STATS EXTRA ---
         corn_1, corn_X, corn_2, corn_lines = calculate_stats_probs(c_corn_h, c_corn_a)
-        # Cartellini
         card_1, card_X, card_2, card_lines = calculate_stats_probs(c_card_h, c_card_a)
-        # Tiri
         shot_1, shot_X, shot_2, shot_lines = calculate_stats_probs(c_shot_h, c_shot_a)
-        # Tiri Porta
         sot_1, sot_X, sot_2, sot_lines = calculate_stats_probs(c_sot_h, c_sot_a)
-        # Falli
         foul_1, foul_X, foul_2, foul_lines = calculate_stats_probs(c_foul_h, c_foul_a)
 
         st.session_state.analyzed = True
@@ -437,8 +424,6 @@ if st.button("🚀 ANALIZZA", type="primary", use_container_width=True):
         st.session_state.pGG = pGG; st.session_state.stability = stability
         st.session_state.matrix = matrix; st.session_state.scores = scores
         st.session_state.b1 = b1; st.session_state.bX = bX; st.session_state.b2 = b2
-        
-        # Salvataggio Stats Sessione
         st.session_state.stats = {
             "corners": {"1": corn_1, "X": corn_X, "2": corn_2, "lines": corn_lines},
             "cards": {"1": card_1, "X": card_X, "2": card_2, "lines": card_lines},
@@ -457,18 +442,42 @@ if st.session_state.analyzed:
     tab1, tab2, tab3, tab4, tab5 = st.tabs(["🏆 Esito", "⚽ Gol/Multigol", "👤 Player", "⛳ Stats Extra", "📝 Storico"])
     
     with tab1:
-        res_df = pd.DataFrame({
-            "Esito": ["1", "X", "2", "1X", "X2", "12"],
-            "Prob %": [f"{st.session_state.p1:.1%}", f"{st.session_state.pX:.1%}", f"{st.session_state.p2:.1%}", f"{(st.session_state.p1+st.session_state.pX):.1%}", f"{(st.session_state.pX+st.session_state.p2):.1%}", f"{(st.session_state.p1+st.session_state.p2):.1%}"],
-            "Quota": [f"{1/st.session_state.p1:.2f}", f"{1/st.session_state.pX:.2f}", f"{1/st.session_state.p2:.2f}", f"{1/(st.session_state.p1+st.session_state.pX):.2f}", f"{1/(st.session_state.pX+st.session_state.p2):.2f}", f"{1/(st.session_state.p1+st.session_state.p2):.2f}"]
-        })
-        st.dataframe(res_df, hide_index=True)
-        scores = st.session_state.scores; scores.sort(key=lambda x: x["Prob"], reverse=True)
-        st.dataframe(pd.DataFrame([{"Risultato": s["Risultato"], "Prob": f"{s['Prob']:.1%}"} for s in scores[:5]]), hide_index=True)
+        c_1, c_2 = st.columns(2)
+        with c_1:
+            st.subheader("1X2 & Doppia Chance")
+            res_df = pd.DataFrame({
+                "Esito": ["1", "X", "2", "1X", "X2", "12"],
+                "Prob %": [f"{st.session_state.p1:.1%}", f"{st.session_state.pX:.1%}", f"{st.session_state.p2:.1%}", f"{(st.session_state.p1+st.session_state.pX):.1%}", f"{(st.session_state.pX+st.session_state.p2):.1%}", f"{(st.session_state.p1+st.session_state.p2):.1%}"],
+                "Quota": [f"{1/st.session_state.p1:.2f}", f"{1/st.session_state.pX:.2f}", f"{1/st.session_state.p2:.2f}", f"{1/(st.session_state.p1+st.session_state.pX):.2f}", f"{1/(st.session_state.pX+st.session_state.p2):.2f}", f"{1/(st.session_state.p1+st.session_state.p2):.2f}"]
+            })
+            st.dataframe(res_df, hide_index=True)
+            
+            st.subheader("Value Bet (vs Bookie)")
+            val_df = pd.DataFrame({
+                "Esito": ["1", "X", "2"],
+                "Tua Quota": [f"{1/st.session_state.p1:.2f}", f"{1/st.session_state.pX:.2f}", f"{1/st.session_state.p2:.2f}"],
+                "Bookie": [st.session_state.b1, st.session_state.bX, st.session_state.b2],
+                "Valore": [f"{(st.session_state.b1*st.session_state.p1-1):.1%}", f"{(st.session_state.bX*st.session_state.pX-1):.1%}", f"{(st.session_state.b2*st.session_state.p2-1):.1%}"]
+            })
+            st.dataframe(val_df.style.applymap(lambda x: "background-color: #d4edda" if "%" in str(x) and "-" not in str(x) and str(x) != "0.0%" else "", subset=["Valore"]), hide_index=True)
+
+        with c_2:
+            st.subheader("Risultati Esatti")
+            scores = st.session_state.scores; scores.sort(key=lambda x: x["Prob"], reverse=True)
+            st.dataframe(pd.DataFrame([{"Risultato": s["Risultato"], "Prob": f"{s['Prob']:.1%}"} for s in scores[:6]]), hide_index=True)
+            
+            st.subheader("Heatmap Punteggi")
+            fig, ax = plt.subplots(figsize=(5,4))
+            sns.heatmap(st.session_state.matrix[:6,:6], annot=True, fmt=".0%", cmap="Greens", cbar=False,
+                        xticklabels=[x for x in range(6)], yticklabels=[y for y in range(6)])
+            plt.xlabel(st.session_state.a_name)
+            plt.ylabel(st.session_state.h_name)
+            st.pyplot(fig)
 
     with tab2:
         c1, c2 = st.columns(2)
         with c1:
+            st.subheader("Under / Over")
             uo_list = []
             for l in [0.5, 1.5, 2.5, 3.5]:
                 p_pure = np.sum(st.session_state.matrix[np.indices((10,10))[0] + np.indices((10,10))[1] > l])
@@ -478,11 +487,11 @@ if st.session_state.analyzed:
             st.dataframe(pd.DataFrame(uo_list), hide_index=True)
             st.write(f"**Goal / Goal:** {st.session_state.pGG:.1%} (@{1/st.session_state.pGG:.2f})")
             
-            # HANDICAP
+            st.subheader("Handicap (-1)")
             h_hand = np.sum(st.session_state.matrix[np.indices((10,10))[0] - 1 > np.indices((10,10))[1]])
             a_hand = np.sum(st.session_state.matrix[np.indices((10,10))[0] + 1 < np.indices((10,10))[1]])
-            st.write(f"**1 Handicap (-1):** {h_hand:.1%} (@{1/h_hand:.2f})")
-            st.write(f"**2 Handicap (-1):** {a_hand:.1%} (@{1/a_hand:.2f})")
+            st.write(f"**1H (-1):** {h_hand:.1%} (@{1/h_hand:.2f})")
+            st.write(f"**2H (-1):** {a_hand:.1%} (@{1/a_hand:.2f})")
 
         with c2:
             st.subheader("Multigol")
@@ -502,52 +511,32 @@ if st.session_state.analyzed:
 
     with tab4:
         st.subheader("⛳ Angoli, Cartellini e Tiri")
-        
         c_stats_1, c_stats_2 = st.columns(2)
-        
         with c_stats_1:
             st.markdown("### 🚩 Angoli")
             corn = st.session_state.stats["corners"]
-            st.write(f"**Chi ne fa di più?**")
-            st.table(pd.DataFrame({
-                "Esito": ["1 (Casa)", "X (Uguali)", "2 (Ospite)"],
-                "Prob %": [f"{corn['1']:.1%}", f"{corn['X']:.1%}", f"{corn['2']:.1%}"],
-                "Fair Odd": [f"{1/corn['1']:.2f}", f"{1/corn['X']:.2f}", f"{1/corn['2']:.2f}"]
-            }))
-            st.write("**Totale Angoli (Linee)**")
-            df_corn = pd.DataFrame([{"Linea": k, "Over %": f"{v['prob']:.1%}", "Quota": f"{v['odd']:.2f}"} for k,v in corn["lines"].items()])
-            st.dataframe(df_corn, hide_index=True)
+            st.table(pd.DataFrame({"Esito": ["1", "X", "2"], "Prob %": [f"{corn['1']:.1%}", f"{corn['X']:.1%}", f"{corn['2']:.1%}"], "Fair Odd": [f"{1/corn['1']:.2f}", f"{1/corn['X']:.2f}", f"{1/corn['2']:.2f}"]}))
+            st.write("**Totale Angoli**")
+            st.dataframe(pd.DataFrame([{"Linea": k, "Over %": f"{v['prob']:.1%}", "Quota": f"{v['odd']:.2f}"} for k,v in corn["lines"].items()]), hide_index=True)
 
             st.markdown("### 🟨 Cartellini")
             card = st.session_state.stats["cards"]
-            st.table(pd.DataFrame({
-                "Esito": ["1 (Casa)", "X", "2 (Ospite)"],
-                "Prob %": [f"{card['1']:.1%}", f"{card['X']:.1%}", f"{card['2']:.1%}"],
-                "Fair Odd": [f"{1/card['1']:.2f}", f"{1/card['X']:.2f}", f"{1/card['2']:.2f}"]
-            }))
-            df_card = pd.DataFrame([{"Linea": k, "Over %": f"{v['prob']:.1%}", "Quota": f"{v['odd']:.2f}"} for k,v in card["lines"].items()])
-            st.dataframe(df_card, hide_index=True)
+            st.table(pd.DataFrame({"Esito": ["1", "X", "2"], "Prob %": [f"{card['1']:.1%}", f"{card['X']:.1%}", f"{card['2']:.1%}"], "Fair Odd": [f"{1/card['1']:.2f}", f"{1/card['X']:.2f}", f"{1/card['2']:.2f}"]}))
+            st.dataframe(pd.DataFrame([{"Linea": k, "Over %": f"{v['prob']:.1%}", "Quota": f"{v['odd']:.2f}"} for k,v in card["lines"].items()]), hide_index=True)
 
         with c_stats_2:
             st.markdown("### 🥅 Tiri Totali")
             shot = st.session_state.stats["shots"]
-            st.table(pd.DataFrame({
-                "Esito": ["1 (Casa)", "X", "2 (Ospite)"],
-                "Prob %": [f"{shot['1']:.1%}", f"{shot['X']:.1%}", f"{shot['2']:.1%}"],
-                "Quota": [f"{1/shot['1']:.2f}", f"{1/shot['X']:.2f}", f"{1/shot['2']:.2f}"]
-            }))
-            df_shot = pd.DataFrame([{"Linea": k, "Over %": f"{v['prob']:.1%}", "Quota": f"{v['odd']:.2f}"} for k,v in shot["lines"].items()])
-            st.dataframe(df_shot, hide_index=True)
+            st.table(pd.DataFrame({"Esito": ["1", "X", "2"], "Prob %": [f"{shot['1']:.1%}", f"{shot['X']:.1%}", f"{shot['2']:.1%}"], "Quota": [f"{1/shot['1']:.2f}", f"{1/shot['X']:.2f}", f"{1/shot['2']:.2f}"]}))
+            st.dataframe(pd.DataFrame([{"Linea": k, "Over %": f"{v['prob']:.1%}", "Quota": f"{v['odd']:.2f}"} for k,v in shot["lines"].items()]), hide_index=True)
 
             st.markdown("### 🎯 Tiri in Porta")
             sot = st.session_state.stats["sot"]
-            df_sot = pd.DataFrame([{"Linea": k, "Over %": f"{v['prob']:.1%}", "Quota": f"{v['odd']:.2f}"} for k,v in sot["lines"].items()])
-            st.dataframe(df_sot, hide_index=True)
+            st.dataframe(pd.DataFrame([{"Linea": k, "Over %": f"{v['prob']:.1%}", "Quota": f"{v['odd']:.2f}"} for k,v in sot["lines"].items()]), hide_index=True)
             
             st.markdown("### 🛑 Falli")
             foul = st.session_state.stats["fouls"]
-            df_foul = pd.DataFrame([{"Linea": k, "Over %": f"{v['prob']:.1%}", "Quota": f"{v['odd']:.2f}"} for k,v in foul["lines"].items()])
-            st.dataframe(df_foul, hide_index=True)
+            st.dataframe(pd.DataFrame([{"Linea": k, "Over %": f"{v['prob']:.1%}", "Quota": f"{v['odd']:.2f}"} for k,v in foul["lines"].items()]), hide_index=True)
 
     with tab5:
         c1, c2 = st.columns(2)
