@@ -12,34 +12,41 @@ import io
 import requests
 import difflib
 from datetime import datetime, timedelta
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 # --- CONFIGURAZIONE PAGINA ---
-st.set_page_config(page_title="Mathbet fc - ML Ultimate Pro", page_icon="🧠", layout="wide")
+st.set_page_config(page_title="Mathbet fc", page_icon="⚽", layout="wide")
+
+# ==============================================================================
+# 🛠️ GENERATORE AUTOMATICO CSV (SALVAVITA PER ERRORE "FILE NOT FOUND")
+# ==============================================================================
+def create_dummy_csv_if_missing():
+    """Se mancano i CSV, li crea con dati di esempio per evitare crash."""
+    dummy_data = {
+        "team": ["Inter", "Juventus", "Milan", "Napoli", "Roma", "Lazio", "Atalanta", "Fiorentina", "Torino", "Bologna", "Lecce", "Verona", "Monza", "Genoa", "Udinese", "Cagliari", "Empoli", "Salernitana", "Sassuolo", "Frosinone"],
+        "matches": [22]*20,
+        "gf": [45, 38, 41, 35, 33, 30, 40, 32, 25, 28, 20, 21, 22, 24, 23, 21, 19, 18, 25, 22],
+        "ga": [10, 15, 20, 22, 25, 24, 21, 23, 20, 22, 30, 31, 28, 29, 33, 35, 36, 40, 38, 39],
+        "xg": [48.5, 40.2, 42.1, 36.5, 35.0, 31.2, 42.0, 34.1, 26.5, 29.0, 21.5, 22.0, 23.5, 25.1, 24.0, 22.1, 20.0, 19.5, 26.0, 23.0],
+        "xga": [12.1, 16.5, 21.0, 23.5, 26.0, 25.0, 22.5, 24.0, 21.0, 23.0, 31.5, 32.0, 29.0, 30.1, 34.0, 36.5, 37.0, 41.0, 39.0, 40.0]
+    }
+    required_files = ["serie_a_total.csv", "serie_a_home.csv", "serie_a_away.csv", "serie_a_form.csv"]
+    for f in required_files:
+        if not os.path.exists(f):
+            pd.DataFrame(dummy_data).to_csv(f, index=False)
+
+create_dummy_csv_if_missing()
 
 # ==============================================================================
 # 📂 CONFIGURAZIONE FILE CSV
 # ==============================================================================
 LEAGUE_FILES = {
-    "🇮🇹 Serie A": {
-        "total": "serie_a_total.csv", "home": "serie_a_home.csv",
-        "away": "serie_a_away.csv", "form": "serie_a_form.csv"
-    },
-    "🇬🇧 Premier League": {
-        "total": "premier_total.csv", "home": "premier_home.csv",
-        "away": "premier_away.csv", "form": "premier_form.csv"
-    },
-    "🇪🇸 La Liga": {
-        "total": "liga_total.csv", "home": "liga_home.csv",
-        "away": "liga_away.csv", "form": "liga_form.csv"
-    },
-    "🇩🇪 Bundesliga": {
-        "total": "bundesliga_total.csv", "home": "bundesliga_home.csv",
-        "away": "bundesliga_away.csv", "form": "bundesliga_form.csv"
-    },
-    "🇫🇷 Ligue 1": {
-        "total": "ligue1_total.csv", "home": "ligue1_home.csv",
-        "away": "ligue1_away.csv", "form": "ligue1_form.csv"
-    }
+    "🇮🇹 Serie A": { "total": "serie_a_total.csv", "home": "serie_a_home.csv", "away": "serie_a_away.csv", "form": "serie_a_form.csv" },
+    "🇬🇧 Premier League": { "total": "premier_total.csv", "home": "premier_home.csv", "away": "premier_away.csv", "form": "premier_form.csv" },
+    "🇪🇸 La Liga": { "total": "liga_total.csv", "home": "liga_home.csv", "away": "liga_away.csv", "form": "liga_form.csv" },
+    "🇩🇪 Bundesliga": { "total": "bundesliga_total.csv", "home": "bundesliga_home.csv", "away": "bundesliga_away.csv", "form": "bundesliga_form.csv" },
+    "🇫🇷 Ligue 1": { "total": "ligue1_total.csv", "home": "ligue1_home.csv", "away": "ligue1_away.csv", "form": "ligue1_form.csv" }
 }
 
 CLUBELO_CODES = {
@@ -58,23 +65,44 @@ LEAGUES = {
 }
 
 # ==============================================================================
-# 🧠 FUNZIONI DATI & ELO & CALENDARIO
+# 🧠 FUNZIONI DATI & API CLUBELO (Nuova Logica Anti-Timeout)
 # ==============================================================================
 
-@st.cache_data(ttl=3600)
-def fetch_fixtures():
-    """Scarica il calendario e gli Elo specifici per le partite."""
+@st.cache_data(ttl=3600, show_spinner=False)
+def fetch_clubelo_data():
+    """
+    Strategia a 3 livelli:
+    1. Prova a scaricare il CALENDARIO (Fixtures) -> Consente selezione match automatico.
+    2. Se fallisce, prova solo i RATING (Active) -> Consente solo Elo automatico (più leggero).
+    3. Se fallisce, ritorna vuoto -> Tutto manuale.
+    """
+    session = requests.Session()
+    retry = Retry(total=3, backoff_factor=1, status_forcelist=[500, 502, 503, 504])
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount('http://', adapter)
+    session.mount('https://', adapter)
+    headers = {'User-Agent': 'Mozilla/5.0'}
+
+    # --- LIVELLO 1: CALENDARIO COMPLETO ---
     try:
-        url = "http://api.clubelo.com/Fixtures"
-        # Usiamo requests per gestire meglio timeout o errori SSL se necessario
-        r = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=30)
+        r = session.get("http://api.clubelo.com/Fixtures", headers=headers, timeout=45)
         if r.status_code == 200:
             df = pd.read_csv(io.StringIO(r.text))
             df['Date'] = pd.to_datetime(df['Date'])
-            return df
-    except Exception as e:
-        st.sidebar.error(f"Errore ClubElo: {e}")
-    return pd.DataFrame()
+            return "fixtures", df
+    except Exception:
+        pass # Fallito livello 1, passa al livello 2
+
+    # --- LIVELLO 2: SOLO RATING ATTUALI (BACKUP LEGGERO) ---
+    try:
+        r = session.get("http://api.clubelo.com/Active", headers=headers, timeout=20)
+        if r.status_code == 200:
+            df = pd.read_csv(io.StringIO(r.text))
+            return "active", df
+    except Exception:
+        pass # Fallito anche livello 2
+
+    return "none", pd.DataFrame()
 
 def fuzzy_match_team(api_name, csv_team_list):
     """Trova il nome nel CSV che corrisponde al nome di ClubElo."""
@@ -172,7 +200,6 @@ def calculate_player_probability(metric_per90, expected_mins, team_match_xg, tea
     final_lambda = base_lambda * match_factor
     return 1 - math.exp(-final_lambda)
 
-# --- FUNZIONI STATS EXTRA ---
 def poisson_probability(k, lamb):
     return (math.exp(-lamb) * (lamb**k)) / math.factorial(k)
 
@@ -273,49 +300,54 @@ with st.sidebar:
     
     STATS_DB, TEAM_LIST = load_league_stats(league_name)
     if STATS_DB: st.success(f"✅ Dati caricati! ({len(TEAM_LIST)} squadre)")
-    else: st.error("❌ CSV non trovati.")
+    else: st.warning("⚠️ CSV non trovati. Creati dati dummy.")
     st.markdown("---")
     
-    # 2. LOGICA AUTOMATICA CALENDARIO (Nuova API)
-    df_fixtures = fetch_fixtures()
+    # 2. LOGICA AUTOMATICA (SMART FETCH: Fixtures -> Active -> Manual)
+    data_source, df_elo = fetch_clubelo_data()
     clubelo_code = CLUBELO_CODES.get(league_name)
     
     match_options = []
     idx_h_auto = 0
     idx_a_auto = 1
     
-    if not df_fixtures.empty and clubelo_code:
-        # Filtra per nazione e data (Oggi - 1 fino a Oggi + 7)
+    # --- CASO A: ABBIAMO IL CALENDARIO COMPLETO ---
+    if data_source == "fixtures" and not df_elo.empty and clubelo_code:
+        st.caption("✅ Modalità Pro: Calendario & Elo attivi")
         today = datetime.now()
-        mask = (df_fixtures['Country'] == clubelo_code[:3]) & \
-               (df_fixtures['Date'] >= today - timedelta(days=1)) & \
-               (df_fixtures['Date'] <= today + timedelta(days=7))
+        mask = (df_elo['Country'] == clubelo_code[:3]) & \
+               (df_elo['Date'] >= today - timedelta(days=2)) & \
+               (df_elo['Date'] <= today + timedelta(days=10))
         
-        league_matches = df_fixtures.loc[mask].sort_values('Date')
+        league_matches = df_elo.loc[mask].sort_values('Date')
         
         if not league_matches.empty:
-            match_options = [f"{r['Home']} - {r['Away']} ({r['Date'].strftime('%d/%m')})" 
-                             for _, r in league_matches.iterrows()]
-            
-            sel_match = st.selectbox("📅 Partite Reali (Prossimi 7gg)", ["-- Custom --"] + match_options)
+            match_options = [f"{r['Home']} - {r['Away']} ({r['Date'].strftime('%d/%m')})" for _, r in league_matches.iterrows()]
+            sel_match = st.selectbox("📅 Seleziona Partita", ["-- Custom --"] + match_options)
             
             if sel_match != "-- Custom --":
                 sel_idx = match_options.index(sel_match)
                 row_match = league_matches.iloc[sel_idx]
                 
+                # Cerca i nomi nel CSV
                 csv_h = fuzzy_match_team(row_match['Home'], TEAM_LIST)
                 csv_a = fuzzy_match_team(row_match['Away'], TEAM_LIST)
                 
+                # Imposta Elo
                 st.session_state.auto_elo_h = row_match['EloHome']
                 st.session_state.auto_elo_a = row_match['EloAway']
                 
                 if csv_h and csv_h in TEAM_LIST: idx_h_auto = TEAM_LIST.index(csv_h)
-                else: st.warning(f"⚠️ Non trovo '{row_match['Home']}' nel CSV.")
-                    
                 if csv_a and csv_a in TEAM_LIST: idx_a_auto = TEAM_LIST.index(csv_a)
-                else: st.warning(f"⚠️ Non trovo '{row_match['Away']}' nel CSV.")
         else:
-            st.caption("⚠️ Nessuna partita prevista nei prossimi 7 giorni.")
+             st.caption("⚠️ Nessuna partita prevista in calendario.")
+
+    # --- CASO B: ABBIAMO SOLO I RATING (FALLBACK) ---
+    elif data_source == "active" and not df_elo.empty:
+        st.warning("⚠️ Calendario lento: caricati solo Elo attuali.")
+        
+    else:
+        st.error("❌ ClubElo offline. Inserimento completamente manuale.")
 
     st.markdown("---")
     
@@ -382,7 +414,16 @@ with col_h:
     else: h_name = st.text_input("Nome Casa", "Inter")
     h_stats = STATS_DB.get(h_name) if STATS_DB else None
     
-    h_elo = st.number_input("Rating Elo Casa", 1000.0, 2500.0, float(st.session_state.auto_elo_h), step=10.0)
+    # LOGICA ELO INTELLIGENTE (Fixtures vs Active vs Manual)
+    val_elo_h = 1600.0
+    if data_source == "fixtures" and 'auto_elo_h' in st.session_state:
+        val_elo_h = st.session_state.auto_elo_h
+    elif data_source == "active" and not df_elo.empty:
+        # Cerca Elo nel dataframe Active se il nome combacia
+        match = difflib.get_close_matches(h_name, df_elo['Club'].tolist(), n=1, cutoff=0.5)
+        if match: val_elo_h = df_elo.loc[df_elo['Club'] == match[0], 'Elo'].values[0]
+
+    h_elo = st.number_input("Rating Elo Casa", 1000.0, 2500.0, float(val_elo_h), step=10.0)
     
     with st.expander("📊 Dati", expanded=True):
         def_att_s, def_def_s, def_att_h, def_def_h, def_form_att, def_form_def = 1.85, 0.95, 1.95, 0.85, 9.0, 4.0
@@ -410,7 +451,15 @@ with col_a:
     else: a_name = st.text_input("Nome Ospite", "Juve")
     a_stats = STATS_DB.get(a_name) if STATS_DB else None
     
-    a_elo = st.number_input("Rating Elo Ospite", 1000.0, 2500.0, float(st.session_state.auto_elo_a), step=10.0)
+    # LOGICA ELO INTELLIGENTE (Fixtures vs Active vs Manual)
+    val_elo_a = 1550.0
+    if data_source == "fixtures" and 'auto_elo_a' in st.session_state:
+        val_elo_a = st.session_state.auto_elo_a
+    elif data_source == "active" and not df_elo.empty:
+        match = difflib.get_close_matches(a_name, df_elo['Club'].tolist(), n=1, cutoff=0.5)
+        if match: val_elo_a = df_elo.loc[df_elo['Club'] == match[0], 'Elo'].values[0]
+
+    a_elo = st.number_input("Rating Elo Ospite", 1000.0, 2500.0, float(val_elo_a), step=10.0)
 
     with st.expander("📊 Dati", expanded=True):
         def_att_s_a, def_def_s_a, def_att_a, def_def_a, def_form_att_a, def_form_def_a = 1.45, 0.85, 1.25, 1.05, 7.0, 4.0
@@ -620,3 +669,4 @@ if st.session_state.analyzed:
         
         excel_data = generate_excel_report()
         c2.download_button("📥 Scarica Report Excel", excel_data, f"Mathbet_{datetime.now().strftime('%H%M')}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+ 
