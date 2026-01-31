@@ -115,9 +115,7 @@ def load_league_stats(league_name):
 
     def safe_avg(val, n): return float(val) / n if n > 0 else 0.0
 
-    # --- NUOVA FUNZIONE DI ESTRAZIONE ROBUSTA ---
     def extract_stats(row):
-        # Helper per trovare valori con nomi colonna variabili
         def get_val(keys, default=0.0):
             for k in keys:
                 if k in row:
@@ -125,17 +123,12 @@ def load_league_stats(league_name):
                     except: pass
             return float(default)
 
-        # Cerca GF, GS, xG, xGA con vari sinonimi
         goals = get_val(['goals', 'gf', 'g', 'scored'], 0)
         ga = get_val(['ga', 'gs', 'gc', 'conceded', 'missed'], 0)
         xg = get_val(['xg', 'xg_for'], 0)
         xga = get_val(['xga', 'xg_against', 'xga_conc'], 0)
-        
-        # Cerca Partite Giocate (Matches, MP, P, Played, PL)
         matches = get_val(['matches', 'mp', 'p', 'played', 'pl', 'g'], 0)
 
-        # Se è un file di forma (ha stats ma matches=0), prova un fallback intelligente o lascia 0 (che darà errore visibile)
-        # Qui manteniamo la divisione pura: se matches=0 -> risultato 0
         return {
             "gf": safe_avg(goals, matches), 
             "gs": safe_avg(ga, matches), 
@@ -398,18 +391,20 @@ def get_form_val(stats_dict, metric, mode):
     form_data = stats_dict.get("form", {})
     matches_l5 = form_data.get("matches", 0)
     if matches_l5 > 0:
-        val_gol_avg = form_data.get('gf' if metric == 'gf' else 'gs', 0.0)
-        val_xg_avg = form_data.get('xg' if metric == 'gf' else 'xga', 0.0)
+        val_gol_avg = form_data.get('gf_avg' if metric == 'gf' else 'gs_avg', 0.0)
+        val_xg_avg = form_data.get('xg_avg' if metric == 'gf' else 'xga_avg', 0.0)
         if mode == "Solo Gol Reali": avg = val_gol_avg
         elif mode == "Solo xG (Expected Goals)": avg = val_xg_avg
         else: avg = (val_gol_avg + val_xg_avg) / 2.0
-        return avg * 5.0
+        # CORREZIONE: RIMOSSO IL MOLTIPLICATORE * 5.0
+        # Ora ritorna la media per partita, coerente con il resto del modello
+        return avg 
     season_avg_gol = stats_dict["total"].get('gf' if metric == 'gf' else 'gs', 0.0)
     season_avg_xg = stats_dict["total"].get('xg' if metric == 'gf' else 'xga', 0.0)
     if mode == "Solo Gol Reali": base_val = season_avg_gol
     elif mode == "Solo xG (Expected Goals)": base_val = season_avg_xg
     else: base_val = (season_avg_gol + season_avg_xg) / 2.0
-    return base_val * 5.0
+    return base_val * 5.0 # Fallback se manca il form
 
 with col_h:
     st.subheader("🏠 Squadra Casa")
@@ -427,7 +422,7 @@ with col_h:
     h_elo = st.number_input("Rating Elo Casa", 1000.0, 2500.0, float(val_elo_h), step=10.0)
     
     with st.expander("📊 Dati", expanded=True):
-        def_att_s, def_def_s, def_att_h, def_def_h, def_form_att, def_form_def = 1.85, 0.95, 1.95, 0.85, 9.0, 4.0
+        def_att_s, def_def_s, def_att_h, def_def_h, def_form_att, def_form_def = 1.85, 0.95, 1.95, 0.85, 1.5, 1.2
         if h_stats:
             def_att_s = get_val(h_stats["total"], 'gf', data_mode); def_def_s = get_val(h_stats["total"], 'gs', data_mode)
             if h_stats["home"]["matches"] > 0: def_att_h = get_val(h_stats["home"], 'gf', data_mode); def_def_h = get_val(h_stats["home"], 'gs', data_mode)
@@ -462,7 +457,7 @@ with col_a:
     a_elo = st.number_input("Rating Elo Ospite", 1000.0, 2500.0, float(val_elo_a), step=10.0)
 
     with st.expander("📊 Dati", expanded=True):
-        def_att_s_a, def_def_s_a, def_att_a, def_def_a, def_form_att_a, def_form_def_a = 1.45, 0.85, 1.25, 1.05, 7.0, 4.0
+        def_att_s_a, def_def_s_a, def_att_a, def_def_a, def_form_att_a, def_form_def_a = 1.45, 0.85, 1.25, 1.05, 1.2, 1.3
         if a_stats:
             def_att_s_a = get_val(a_stats["total"], 'gf', data_mode); def_def_s_a = get_val(a_stats["total"], 'gs', data_mode)
             if a_stats["away"]["matches"] > 0: def_att_a = get_val(a_stats["away"], 'gf', data_mode); def_def_a = get_val(a_stats["away"], 'gs', data_mode)
