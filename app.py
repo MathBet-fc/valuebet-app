@@ -115,6 +115,7 @@ def load_league_stats(league_name):
 
     def safe_avg(val, n): return float(val) / n if n > 0 else 0.0
 
+    # Funzione robusta per estrarre statistiche
     def extract_stats(row):
         def get_val(keys, default=0.0):
             for k in keys:
@@ -123,17 +124,20 @@ def load_league_stats(league_name):
                     except: pass
             return float(default)
 
+        # Cerca i valori con vari sinonimi
         goals = get_val(['goals', 'gf', 'g', 'scored'], 0)
         ga = get_val(['ga', 'gs', 'gc', 'conceded', 'missed'], 0)
         xg = get_val(['xg', 'xg_for'], 0)
         xga = get_val(['xga', 'xg_against', 'xga_conc'], 0)
         matches = get_val(['matches', 'mp', 'p', 'played', 'pl', 'g'], 0)
 
+        # Ritorna il dizionario con i valori grezzi e le partite
+        # La divisione verrà fatta dalle funzioni get_val/get_form_val
         return {
-            "gf": safe_avg(goals, matches), 
-            "gs": safe_avg(ga, matches), 
-            "xg": safe_avg(xg, matches), 
-            "xga": safe_avg(xga, matches), 
+            "goals_total": goals,
+            "ga_total": ga,
+            "xg_total": xg,
+            "xga_total": xga,
             "matches": matches
         }
 
@@ -148,13 +152,15 @@ def load_league_stats(league_name):
         team_col = next((c for c in row.index if 'team' in c or 'squad' in c), None)
         if not team_col: continue
         team_name = str(row[team_col]).strip()
-        total_stats = extract_stats(row)
-        if total_stats["matches"] > 0:
-            stats_db[team_name] = {"matches": total_stats["matches"], "total": total_stats, 
-                                   "home": {"gf":0,"gs":0,"xg":0,"xga":0,"matches":0},
-                                   "away": {"gf":0,"gs":0,"xg":0,"xga":0,"matches":0},
-                                   "form": {"gf":0,"gs":0,"xg":0,"xga":0,"matches":0}}
-            team_list.append(team_name)
+        
+        # Salva i dati grezzi nel DB
+        stats_db[team_name] = {
+            "total": extract_stats(row),
+            "home": {"goals_total":0, "ga_total":0, "xg_total":0, "xga_total":0, "matches":0},
+            "away": {"goals_total":0, "ga_total":0, "xg_total":0, "xga_total":0, "matches":0},
+            "form": {"goals_total":0, "ga_total":0, "xg_total":0, "xga_total":0, "matches":0}
+        }
+        team_list.append(team_name)
 
     if df_home is not None:
         for _, row in df_home.iterrows():
@@ -380,31 +386,46 @@ st.title("Mathbet fc - ML Ultimate Edition 🚀")
 col_h, col_a = st.columns(2)
 h_uo_input, a_uo_input = {}, {}
 
-def get_val(stats_dict, metric, mode):
-    val_gol = stats_dict.get('gf' if metric == 'gf' else 'gs', 0.0)
-    val_xg = stats_dict.get('xg' if metric == 'gf' else 'xga', 0.0)
-    if mode == "Solo Gol Reali": return val_gol
-    if mode == "Solo xG (Expected Goals)": return val_xg
-    return (val_gol + val_xg) / 2.0
+# FUNZIONE HELPER PER CALCOLARE MEDIE CORRETTE
+def calculate_avg(stats_dict, metric, mode):
+    # Recupera i dati grezzi (totali) dal dizionario
+    raw = stats_dict
+    matches = raw.get('matches', 0)
+    
+    # Se matches è 0 (es. errore CSV o dati mancanti), ritorna 0 per evitare crash
+    if matches <= 0: return 0.0
+    
+    # Seleziona il valore totale in base alla metrica richiesta
+    if metric == 'gf': 
+        val_real = raw.get('goals_total', 0)
+        val_xg = raw.get('xg_total', 0)
+    else: # gs
+        val_real = raw.get('ga_total', 0)
+        val_xg = raw.get('xga_total', 0)
+        
+    # Calcola la media in base alla modalità scelta
+    if mode == "Solo Gol Reali": 
+        return val_real / matches
+    elif mode == "Solo xG (Expected Goals)": 
+        return val_xg / matches
+    else: # Ibrido
+        return ((val_real + val_xg) / 2.0) / matches
 
+# Wrapper per i dati totali/casa/fuori
+def get_val(stats_dict, metric, mode):
+    return calculate_avg(stats_dict, metric, mode)
+
+# Wrapper specifico per la forma
 def get_form_val(stats_dict, metric, mode):
     form_data = stats_dict.get("form", {})
-    matches_l5 = form_data.get("matches", 0)
-    if matches_l5 > 0:
-        val_gol_avg = form_data.get('gf_avg' if metric == 'gf' else 'gs_avg', 0.0)
-        val_xg_avg = form_data.get('xg_avg' if metric == 'gf' else 'xga_avg', 0.0)
-        if mode == "Solo Gol Reali": avg = val_gol_avg
-        elif mode == "Solo xG (Expected Goals)": avg = val_xg_avg
-        else: avg = (val_gol_avg + val_xg_avg) / 2.0
-        # CORREZIONE: RIMOSSO IL MOLTIPLICATORE * 5.0
-        # Ora ritorna la media per partita, coerente con il resto del modello
-        return avg 
-    season_avg_gol = stats_dict["total"].get('gf' if metric == 'gf' else 'gs', 0.0)
-    season_avg_xg = stats_dict["total"].get('xg' if metric == 'gf' else 'xga', 0.0)
-    if mode == "Solo Gol Reali": base_val = season_avg_gol
-    elif mode == "Solo xG (Expected Goals)": base_val = season_avg_xg
-    else: base_val = (season_avg_gol + season_avg_xg) / 2.0
-    return base_val * 5.0 # Fallback se manca il form
+    matches = form_data.get("matches", 0)
+    
+    if matches > 0:
+        return calculate_avg(form_data, metric, mode)
+    
+    # Fallback sulla stagione intera se non c'è dato forma
+    # Moltiplicare per 1.0 (o un piccolo fattore di correzione) non per 5
+    return get_val(stats_dict["total"], metric, mode)
 
 with col_h:
     st.subheader("🏠 Squadra Casa")
@@ -424,10 +445,18 @@ with col_h:
     with st.expander("📊 Dati", expanded=True):
         def_att_s, def_def_s, def_att_h, def_def_h, def_form_att, def_form_def = 1.85, 0.95, 1.95, 0.85, 1.5, 1.2
         if h_stats:
-            def_att_s = get_val(h_stats["total"], 'gf', data_mode); def_def_s = get_val(h_stats["total"], 'gs', data_mode)
-            if h_stats["home"]["matches"] > 0: def_att_h = get_val(h_stats["home"], 'gf', data_mode); def_def_h = get_val(h_stats["home"], 'gs', data_mode)
-            else: def_att_h = def_att_s * 1.15; def_def_h = def_def_s * 0.85
-            def_form_att = get_form_val(h_stats, 'gf', data_mode); def_form_def = get_form_val(h_stats, 'gs', data_mode)
+            def_att_s = get_val(h_stats["total"], 'gf', data_mode)
+            def_def_s = get_val(h_stats["total"], 'gs', data_mode)
+            
+            if h_stats["home"]["matches"] > 0: 
+                def_att_h = get_val(h_stats["home"], 'gf', data_mode)
+                def_def_h = get_val(h_stats["home"], 'gs', data_mode)
+            else: 
+                def_att_h = def_att_s * 1.15
+                def_def_h = def_def_s * 0.85
+                
+            def_form_att = get_form_val(h_stats, 'gf', data_mode)
+            def_form_def = get_form_val(h_stats, 'gs', data_mode)
 
         c1, c2 = st.columns(2)
         h_att = c1.number_input("Attacco Totale (C)", 0.0, 5.0, float(def_att_s), 0.01)
@@ -459,10 +488,18 @@ with col_a:
     with st.expander("📊 Dati", expanded=True):
         def_att_s_a, def_def_s_a, def_att_a, def_def_a, def_form_att_a, def_form_def_a = 1.45, 0.85, 1.25, 1.05, 1.2, 1.3
         if a_stats:
-            def_att_s_a = get_val(a_stats["total"], 'gf', data_mode); def_def_s_a = get_val(a_stats["total"], 'gs', data_mode)
-            if a_stats["away"]["matches"] > 0: def_att_a = get_val(a_stats["away"], 'gf', data_mode); def_def_a = get_val(a_stats["away"], 'gs', data_mode)
-            else: def_att_a = def_att_s_a * 0.85; def_def_a = def_def_s_a * 1.15
-            def_form_att_a = get_form_val(a_stats, 'gf', data_mode); def_form_def_a = get_form_val(a_stats, 'gs', data_mode)
+            def_att_s_a = get_val(a_stats["total"], 'gf', data_mode)
+            def_def_s_a = get_val(a_stats["total"], 'gs', data_mode)
+            
+            if a_stats["away"]["matches"] > 0: 
+                def_att_a = get_val(a_stats["away"], 'gf', data_mode)
+                def_def_a = get_val(a_stats["away"], 'gs', data_mode)
+            else: 
+                def_att_a = def_att_s_a * 0.85
+                def_def_a = def_def_s_a * 1.15
+                
+            def_form_att_a = get_form_val(a_stats, 'gf', data_mode)
+            def_form_def_a = get_form_val(a_stats, 'gs', data_mode)
 
         c5, c6 = st.columns(2)
         a_att = c5.number_input("Attacco Totale (O)", 0.0, 5.0, float(def_att_s_a), 0.01)
@@ -664,4 +701,3 @@ if st.session_state.analyzed:
         
         excel_data = generate_excel_report()
         c2.download_button("📥 Scarica Report Excel", excel_data, f"Mathbet_{datetime.now().strftime('%H%M')}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
- 
