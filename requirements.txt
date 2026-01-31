@@ -5,6 +5,5 @@ seaborn
 matplotlib
 plotly
 requests
-xlsxwriter
-fsspec
- 
+lxml
+beautifulsoup4
