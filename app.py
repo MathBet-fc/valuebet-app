@@ -67,7 +67,7 @@ def fetch_fixtures():
     try:
         url = "http://api.clubelo.com/Fixtures"
         # Usiamo requests per gestire meglio timeout o errori SSL se necessario
-        r = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=10)
+        r = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=30)
         if r.status_code == 200:
             df = pd.read_csv(io.StringIO(r.text))
             df['Date'] = pd.to_datetime(df['Date'])
