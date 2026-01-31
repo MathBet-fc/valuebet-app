@@ -371,7 +371,6 @@ with st.sidebar:
         c_foul_h = st.number_input("Falli Casa", 0.0, 30.0, 11.5, 0.5)
         c_foul_a = st.number_input("Falli Ospite", 0.0, 30.0, 12.5, 0.5)
     
-    # --- NUOVA SEZIONE CALCOLATORI UTILITY ---
     with st.expander("🧮 Calcolatori Utility", expanded=False):
         st.markdown("**Convertitore Quota -> Prob %**")
         fair_odd_input = st.number_input("Inserisci Fair Odd", 1.01, 100.0, 2.00, step=0.05)
@@ -648,8 +647,19 @@ if st.session_state.analyzed:
     with tab3:
         pl_n = st.text_input("Nome", "Vlahovic")
         c1, c2 = st.columns(2)
-        pxg = c1.number_input("xG/90", 0.0, 2.0, 0.5); pmin = c2.number_input("Minuti", 1, 100, 90)
-        txg = st.session_state.f_xh if st.checkbox("Casa?") else st.session_state.f_xa
+        pxg = c1.number_input("xG/90", 0.0, 2.0, 0.5)
+        pmin = c2.number_input("Minuti", 1, 100, 90)
+        
+        # Selezione esplicita della squadra per assegnare l'xG corretto calcolato dal modello
+        team_sel = st.radio("Squadra di appartenenza", [f"Casa: {st.session_state.h_name}", f"Ospite: {st.session_state.a_name}"])
+        
+        if "Casa" in team_sel:
+            # Se è della squadra di casa, usa gli xG previsti per la Casa (f_xh)
+            txg = st.session_state.f_xh
+        else:
+            # Se è della squadra ospite, usa gli xG previsti per l'Ospite (f_xa)
+            txg = st.session_state.f_xa
+            
         pprob = calculate_player_probability(pxg, pmin, txg, 1.4)
         st.metric(f"Gol {pl_n}", f"{pprob:.1%}", f"Quota: {1/pprob:.2f}")
 
