@@ -371,6 +371,7 @@ with st.sidebar:
         c_foul_h = st.number_input("Falli Casa", 0.0, 30.0, 11.5, 0.5)
         c_foul_a = st.number_input("Falli Ospite", 0.0, 30.0, 12.5, 0.5)
     
+    # --- UTILITY CALCULATORS ---
     with st.expander("🧮 Calcolatori Utility", expanded=False):
         st.markdown("**Convertitore Quota -> Prob %**")
         fair_odd_input = st.number_input("Inserisci Fair Odd", 1.01, 100.0, 2.00, step=0.05)
@@ -389,6 +390,25 @@ with st.sidebar:
             st.warning("⚖️ Fair (Nessun Valore)")
         else:
             st.error(f"❌ No Value ({value_calc:.1%})")
+            
+        st.divider()
+        
+        st.markdown("**Calcolatore Kelly (25%)**")
+        k_bank = st.number_input("Bankroll Totale (€)", 0.0, 100000.0, 1000.0, step=10.0)
+        k_prob = st.number_input("Probabilità Vittoria (%) (K)", 0.1, 100.0, 55.0, step=1.0, key="k_prob")
+        k_odd = st.number_input("Quota Evento (K)", 1.01, 100.0, 2.00, step=0.05, key="k_odd")
+
+        if k_odd > 1:
+            b = k_odd - 1
+            p = k_prob / 100
+            q = 1 - p
+            f = (b * p - q) / b 
+            
+            if f > 0:
+                kelly_stake = (f * 0.25) * k_bank 
+                st.success(f"💰 Punta: **€ {kelly_stake:.2f}** ({f*0.25*100:.2f}%)")
+            else:
+                st.warning("⛔ Nessun Valore (No Bet)")
 
 st.title("Mathbet fc - ML Ultimate Edition 🚀")
 
@@ -650,14 +670,11 @@ if st.session_state.analyzed:
         pxg = c1.number_input("xG/90", 0.0, 2.0, 0.5)
         pmin = c2.number_input("Minuti", 1, 100, 90)
         
-        # Selezione esplicita della squadra per assegnare l'xG corretto calcolato dal modello
         team_sel = st.radio("Squadra di appartenenza", [f"Casa: {st.session_state.h_name}", f"Ospite: {st.session_state.a_name}"])
         
         if "Casa" in team_sel:
-            # Se è della squadra di casa, usa gli xG previsti per la Casa (f_xh)
             txg = st.session_state.f_xh
         else:
-            # Se è della squadra ospite, usa gli xG previsti per l'Ospite (f_xa)
             txg = st.session_state.f_xa
             
         pprob = calculate_player_probability(pxg, pmin, txg, 1.4)
