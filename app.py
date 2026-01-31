@@ -115,7 +115,6 @@ def load_league_stats(league_name):
 
     def safe_avg(val, n): return float(val) / n if n > 0 else 0.0
 
-    # Funzione robusta per estrarre statistiche
     def extract_stats(row):
         def get_val(keys, default=0.0):
             for k in keys:
@@ -124,21 +123,14 @@ def load_league_stats(league_name):
                     except: pass
             return float(default)
 
-        # Cerca i valori con vari sinonimi
         goals = get_val(['goals', 'gf', 'g', 'scored'], 0)
         ga = get_val(['ga', 'gs', 'gc', 'conceded', 'missed'], 0)
         xg = get_val(['xg', 'xg_for'], 0)
         xga = get_val(['xga', 'xg_against', 'xga_conc'], 0)
         matches = get_val(['matches', 'mp', 'p', 'played', 'pl', 'g'], 0)
 
-        # Ritorna il dizionario con i valori grezzi e le partite
-        # La divisione verrà fatta dalle funzioni get_val/get_form_val
         return {
-            "goals_total": goals,
-            "ga_total": ga,
-            "xg_total": xg,
-            "xga_total": xga,
-            "matches": matches
+            "goals_total": goals, "ga_total": ga, "xg_total": xg, "xga_total": xga, "matches": matches
         }
 
     df_total = read_csv_safe(files["total"])
@@ -152,8 +144,6 @@ def load_league_stats(league_name):
         team_col = next((c for c in row.index if 'team' in c or 'squad' in c), None)
         if not team_col: continue
         team_name = str(row[team_col]).strip()
-        
-        # Salva i dati grezzi nel DB
         stats_db[team_name] = {
             "total": extract_stats(row),
             "home": {"goals_total":0, "ga_total":0, "xg_total":0, "xga_total":0, "matches":0},
@@ -380,51 +370,55 @@ with st.sidebar:
         st.divider()
         c_foul_h = st.number_input("Falli Casa", 0.0, 30.0, 11.5, 0.5)
         c_foul_a = st.number_input("Falli Ospite", 0.0, 30.0, 12.5, 0.5)
+    
+    # --- NUOVA SEZIONE CALCOLATORI UTILITY ---
+    with st.expander("🧮 Calcolatori Utility", expanded=False):
+        st.markdown("**Convertitore Quota -> Prob %**")
+        fair_odd_input = st.number_input("Inserisci Fair Odd", 1.01, 100.0, 2.00, step=0.05)
+        st.caption(f"Probabilità Implicita: **{(1/fair_odd_input):.1%}**")
+        
+        st.divider()
+        
+        st.markdown("**Calcolatore Value Bet**")
+        my_prob = st.number_input("Tua Probabilità (%)", 0.1, 100.0, 50.0, step=1.0)
+        book_odd = st.number_input("Quota Bookmaker", 1.01, 100.0, 2.00, step=0.05)
+        value_calc = ((my_prob / 100) * book_odd) - 1
+        
+        if value_calc > 0:
+            st.success(f"✅ VALUE BET! (+{value_calc:.1%})")
+        elif value_calc == 0:
+            st.warning("⚖️ Fair (Nessun Valore)")
+        else:
+            st.error(f"❌ No Value ({value_calc:.1%})")
 
 st.title("Mathbet fc - ML Ultimate Edition 🚀")
 
 col_h, col_a = st.columns(2)
 h_uo_input, a_uo_input = {}, {}
 
-# FUNZIONE HELPER PER CALCOLARE MEDIE CORRETTE
 def calculate_avg(stats_dict, metric, mode):
-    # Recupera i dati grezzi (totali) dal dizionario
     raw = stats_dict
     matches = raw.get('matches', 0)
-    
-    # Se matches è 0 (es. errore CSV o dati mancanti), ritorna 0 per evitare crash
     if matches <= 0: return 0.0
     
-    # Seleziona il valore totale in base alla metrica richiesta
     if metric == 'gf': 
         val_real = raw.get('goals_total', 0)
         val_xg = raw.get('xg_total', 0)
-    else: # gs
+    else: 
         val_real = raw.get('ga_total', 0)
         val_xg = raw.get('xga_total', 0)
         
-    # Calcola la media in base alla modalità scelta
-    if mode == "Solo Gol Reali": 
-        return val_real / matches
-    elif mode == "Solo xG (Expected Goals)": 
-        return val_xg / matches
-    else: # Ibrido
-        return ((val_real + val_xg) / 2.0) / matches
+    if mode == "Solo Gol Reali": return val_real / matches
+    elif mode == "Solo xG (Expected Goals)": return val_xg / matches
+    else: return ((val_real + val_xg) / 2.0) / matches
 
-# Wrapper per i dati totali/casa/fuori
 def get_val(stats_dict, metric, mode):
     return calculate_avg(stats_dict, metric, mode)
 
-# Wrapper specifico per la forma
 def get_form_val(stats_dict, metric, mode):
     form_data = stats_dict.get("form", {})
     matches = form_data.get("matches", 0)
-    
-    if matches > 0:
-        return calculate_avg(form_data, metric, mode)
-    
-    # Fallback sulla stagione intera se non c'è dato forma
-    # Moltiplicare per 1.0 (o un piccolo fattore di correzione) non per 5
+    if matches > 0: return calculate_avg(form_data, metric, mode)
     return get_val(stats_dict["total"], metric, mode)
 
 with col_h:
@@ -447,14 +441,12 @@ with col_h:
         if h_stats:
             def_att_s = get_val(h_stats["total"], 'gf', data_mode)
             def_def_s = get_val(h_stats["total"], 'gs', data_mode)
-            
             if h_stats["home"]["matches"] > 0: 
                 def_att_h = get_val(h_stats["home"], 'gf', data_mode)
                 def_def_h = get_val(h_stats["home"], 'gs', data_mode)
             else: 
                 def_att_h = def_att_s * 1.15
                 def_def_h = def_def_s * 0.85
-                
             def_form_att = get_form_val(h_stats, 'gf', data_mode)
             def_form_def = get_form_val(h_stats, 'gs', data_mode)
 
@@ -490,14 +482,12 @@ with col_a:
         if a_stats:
             def_att_s_a = get_val(a_stats["total"], 'gf', data_mode)
             def_def_s_a = get_val(a_stats["total"], 'gs', data_mode)
-            
             if a_stats["away"]["matches"] > 0: 
                 def_att_a = get_val(a_stats["away"], 'gf', data_mode)
                 def_def_a = get_val(a_stats["away"], 'gs', data_mode)
             else: 
                 def_att_a = def_att_s_a * 0.85
                 def_def_a = def_def_s_a * 1.15
-                
             def_form_att_a = get_form_val(a_stats, 'gf', data_mode)
             def_form_def_a = get_form_val(a_stats, 'gs', data_mode)
 
