@@ -45,17 +45,13 @@ LEAGUES = {
 }
 
 # ==============================================================================
-# 🧠 FUNZIONI DATI & API CLUBELO (CON SELETTORE MANUALE)
+# 🧠 FUNZIONI DATI & API CLUBELO
 # ==============================================================================
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def fetch_clubelo_data(mode_preference):
-    """
-    Scarica i dati in base alla scelta dell'utente:
-    - 'auto': Prova Fixtures -> Fallback Active
-    - 'fixtures': Prova SOLO Fixtures
-    - 'active': Prova SOLO Active
-    """
+    if mode_preference == "manual": return "manual", pd.DataFrame()
+
     session = requests.Session()
     retry = Retry(total=2, backoff_factor=0.5, status_forcelist=[500, 502, 503, 504])
     adapter = HTTPAdapter(max_retries=retry)
@@ -63,10 +59,8 @@ def fetch_clubelo_data(mode_preference):
     session.mount('https://', adapter)
     headers = {'User-Agent': 'Mozilla/5.0'}
 
-    # 1. TENTATIVO FIXTURES (Se Auto o richiesto esplicitamente)
     if mode_preference in ["auto", "fixtures"]:
         try:
-            # Timeout leggermente più alto se l'utente ha forzato "fixtures"
             timeout_val = 45 if mode_preference == "fixtures" else 25
             r = session.get("http://api.clubelo.com/Fixtures", headers=headers, timeout=timeout_val)
             if r.status_code == 200:
@@ -75,10 +69,9 @@ def fetch_clubelo_data(mode_preference):
                     df['Date'] = pd.to_datetime(df['Date'])
                     return "fixtures", df
         except Exception:
-            if mode_preference == "fixtures": return "none", pd.DataFrame() # Se forzato, fallisce qui
-            pass # Altrimenti continua al fallback
+            if mode_preference == "fixtures": return "none", pd.DataFrame()
+            pass 
 
-    # 2. TENTATIVO ACTIVE (Se Auto o richiesto esplicitamente)
     if mode_preference in ["auto", "active"]:
         try:
             r = session.get("http://api.clubelo.com/Active", headers=headers, timeout=15)
@@ -92,7 +85,6 @@ def fetch_clubelo_data(mode_preference):
     return "none", pd.DataFrame()
 
 def fuzzy_match_team(api_name, csv_team_list):
-    """Trova il nome nel CSV che corrisponde al nome di ClubElo."""
     manual_map = {
         "Man United": "Manchester United", "Man City": "Manchester City",
         "Inter": "Internazionale", "Milan": "AC Milan", "Paris SG": "Paris Saint Germain",
@@ -123,14 +115,34 @@ def load_league_stats(league_name):
 
     def safe_avg(val, n): return float(val) / n if n > 0 else 0.0
 
+    # --- NUOVA FUNZIONE DI ESTRAZIONE ROBUSTA ---
     def extract_stats(row):
-        goals = row.get('goals', row.get('gf', 0))
-        ga = row.get('ga', row.get('gs', 0))
-        xg = row.get('xg', 0)
-        xga = row.get('xga', 0)
-        matches = row.get('matches', 0)
-        return {"gf": safe_avg(goals, matches), "gs": safe_avg(ga, matches), 
-                "xg": safe_avg(xg, matches), "xga": safe_avg(xga, matches), "matches": matches}
+        # Helper per trovare valori con nomi colonna variabili
+        def get_val(keys, default=0.0):
+            for k in keys:
+                if k in row:
+                    try: return float(row[k])
+                    except: pass
+            return float(default)
+
+        # Cerca GF, GS, xG, xGA con vari sinonimi
+        goals = get_val(['goals', 'gf', 'g', 'scored'], 0)
+        ga = get_val(['ga', 'gs', 'gc', 'conceded', 'missed'], 0)
+        xg = get_val(['xg', 'xg_for'], 0)
+        xga = get_val(['xga', 'xg_against', 'xga_conc'], 0)
+        
+        # Cerca Partite Giocate (Matches, MP, P, Played, PL)
+        matches = get_val(['matches', 'mp', 'p', 'played', 'pl', 'g'], 0)
+
+        # Se è un file di forma (ha stats ma matches=0), prova un fallback intelligente o lascia 0 (che darà errore visibile)
+        # Qui manteniamo la divisione pura: se matches=0 -> risultato 0
+        return {
+            "gf": safe_avg(goals, matches), 
+            "gs": safe_avg(ga, matches), 
+            "xg": safe_avg(xg, matches), 
+            "xga": safe_avg(xga, matches), 
+            "matches": matches
+        }
 
     df_total = read_csv_safe(files["total"])
     df_home = read_csv_safe(files["home"])
@@ -280,15 +292,14 @@ if 'auto_elo_a' not in st.session_state: st.session_state.auto_elo_a = 1550.0
 with st.sidebar:
     st.title("🧠 Configurazione")
     
-    # 0. SELEZIONE MODALITÀ API (NUOVO!)
-    api_mode = st.radio("Fonte Dati ClubElo", ["Automatico (Consigliato)", "Forza Calendario (/Fixtures)", "Forza Rating (/Active)"], index=0)
+    api_mode = st.radio("Fonte Dati ClubElo", ["Automatico (Consigliato)", "Forza Calendario (/Fixtures)", "Forza Rating (/Active)", "Manuale (No API)"], index=0)
     api_key_map = {
         "Automatico (Consigliato)": "auto",
         "Forza Calendario (/Fixtures)": "fixtures",
-        "Forza Rating (/Active)": "active"
+        "Forza Rating (/Active)": "active",
+        "Manuale (No API)": "manual"
     }
     
-    # 1. SELEZIONE LEGA
     league_name = st.selectbox("Campionato", list(LEAGUES.keys()))
     st.session_state.league_name = league_name
     L_DATA = LEAGUES[league_name]
@@ -298,7 +309,6 @@ with st.sidebar:
     else: st.error("❌ CSV non trovati. Controlla i nomi dei file!")
     st.markdown("---")
     
-    # 2. CARICAMENTO DATI (In base alla scelta utente)
     selected_api_mode = api_key_map[api_mode]
     data_source, df_elo = fetch_clubelo_data(selected_api_mode)
     clubelo_code = CLUBELO_CODES.get(league_name)
@@ -307,7 +317,6 @@ with st.sidebar:
     idx_h_auto = 0
     idx_a_auto = 1
     
-    # --- CASO A: ABBIAMO IL CALENDARIO COMPLETO ---
     if data_source == "fixtures" and not df_elo.empty and clubelo_code:
         st.caption(f"✅ Modalità: Calendario ({len(df_elo)} match)")
         today = datetime.now()
@@ -324,12 +333,9 @@ with st.sidebar:
             if sel_match != "-- Custom --":
                 sel_idx = match_options.index(sel_match)
                 row_match = league_matches.iloc[sel_idx]
-                
-                # Cerca i nomi nel CSV
                 csv_h = fuzzy_match_team(row_match['Home'], TEAM_LIST)
                 csv_a = fuzzy_match_team(row_match['Away'], TEAM_LIST)
                 
-                # Imposta Elo
                 if 'EloHome' in row_match.index and 'EloAway' in row_match.index:
                     st.session_state.auto_elo_h = row_match['EloHome']
                     st.session_state.auto_elo_a = row_match['EloAway']
@@ -339,9 +345,11 @@ with st.sidebar:
         else:
              st.caption("⚠️ Nessuna partita prevista in calendario.")
 
-    # --- CASO B: ABBIAMO SOLO I RATING ---
     elif data_source == "active" and not df_elo.empty:
         st.warning(f"⚡ Modalità Rating Attivi ({len(df_elo)} squadre)")
+
+    elif data_source == "manual":
+        st.info("✍️ Modalità Manuale: Inserisci Elo a mano.")
         
     else:
         st.error("❌ Nessun dato ClubElo disponibile. Inserimento manuale.")
@@ -358,8 +366,6 @@ with st.sidebar:
     m_type = st.radio("Contesto", ["Standard", "Derby", "Campo Neutro"])
     is_big_match = st.checkbox("🔥 Big Match")
     
-    # --- STATS EXTRA INPUT ---
-    st.markdown("---")
     with st.expander("🔢 Dati Extra Manuali (Stats)", expanded=False):
         c_corn_h = st.number_input("Angoli Casa (Avg)", 0.0, 20.0, 5.5, 0.1)
         c_corn_a = st.number_input("Angoli Ospite (Avg)", 0.0, 20.0, 4.5, 0.1)
@@ -392,8 +398,8 @@ def get_form_val(stats_dict, metric, mode):
     form_data = stats_dict.get("form", {})
     matches_l5 = form_data.get("matches", 0)
     if matches_l5 > 0:
-        val_gol_avg = form_data.get('gf_avg' if metric == 'gf' else 'gs_avg', 0.0)
-        val_xg_avg = form_data.get('xg_avg' if metric == 'gf' else 'xga_avg', 0.0)
+        val_gol_avg = form_data.get('gf' if metric == 'gf' else 'gs', 0.0)
+        val_xg_avg = form_data.get('xg' if metric == 'gf' else 'xga', 0.0)
         if mode == "Solo Gol Reali": avg = val_gol_avg
         elif mode == "Solo xG (Expected Goals)": avg = val_xg_avg
         else: avg = (val_gol_avg + val_xg_avg) / 2.0
@@ -411,7 +417,6 @@ with col_h:
     else: h_name = st.text_input("Nome Casa", "Inter")
     h_stats = STATS_DB.get(h_name) if STATS_DB else None
     
-    # LOGICA ELO INTELLIGENTE
     val_elo_h = 1600.0
     if data_source == "fixtures" and 'auto_elo_h' in st.session_state:
         val_elo_h = st.session_state.auto_elo_h
@@ -447,7 +452,6 @@ with col_a:
     else: a_name = st.text_input("Nome Ospite", "Juve")
     a_stats = STATS_DB.get(a_name) if STATS_DB else None
     
-    # LOGICA ELO INTELLIGENTE
     val_elo_a = 1550.0
     if data_source == "fixtures" and 'auto_elo_a' in st.session_state:
         val_elo_a = st.session_state.auto_elo_a
