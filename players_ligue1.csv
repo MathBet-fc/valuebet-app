@@ -1,0 +1,498 @@
+﻿"number";"player";"team";"apps";"min";"goals";"a";"xG";"xA";"xG90";"xA90"
+1;"Mason Greenwood";"Marseille";19;1507;13;4;10.16;4.99;0.61;0.3
+2;"Joaquín Panichelli";"Strasbourg";20;1684;11;1;11.12;2.95;0.59;0.16
+3;"Esteban Lepaul";"Angers,Rennes";20;1554;9;3;8.12;1.72;0.47;0.1
+4;"Wesley Said";"Lens";20;1441;8;2;8.06;4.62;0.5;0.29
+5;"Ilan Kebbal";"Paris FC";19;1671;8;4;5.04;3.44;0.27;0.19
+6;"Pavel Sulc";"Lyon";18;1064;8;2;5.95;1.97;0.5;0.17
+7;"Odsonne Edouard";"Lens";16;1039;7;2;6.3;1.2;0.55;0.1
+8;"Romain Del Castillo";"Brest";18;1487;7;2;6.51;4.79;0.39;0.29
+9;"Sofiane Diop";"Nice";19;1269;7;2;5.61;2.29;0.4;0.16
+10;"Anssumane Fati";"Monaco";13;504;7;0;8.74;0.9;1.56;0.16
+11;"Bradley Barcola";"Paris Saint Germain";17;993;7;1;7.02;2.34;0.64;0.21
+12;"Pierre-Emerick Aubameyang";"Marseille";18;1134;6;5;7.78;3.68;0.62;0.29
+13;"Gauthier Hein";"Metz";18;1517;6;4;4.61;2.19;0.27;0.13
+14;"Yann Gboho";"Toulouse";19;1632;6;3;2.85;2.37;0.16;0.13
+15;"Pablo Pagis";"Lorient";17;990;6;0;5;1.82;0.45;0.17
+16;"Lassine Sinayoko";"Auxerre";19;1652;6;2;6.44;3;0.35;0.16
+17;"Florian Thauvin";"Lens";20;1614;5;2;7.9;5.26;0.44;0.29
+18;"Ousmane Dembélé";"Paris Saint Germain";12;539;5;3;3.17;3.04;0.53;0.51
+19;"Breel Embolo";"Rennes";17;1225;5;2;4.17;1.23;0.31;0.09
+20;"Kamory Doumbia";"Brest";15;1146;5;2;3.16;2.33;0.25;0.18
+21;"Frank Magri";"Toulouse";17;1297;5;1;4.2;0.84;0.29;0.06
+22;"Martial Godo";"Strasbourg";15;634;5;0;4.41;0.33;0.63;0.05
+23;"Hákon Haraldsson";"Lille";18;1400;5;1;4.36;2.6;0.28;0.17
+24;"João Neves";"Paris Saint Germain";11;818;5;1;1.87;1.38;0.21;0.15
+25;"Hamza Igamane";"Lille";13;406;5;1;3.76;0.66;0.83;0.15
+26;"Olivier Giroud";"Lille";18;1302;4;1;6.21;1.45;0.43;0.1
+27;"Habib Diallo";"Metz";13;1111;4;1;4.77;0.48;0.39;0.04
+28;"Amine Gouiri";"Marseille";10;565;4;1;4.52;1.02;0.72;0.16
+29;"Mohamed Ali-Cho";"Nice";13;937;4;2;2.17;1.77;0.21;0.17
+30;"Matthis Abline";"Nantes";20;1600;4;2;5.25;2.74;0.3;0.15
+31;"Folarin Balogun";"Monaco";16;1087;4;3;5.28;2.83;0.44;0.23
+32;"Maghnes Akliouche";"Monaco";19;1532;4;2;4.15;3.69;0.24;0.22
+33;"Sambou Soumano";"Lorient";19;764;4;2;6.68;1.7;0.79;0.2
+34;"Gonçalo Ramos";"Paris Saint Germain";19;865;4;0;5.44;0.49;0.57;0.05
+35;"Emanuel Emegha";"Strasbourg";7;407;4;2;3.62;1.26;0.8;0.28
+36;"Sidiki Chérif";"Angers";19;1187;4;0;2.83;0.6;0.21;0.05
+37;"Robinio Vaz";"Marseille";14;346;4;2;2.75;0.97;0.71;0.25
+38;"Santiago Hidalgo";"Toulouse";16;483;4;2;1.92;0.21;0.36;0.04
+39;"Igor Paixão";"Marseille";17;1108;4;2;3.11;1.02;0.25;0.08
+40;"Emersonn";"Toulouse";14;892;4;2;5;0.6;0.5;0.06
+41;"Youssef El-Arabi";"Nantes";18;724;3;0;3.4;0.57;0.42;0.07
+42;"Ludovic Blas";"Rennes";18;770;3;2;3.05;3.38;0.36;0.39
+43;"Corentin Tolisso";"Lyon";18;1456;3;1;5.99;2.92;0.37;0.18
+44;"Angel Gomes";"Marseille";14;919;3;0;2.06;1.07;0.2;0.1
+45;"Willem Geubbels";"Paris FC";17;700;3;0;3.83;0.29;0.49;0.04
+46;"Moses Simon";"Paris FC";17;1256;3;2;2.24;2.41;0.16;0.17
+47;"Khvicha Kvaratskhelia";"Paris Saint Germain";16;832;3;3;3.45;3.1;0.37;0.34
+48;"Takumi Minamino";"Monaco";15;976;3;2;3.37;2.1;0.31;0.19
+49;"Sepe Elye Wahi";"Nice";4;288;3;0;1.78;0.17;0.56;0.05
+50;"Charlie Cresswell";"Toulouse";20;1800;3;1;2.46;0.43;0.12;0.02
+51;"Ahmadou Bamba Dieng";"Lorient";8;295;3;1;3.09;0.83;0.94;0.25
+52;"Felix Correia";"Lille";20;1181;3;4;2.99;4.19;0.23;0.32
+53;"Nuno Mendes";"Paris Saint Germain";13;839;3;2;1.93;1.79;0.21;0.19
+54;"Désiré Doué";"Paris Saint Germain";11;584;3;2;2.23;1.62;0.34;0.25
+55;"Mostafa Mohamed";"Nantes";17;920;3;0;2.82;1.05;0.28;0.1
+56;"Abner";"Lyon";13;1101;3;0;1.7;0.58;0.14;0.05
+57;"Rassoul Ndiaye";"Le Havre";20;1468;3;3;1.75;1.78;0.11;0.11
+58;"Issa Soumaré";"Le Havre";20;1682;3;2;8.66;2.52;0.46;0.13
+59;"Aron Dønnum";"Toulouse";17;1521;3;3;3.82;4.06;0.23;0.24
+60;"Aiyegun Tosin";"Lorient";14;738;3;0;4.1;0.92;0.5;0.11
+61;"Ethan Mbappé";"Lille";11;381;3;1;1.81;1.06;0.43;0.25
+62;"Mamadou Coulibaly";"Monaco";13;864;3;1;1.6;0.85;0.17;0.09
+63;"Senny Mayulu";"Paris Saint Germain";16;1092;3;2;3.29;2.37;0.27;0.2
+64;"Endrick";"Lyon";3;270;3;1;2.24;1.06;0.75;0.35
+65;"Matias Fernandez-Pardo";"Lille";15;1153;3;3;4.31;2.5;0.34;0.2
+66;"Mohamed Meïté";"Rennes";17;502;3;2;4.26;1.32;0.76;0.24
+67;"Rayan Fofana";"Lens";17;582;3;0;4.58;0.21;0.71;0.03
+68;"Prosper Peter";"Angers";18;797;3;0;4.5;0.49;0.51;0.06
+69;"Pierre-Emile Højbjerg";"Marseille";18;1477;2;3;2.68;2.4;0.16;0.15
+70;"Nabil Bentaleb";"Lille";16;674;2;1;1.11;0.55;0.15;0.07
+71;"Aleksandr Golovin";"Monaco";14;1033;2;2;2.74;1.51;0.24;0.13
+72;"Benjamin André";"Lille";15;1343;2;1;1.38;1.26;0.09;0.08
+73;"Djibril Sidibe";"Toulouse";20;1371;2;3;1.79;1.65;0.12;0.11
+74;"Jean-Victor Makengo";"Lorient";17;902;2;1;1.25;0.61;0.12;0.06
+75;"Jeremie Boga";"Nice";14;645;2;2;2.24;1.65;0.31;0.23
+76;"Adrien Thomasson";"Lens";19;1662;2;5;3.94;4.79;0.21;0.26
+77;"Abdoulaye Touré";"Le Havre";11;740;2;0;1.53;0.19;0.19;0.02
+78;"Achraf Hakimi";"Paris Saint Germain";10;730;2;0;1.7;0.68;0.21;0.08
+79;"Vincent Marchetti";"Paris FC";15;717;2;0;2.05;0.14;0.26;0.02
+80;"Romain Perraud";"Lille";17;1407;2;3;0.98;2.5;0.06;0.16
+81;"Timothy Weah";"Marseille";17;1254;2;2;2.28;2.05;0.16;0.15
+82;"Ludovic Ajorque";"Brest";19;1664;2;6;5.7;2.07;0.31;0.11
+83;"Naif Aguerd";"Marseille";13;1137;2;0;0.66;0.27;0.05;0.02
+84;"Eric Junior Dina Ebimbe";"Brest";14;355;2;0;1.81;0.49;0.46;0.12
+85;"Joris Chotard";"Brest";19;1624;2;0;1.17;0.05;0.07;0
+86;"Mama Baldé";"Brest";13;649;2;2;2.74;0.43;0.38;0.06
+87;"Fabien Centonze";"Nantes";8;236;2;0;0.76;0.03;0.29;0.01
+88;"Fodé Doucouré";"Le Havre";17;691;2;1;1.17;1.82;0.15;0.24
+89;"Jean-Phillipe Krasso";"Paris FC";19;937;2;2;3.56;2.78;0.34;0.27
+90;"Terem Igobor Moffi";"Nice";10;484;2;0;2.45;0.66;0.46;0.12
+91;"Martín Satriano";"Lyon";11;696;2;1;2.15;1.25;0.28;0.16
+92;"Théo Le Bris";"Lorient";19;1266;2;2;1.25;1.31;0.09;0.09
+93;"Tyler Morton";"Lyon";17;1506;2;2;1.74;1.89;0.1;0.11
+94;"Louis Mouton";"Angers";19;1358;2;1;2.44;2.12;0.16;0.14
+95;"Mika Biereth";"Monaco";18;947;2;2;3.21;1.5;0.3;0.14
+96;"Guemissongui Ouattara";"Strasbourg";17;1083;2;0;1.75;1.4;0.15;0.12
+97;"Yassin Belkhdim";"Angers";20;1647;2;2;1.56;1.44;0.09;0.08
+98;"Guela Doué";"Strasbourg";15;1255;2;5;1.33;1.85;0.1;0.13
+99;"Himad Abdelli";"Angers";13;951;2;0;1.83;0.51;0.17;0.05
+100;"Remy Labeau Lascary";"Brest";14;567;2;1;2.09;0.66;0.33;0.11
+101;"Pierre Ganiou";"Lens";9;796;2;0;1.45;0.02;0.16;0
+102;"Mousa Al Tamari";"Rennes";19;1198;2;3;2.1;2.89;0.16;0.22
+103;"Sadibou Sané";"Metz";9;680;2;0;0.14;0;0.02;0
+104;"Diego Moreira";"Strasbourg";19;1500;2;4;1.53;5.64;0.09;0.34
+105;"Amir Murillo";"Marseille";16;978;2;1;1.05;1.94;0.1;0.18
+106;"Malick Fofana";"Lyon";9;750;2;1;2.69;2.17;0.32;0.26
+107;"George Ilenikhena";"Monaco";15;343;2;0;1.26;0.23;0.33;0.06
+108;"Bahereba Guirassy";"Nantes";15;723;2;1;1.79;0.83;0.22;0.1
+109;"Sebastian Nanasi";"Strasbourg";8;344;2;1;1.51;1.45;0.39;0.38
+110;"Abdelhamid Aït Boudlal";"Rennes";10;735;2;1;1.12;0.53;0.14;0.07
+111;"Samson Baidoo";"Lens";17;1481;2;1;2.38;0.43;0.14;0.03
+112;"Afonso Moreira";"Lyon";18;890;2;5;1.49;4.06;0.15;0.41
+113;"Arsène Kouassi";"Lorient";19;1652;2;3;0.46;2.54;0.03;0.14
+114;"Giorgi Tsitaishvili";"Metz";20;1385;2;1;1.04;2.64;0.07;0.17
+115;"Danny Namaso";"Auxerre";17;1445;2;1;5.52;2.16;0.34;0.13
+116;"Djibirin Harouna";"Angers";11;224;2;1;1.24;0.57;0.5;0.23
+117;"Eric Dier";"Monaco";8;678;1;0;0.54;0.03;0.07;0
+118;"Seko Fofana";"Rennes";12;659;1;0;0.76;0.65;0.1;0.09
+119;"Ainsley Maitland-Niles";"Lyon";19;1559;1;3;2.33;2.34;0.13;0.14
+120;"Fabián";"Paris Saint Germain";13;805;1;2;1.53;1.22;0.17;0.14
+121;"Aissa Mandi";"Lille";17;1352;1;0;0.59;0.42;0.04;0.03
+122;"Benjamin Pavard";"Marseille";15;1055;1;2;0.73;1.79;0.06;0.15
+123;"Rémy Cabella";"Nantes";4;295;1;0;1.48;0.82;0.45;0.25
+124;"Valentin Rongier";"Rennes";18;1580;1;2;0.62;2.82;0.04;0.16
+125;"Gautier Lloris";"Le Havre";17;1424;1;1;1.01;1.04;0.06;0.07
+126;"Jean-Philippe Gbamin";"Metz";19;1558;1;1;1.61;0.77;0.09;0.04
+127;"Laurent Abergel";"Lorient";19;1658;1;0;0.65;0.78;0.04;0.04
+128;"Pierre Lees-Melou";"Brest,Paris FC";13;1074;1;1;1.11;0.71;0.09;0.06
+129;"Jonathan Ikone";"Paris FC";11;322;1;0;0.73;0.56;0.2;0.16
+130;"Hugo Magnetti";"Brest";19;1571;1;0;0.42;0.71;0.02;0.04
+131;"Ruben Aguilar";"Lens";19;1473;1;1;0.72;1.79;0.04;0.11
+132;"Chidozie Awaziem";"Nantes";17;1523;1;1;0.37;0.9;0.02;0.05
+133;"Jessy Deminguet";"Metz";19;1210;1;0;0.17;0.09;0.01;0.01
+134;"Mahdi Camara";"Rennes";18;1421;1;1;0.84;1.71;0.05;0.11
+135;"Mohammed Salisu";"Monaco";12;1080;1;0;0.88;0.15;0.07;0.01
+136;"Hamed Junior Traore";"Marseille";5;261;1;1;1.03;0.7;0.35;0.24
+137;"Francisco Sierralta";"Auxerre";10;869;1;0;0.73;0.04;0.08;0
+138;"Lee Kang-In";"Paris Saint Germain";15;904;1;2;1.7;3.16;0.17;0.31
+139;"Hichem Boudaoui";"Nice";14;941;1;2;2.18;0.95;0.21;0.09
+140;"Boubacar Traore";"Metz";16;1168;1;0;0.88;0.22;0.07;0.02
+141;"Georges Mikautadze";"Lyon";2;180;1;0;1.24;0;0.62;0
+142;"Melvin Bard";"Nice";18;1509;1;1;0.31;0.95;0.02;0.06
+143;"Jonathan Clauss";"Nice";17;1427;1;4;0.91;3.84;0.06;0.24
+144;"Sinaly Diomande";"Auxerre";10;878;1;0;1.51;0.04;0.16;0
+145;"Vitinha";"Paris Saint Germain";19;1478;1;7;0.77;2.72;0.05;0.17
+146;"Dilane Bakwa";"Strasbourg";3;94;1;2;0.08;0.67;0.07;0.64
+147;"Quentin Merlin";"Rennes";19;1341;1;3;1.5;2.89;0.1;0.19
+148;"Przemyslaw Frankowski";"Rennes";16;1128;1;2;0.34;2.38;0.03;0.19
+149;"Jim Allevinah";"Angers";6;110;1;0;0.71;0.03;0.58;0.02
+150;"Igor Silva";"Lorient";11;926;1;0;0.2;0.45;0.02;0.04
+151;"Tanner Tessmann";"Lyon";18;1304;1;0;1.95;1.21;0.13;0.08
+152;"Lohann Doucet";"Paris FC";5;114;1;0;0.61;0.09;0.48;0.07
+153;"Junior Mwanga";"Nantes,Strasbourg";17;1452;1;1;1.15;0.98;0.07;0.06
+154;"Luca Koleosho";"Paris FC";3;70;1;0;0.55;0.02;0.71;0.02
+155;"Warren Zaïre-Emery";"Paris Saint Germain";20;1608;1;3;0.77;2.65;0.04;0.15
+156;"Anthony Rouault";"Rennes";12;938;1;0;1.33;0.07;0.13;0.01
+157;"Kévin Danois";"Auxerre";19;1593;1;1;1.45;2.32;0.08;0.13
+158;"Ousmane Camara";"Angers";19;1595;1;0;0.17;0.12;0.01;0.01
+159;"Abdallah Sima";"Lens";10;205;1;0;0.35;0.08;0.16;0.03
+160;"Julio Enciso";"Strasbourg";13;927;1;2;3.84;1.51;0.37;0.15
+161;"Ethan Nwaneri";"Marseille";2;130;1;0;0.42;0.29;0.29;0.2
+162;"Julien Le Cardinal";"Brest";5;323;1;0;0.5;0.03;0.14;0.01
+163;"Lilian Raolisoa";"Angers";18;851;1;1;0.75;1.36;0.08;0.14
+164;"Illia Zabarnyi";"Paris Saint Germain";16;1307;1;0;0.41;0.16;0.03;0.01
+165;"Tom Louchet";"Nice";15;711;1;2;0.8;2.59;0.1;0.33
+166;"Samuel Amo-Ameyaw";"Strasbourg";15;498;1;1;0.7;0.56;0.13;0.1
+167;"Morgan Guilavogui";"Lens";16;444;1;0;1.79;1.16;0.36;0.24
+168;"Cristian Cásseres Jr.";"Toulouse";19;1563;1;0;1.51;1.03;0.09;0.06
+169;"Arouna Sangante";"Le Havre";18;1570;1;0;0.28;0.09;0.02;0.01
+170;"Yassine Kechta";"Le Havre";18;1021;1;1;0.94;0.94;0.08;0.08
+171;"Koffi Kouao";"Metz";17;1480;1;1;0.88;0.81;0.05;0.05
+172;"Oussama El Azzouzi";"Auxerre";11;821;1;0;0.7;0.52;0.08;0.06
+173;"Ibou Sané";"Metz";16;520;1;1;0.33;0.94;0.06;0.16
+174;"Beraldo";"Paris Saint Germain";10;743;1;0;0.38;0.03;0.05;0
+175;"Mohamed Bamba";"Lorient";17;656;1;2;2.79;1.63;0.38;0.22
+176;"Stanis Idumbo Muzambo";"Monaco";8;129;1;1;1.06;0.4;0.74;0.28
+177;"Valentín Barco";"Strasbourg";17;1436;1;4;1.32;3.84;0.08;0.24
+178;"Ibrahim Mbaye";"Paris Saint Germain";16;754;1;2;1.43;1.97;0.17;0.24
+179;"Ngal&#039;ayel Mukau";"Lille";16;719;1;0;2.09;0.22;0.26;0.03
+180;"Osame Sahraoui";"Lille";16;434;1;2;1.19;0.75;0.25;0.15
+181;"Louis Leroux";"Nantes";14;1016;1;1;1.11;0.37;0.1;0.03
+182;"Ali Abdi";"Nice";12;640;1;0;0.49;0.72;0.07;0.1
+183;"Matt O&#039;Riley";"Marseille";15;725;1;2;0.86;3.09;0.11;0.38
+184;"Soriba Diaoune";"Lille";6;64;1;1;0.84;0.13;1.18;0.18
+185;"Quentin Ndjantou";"Paris Saint Germain";10;344;1;1;1.47;0.32;0.38;0.08
+186;"Adam Karabec";"Lyon";17;776;1;0;1.51;1.28;0.18;0.15
+187;"Ruben Kluivert";"Lyon";10;546;1;2;0.47;0.73;0.08;0.12
+188;"Felix Mambimbi";"Le Havre";15;473;1;0;0.51;0.66;0.1;0.13
+189;"Kojo Peprah Oppong";"Nice";18;1523;1;0;0.82;0.59;0.05;0.03
+190;"Isak Jansson";"Nice";14;519;1;0;1.25;0.81;0.22;0.14
+191;"Alexis Vossah";"Toulouse";15;596;1;1;0.42;0.49;0.06;0.07
+192;"Marius Broholm";"Lille";10;253;1;1;0.97;0.51;0.34;0.18
+193;"Dermane Karim";"Lorient";18;887;1;2;1.05;1.45;0.11;0.15
+194;"Samir Chergui";"Paris FC";12;976;1;0;1.62;0.15;0.15;0.01
+195;"Alimami Gory";"Paris FC";13;519;1;0;1.11;0.02;0.19;0
+196;"Nouha Dicko";"Paris FC";8;51;1;1;0.6;0.3;1.07;0.53
+197;"Adama Camara";"Paris FC";18;1452;1;0;1.77;0.61;0.11;0.04
+198;"Giorgi Abuashvili";"Metz";13;324;1;0;0.43;0.29;0.12;0.08
+199;"Kendry Páez";"Strasbourg";15;411;1;0;1.08;0.45;0.24;0.1
+200;"Mamadou Sangaré";"Lens";18;1449;1;2;2.31;1.77;0.14;0.11
+201;"Julián Vignolo";"Toulouse";7;43;1;0;0.1;0.08;0.21;0.17
+202;"Mayckel Lahdo";"Nantes";8;434;1;1;0.66;0.17;0.14;0.03
+203;"Pathé Mboup";"Brest";17;845;1;0;2.52;0.95;0.27;0.1
+204;"Amine Sbaï";"Angers";13;944;1;1;1.81;1.33;0.17;0.13
+205;"Noam Obougou";"Le Havre";5;84;1;0;0.16;0;0.17;0
+206;"Kenny Quetant";"Le Havre";5;248;1;0;0.72;0.02;0.26;0.01
+207;"Pape Diop";"Toulouse";3;265;1;1;0.12;0.18;0.04;0.06
+208;"Noah Nartey";"Lyon";1;90;1;0;0.43;0;0.43;0
+209;"Dante";"Nice";4;242;0;0;0.05;0;0.02;0
+210;"Lukas Hradecky";"Monaco";8;635;0;0;0;0;0;0
+211;"Ulisses García";"Marseille";4;203;0;0;0.04;0.03;0.02;0.01
+212;"Francis Coquelin";"Nantes";7;297;0;0;0.06;0;0.02;0
+213;"Ben Chilwell";"Strasbourg";14;1131;0;2;0.04;1.42;0;0.11
+214;"Chancel Mbemba";"Lille";9;678;0;0;0.29;0.57;0.04;0.08
+215;"Emerson";"Marseille";15;1204;0;3;0.27;2.14;0.02;0.16
+216;"Assane Diousse";"Auxerre";13;179;0;0;0.16;0.15;0.08;0.07
+217;"Pol Lirola";"Marseille";3;19;0;0;0;0.08;0;0.38
+218;"Geoffrey Kondogbia";"Marseille";6;336;0;0;0.06;0;0.02;0
+219;"Sofiane Boufal";"Le Havre";3;97;0;0;0.03;0.17;0.02;0.16
+220;"Paul Pogba";"Monaco";3;22;0;0;0;0;0;0
+221;"Joel Asoro";"Metz";8;220;0;0;0.78;0.1;0.32;0.04
+222;"Timothée Kolodziejczak";"Paris FC";9;480;0;0;0.04;0.04;0.01;0.01
+223;"Gerónimo Rulli";"Marseille";17;1530;0;0;0;0;0;0
+224;"Lucas Hernández";"Paris Saint Germain";14;968;0;1;0.13;0.37;0.01;0.03
+225;"André Gomes";"Lille";2;4;0;0;0;0;0;0
+226;"Thilo Kehrer";"Monaco";14;1200;0;0;1.26;0.03;0.09;0
+227;"Hamari Traore";"Paris FC";11;877;0;1;0.36;0.7;0.04;0.07
+228;"Anthony Lopes";"Nantes";19;1709;0;0;0.07;0;0;0
+229;"Rachid Ghezzal";"Lyon";7;129;0;0;0.11;0.02;0.07;0.01
+230;"Kevin Trapp";"Paris FC";9;810;0;0;0;0;0;0
+231;"Benjamin Stambouli";"Metz";13;663;0;0;0.24;0.89;0.03;0.12
+232;"Adrien Rabiot";"Marseille";1;90;0;0;0.03;0.2;0.03;0.2
+233;"Marquinhos";"Paris Saint Germain";10;680;0;0;0.03;0.03;0;0
+234;"Florian Sotoca";"Lens";15;73;0;0;0.07;0.73;0.09;0.9
+235;"Maxime Dupé";"Nice";4;360;0;0;0;0;0;0
+236;"Pierrick Capelle";"Angers";4;61;0;0;0;0.11;0;0.16
+237;"Neal Maupay";"Marseille";1;1;0;0;0;0;0;0
+238;"Morgan Sanson";"Nice";18;693;0;2;1.2;0.94;0.16;0.12
+239;"Lucas Tousart";"Brest";12;410;0;0;0.21;0.48;0.05;0.11
+240;"Maxime Lopez";"Paris FC";18;1518;0;3;0.31;4.91;0.02;0.29
+241;"Kelvin Adou";"Nantes";20;1800;0;1;0.34;0.97;0.02;0.05
+242;"Mathieu Cafaro";"Paris FC";8;131;0;0;0.3;0.24;0.2;0.17
+243;"Brice Samba";"Rennes";20;1800;0;0;0;0.06;0;0
+244;"Hans Hateboer";"Lyon,Rennes";9;333;0;0;0.22;0;0.06;0
+245;"Caio Henrique";"Monaco";16;1209;0;0;0.19;1.05;0.01;0.08
+246;"Matvey Safonov";"Paris Saint Germain";3;270;0;0;0;0;0;0
+247;"Malang Sarr";"Lens";19;1710;0;1;0.93;0.28;0.05;0.01
+248;"Thomas Meunier";"Lille";15;1161;0;0;0.53;1.64;0.04;0.13
+249;"Karl-Johan Johnsson";"Strasbourg";1;90;0;0;0;0;0;0
+250;"Abdoulaye Bamba";"Angers";2;97;0;0;0.01;0;0.01;0
+251;"Matthieu Udol";"Lens";20;1793;0;6;1.65;8.49;0.08;0.43
+252;"Carlens Arcus";"Angers";19;1648;0;3;0.13;1.64;0.01;0.09
+253;"Pierre-Yves Hamel";"Paris FC";2;78;0;0;0;0;0;0
+254;"Remy Descamps";"Lyon";4;360;0;0;0;0;0;0
+255;"Fode Toure";"Metz";8;561;0;0;0.2;0.77;0.03;0.12
+256;"Tanguy NDombele Alvaro";"Nice";5;163;0;1;0.25;0.45;0.14;0.25
+257;"Bingourou Kamara";"Lorient";3;270;0;0;0;0;0;0
+258;"Kenny Lala";"Brest";19;1693;0;1;0.19;2.16;0.01;0.11
+259;"Moussa Niakhate";"Lyon";18;1490;0;2;0.1;0.55;0.01;0.03
+260;"Nicolas Cozza";"Nantes";16;1194;0;0;0.13;0.3;0.01;0.02
+261;"Kouakou Herve Koffi";"Angers";18;1620;0;0;0;0;0;0
+262;"Orel Mangala";"Lyon";3;16;0;0;0.09;0.03;0.53;0.18
+263;"Yvon Mvogo";"Lorient";17;1530;0;0;0;0.08;0;0
+264;"Denis Zakaria";"Monaco";10;789;0;1;0.35;1.34;0.04;0.15
+265;"Ignatius Ganago";"Nantes";1;20;0;0;0;0;0;0
+266;"Elisha Owusu";"Auxerre";15;1106;0;0;0.06;0.67;0;0.05
+267;"Romain Faivre";"Auxerre";3;91;0;0;0.06;0.03;0.06;0.03
+268;"Yehvann Diouf";"Nice";16;1440;0;0;0;0;0;0
+269;"Jordan Lefort";"Angers";20;1800;0;1;0.33;0.52;0.02;0.03
+270;"Ibrahima Sissoko";"Nantes";3;235;0;0;0.04;0;0.01;0
+271;"Jonathan Gradit";"Lens";9;810;0;0;0.11;0.09;0.01;0.01
+272;"Leonardo Balerdi";"Marseille";15;1083;0;1;1.24;0.22;0.1;0.02
+273;"Sebastian Szymanski";"Rennes";2;40;0;0;0.12;0;0.26;0
+274;"Younes Namli";"Le Havre";12;300;0;1;0.14;0.44;0.04;0.13
+275;"Haris Belkebla";"Angers";20;1763;0;0;0.12;0.41;0.01;0.02
+276;"Donovan Léon";"Auxerre";18;1575;0;0;0;0.06;0;0
+277;"Brendan Chardonnet";"Brest";18;1565;0;2;0.6;0.96;0.03;0.05
+278;"Thomas Delaine";"Le Havre";5;200;0;0;0.08;0.23;0.04;0.11
+279;"Marshall Munetsi";"Paris FC";3;44;0;0;0.45;0;0.93;0
+280;"Uros Radakovic";"Nantes";4;15;0;0;0;0;0;0
+281;"Mbwana Samatta";"Le Havre";13;830;0;0;3.1;0.59;0.34;0.06
+282;"Lucas Gourna Douath";"Le Havre";2;180;0;0;0.04;0.02;0.02;0.01
+283;"Lucas Chevalier";"Paris Saint Germain";17;1530;0;0;0;0;0;0
+284;"Radoslaw Majecki";"Brest";10;868;0;0;0;0;0;0
+285;"Wout Faes";"Monaco";2;118;0;0;0.03;0;0.02;0
+286;"Thibault De Smet";"Paris FC";14;954;0;1;0.19;0.34;0.02;0.03
+287;"Facundo Medina";"Marseille";6;477;0;0;0;0.07;0;0.01
+288;"Lilian Brassier";"Rennes";15;1240;0;1;0.74;0.29;0.05;0.02
+289;"Cheick Tidiane Sabaly";"Metz";14;972;0;2;1.43;1.88;0.13;0.17
+290;"Timothee Pembele";"Le Havre";2;61;0;0;0;0.03;0;0.04
+291;"Kevin Omoruyi";"Nice";12;597;0;0;3.01;0.09;0.45;0.01
+292;"Sékou Mara";"Auxerre";16;736;0;1;1.29;0.52;0.16;0.06
+293;"Marvin Senaya";"Auxerre";15;1314;0;0;0.87;0.13;0.06;0.01
+294;"Reda Khadra";"Le Havre";6;192;0;0;0.26;0.16;0.12;0.07
+295;"Naouirou Ahamada";"Auxerre";3;133;0;0;0.11;0;0.07;0
+296;"Krépin Diatta";"Monaco";11;722;0;1;0.28;1.32;0.04;0.16
+297;"Antoine Mendy";"Nice";14;1239;0;0;0.75;0.04;0.05;0
+298;"Andy Diouf";"Lens";1;90;0;0;0.18;0;0.18;0
+299;"Mamadou Mbow";"Paris FC";19;1710;0;1;0.44;0.52;0.02;0.03
+300;"Grégoire Coudert";"Brest";11;928;0;0;0;0;0;0
+301;"Christopher Wooh";"Rennes";2;64;0;0;0;0;0;0
+302;"Deiver Machado";"Lens,Nantes";8;480;0;0;0.58;0;0.11;0
+303;"Salis Abdul Samed";"Nice";14;684;0;0;0;0.01;0;0
+304;"Alidu Seidu";"Rennes";14;742;0;1;0.06;1.1;0.01;0.13
+305;"Pablo Rosario";"Nice";1;19;0;0;0.08;0.1;0.38;0.48
+306;"Billal Brahimi";"Nice";1;1;0;0;0;0.1;0;8.89
+307;"Bradley Locko";"Brest";15;1020;0;1;0.07;0.97;0.01;0.09
+308;"Bilal Nadir";"Marseille";15;453;0;4;0.37;1.73;0.07;0.34
+309;"Bamo Meïté";"Lorient";14;1206;0;2;0.69;1.19;0.05;0.09
+310;"Dominik Greif";"Lyon";16;1440;0;1;0;0.07;0;0
+311;"Gideon Mensah";"Auxerre";18;1335;0;0;0.01;1.04;0;0.07
+312;"Axel Camblan";"Brest";1;6;0;0;0;0.03;0;0.41
+313;"Andrew Omobamidele";"Strasbourg";12;417;0;0;0.37;0;0.08;0
+314;"Montassar Talbi";"Lorient";19;1710;0;1;0.34;0.11;0.02;0.01
+315;"Felix Lemarechal";"Strasbourg";11;556;0;2;0.91;1.24;0.15;0.2
+316;"Jonathan Rowe";"Marseille";1;69;0;0;0.42;0;0.55;0
+317;"CJ Egan-Riley";"Marseille";9;484;0;0;0;0.51;0;0.09
+318;"Jacques Ekomie";"Angers";20;1343;0;0;0.68;1.22;0.05;0.08
+319;"Vanderson";"Monaco";11;503;0;2;0.15;1.31;0.03;0.23
+320;"Ismaël Doukouré";"Strasbourg";15;1293;0;1;0.49;0.68;0.03;0.05
+321;"Ugo Raghouber";"Lille";1;1;0;0;0;0;0;0
+322;"Soumaila Coulibaly";"Brest";12;1068;0;0;0.3;0.01;0.03;0
+323;"Nicolás Tagliafico";"Lyon";14;962;0;3;1.7;1.95;0.16;0.18
+324;"Johann Lepenant";"Nantes";14;1089;0;1;0.36;1.08;0.03;0.09
+325;"Robin Risser";"Lens";20;1800;0;0;0;0.02;0;0
+326;"Ben Seghir";"Monaco";2;40;0;0;0.06;0;0.15;0
+327;"Mory Diaw";"Le Havre";16;1440;0;1;0;0.27;0;0.02
+328;"Rasmus Nicolaisen";"Toulouse";20;1524;0;0;0.49;0.04;0.03;0
+329;"Branco van den Boomen";"Angers";2;101;0;0;0.16;0.45;0.15;0.4
+330;"Alexsandro Ribeiro";"Lille";5;329;0;0;0.06;0;0.02;0
+331;"Darline Yongwa";"Lorient";14;774;0;0;0.57;0.96;0.07;0.11
+332;"Michel Diaz";"Brest";9;655;0;0;0.15;0.03;0.02;0
+333;"Badredine Bouanani";"Nice";2;88;0;0;0.06;0.04;0.06;0.04
+334;"Christian Mawissa Elebi";"Monaco";7;561;0;0;0;0;0;0
+335;"Sael Kumbedi";"Lyon";1;69;0;0;0.03;0;0.04;0
+336;"Théo De Percin";"Auxerre";3;221;0;0;0;0;0;0
+337;"Mamadou Sarr";"Strasbourg";15;1306;0;0;0.05;0.04;0;0
+338;"Warren Kamanzi";"Toulouse";13;308;0;0;0.31;0.38;0.09;0.11
+339;"Ibrahim Salah";"Rennes";2;22;0;0;0.05;0;0.2;0
+340;"Justin-Noel Kalumba";"Angers";4;224;0;0;0.02;0.27;0.01;0.11
+341;"Jérémy Jacquet";"Rennes";18;1606;0;0;0.79;0.57;0.04;0.03
+342;"Tiago Santos";"Lille";7;377;0;0;0.01;0.28;0;0.07
+343;"Ousmane Touré";"Lille";1;57;0;0;0;0;0;0
+344;"Formose Mendy";"Lorient";2;142;0;0;0;0;0;0
+345;"Guillaume Restes";"Toulouse";20;1800;0;0;0;0.06;0;0
+346;"Philipp Köhn";"Monaco";14;1165;0;0;0;0;0;0
+347;"Loïc Négo";"Le Havre";19;1587;0;0;0.3;1.38;0.02;0.08
+348;"Josué Casimir";"Auxerre";18;1053;0;0;1.95;0.19;0.17;0.02
+349;"Étienne Youté";"Le Havre";7;324;0;0;0;0.04;0;0.01
+350;"Maxime Colin";"Metz";14;1082;0;0;0.21;0.13;0.02;0.01
+351;"Lamine Camara";"Monaco";11;795;0;3;0.38;2.41;0.04;0.27
+352;"Malick Mbaye";"Metz";5;302;0;0;0.08;0.14;0.02;0.04
+353;"Abakar Sylla";"Strasbourg";1;1;0;0;0;0;0;0
+354;"Clinton Mata";"Lyon";19;1675;0;0;0.12;0.07;0.01;0
+355;"William Pacho";"Paris Saint Germain";14;1100;0;0;0.22;0.09;0.02;0.01
+356;"Mohamed Kaba";"Nantes";1;28;0;1;0;0.42;0;1.36
+357;"Fodé Sylla";"Lens";2;63;0;0;0;0;0;0
+358;"Joseph N&#039;Duquidi";"Metz";1;4;0;0;0;0;0;0
+359;"Joel Mvuka";"Lorient";15;549;0;0;0.7;1.01;0.11;0.17
+360;"Fabian Rieder";"Rennes";3;144;0;0;0.01;0.27;0.01;0.17
+361;"Bertug Yildirim";"Rennes";1;1;0;0;0;0.12;0;10.85
+362;"Gabriel Osho";"Auxerre";2;139;0;0;0;0;0;0
+363;"Mahamadou Nagida";"Rennes";5;81;0;0;0.38;0.01;0.42;0.01
+364;"Ayyoub Bouaddi";"Lille";18;1348;0;1;0.97;1.48;0.06;0.1
+365;"Kassoum Ouattara";"Monaco";14;987;0;3;1.19;2.7;0.11;0.25
+366;"Paris Brunner";"Monaco";5;93;0;0;0.08;0;0.08;0
+367;"Luc Zogbe";"Brest";5;99;0;0;0.03;0.08;0.03;0.08
+368;"Samir El Mourabet";"Strasbourg";20;1251;0;0;0.29;1.06;0.02;0.08
+369;"Nhoa Sangui";"Paris FC";13;723;0;0;0.11;0.87;0.01;0.11
+370;"Arthur Avom";"Lorient";18;1316;0;1;0.73;2.12;0.05;0.14
+371;"Noah Edjouma";"Toulouse";12;226;0;0;0.44;0.39;0.17;0.15
+372;"Anthony Bermont";"Lens";6;41;0;0;0.08;0;0.17;0
+373;"Lucas Michal";"Monaco";2;48;0;0;0.04;0;0.08;0
+374;"Panos Katseris";"Lorient";3;124;0;0;0.37;0.64;0.27;0.46
+375;"Nathaniel Adjei";"Lorient";6;121;0;0;0;0;0;0
+376;"Dehmaine Assoumani";"Nantes";16;747;0;0;0.47;1.18;0.06;0.14
+377;"Arthur Vermeeren";"Marseille";12;555;0;1;0.04;0.16;0.01;0.03
+378;"Rabby Nzingoula";"Strasbourg";4;44;0;0;0.05;0.07;0.1;0.15
+379;"Simon Ebonog";"Le Havre";17;881;0;0;0.97;0.11;0.1;0.01
+380;"Djaoui Cissé";"Rennes";16;846;0;0;0.63;0.61;0.07;0.06
+381;"Paul Argney";"Le Havre";1;90;0;0;0;0;0;0
+382;"Mikayil Faye";"Rennes";1;5;0;0;0;0;0;0
+383;"Vincent Burlet";"Lille";1;13;0;0;0;0.34;0;2.38
+384;"Rafik Messali";"Toulouse";10;383;0;0;0;0.12;0;0.03
+385;"Darryl Bakola";"Marseille";8;46;0;0;0.04;0.03;0.08;0.05
+386;"Daren Mosengo";"Le Havre";3;68;0;0;0;0;0;0
+387;"Yanis Zouaoui";"Le Havre";19;1563;0;1;0.44;1.82;0.03;0.1
+388;"Derek Cornelius";"Marseille";2;58;0;0;0;0;0;0
+389;"Jeffrey de Lange";"Marseille";3;270;0;0;0;0.1;0;0.03
+390;"Mathis Amougou";"Strasbourg";9;261;0;0;0.13;0.11;0.04;0.04
+391;"Clément Akpa";"Auxerre";18;1503;0;0;0.24;0.3;0.01;0.02
+392;"Theo Bair";"Auxerre";2;4;0;0;0;0;0;0
+393;"Lasso Coulibaly";"Auxerre";12;202;0;0;0.18;0.16;0.08;0.07
+394;"Dayann Methalie";"Toulouse";16;1194;0;0;0.87;0.87;0.07;0.07
+395;"Mark McKenzie";"Toulouse";18;1539;0;2;0.18;0.82;0.01;0.05
+396;"Mathieu Acapandié";"Nantes";1;10;0;0;0;0;0;0
+397;"Florent Hanin";"Angers";14;493;0;0;0.06;0.27;0.01;0.05
+398;"Melvin Zinga";"Angers";2;180;0;0;0;0;0;0
+399;"Emmanuel Biumla";"Angers";3;124;0;0;0;0;0;0
+400;"Glen Kamara";"Rennes";3;40;0;0;0;0;0;0
+401;"Jordan Teze";"Monaco";19;1424;0;0;0.2;1.53;0.01;0.1
+402;"Moïse Bombito";"Nice";2;154;0;0;0;0;0;0
+403;"Enzo Molébé";"Lyon";1;7;0;0;0;0;0;0
+404;"Hong Hyun-Seok";"Nantes";6;281;0;0;0.54;0.04;0.17;0.01
+405;"Serigne Diop";"Brest";2;2;0;0;0.1;0;4.28;0
+406;"Damián Pizarro";"Le Havre";2;15;0;0;0;0;0;0
+407;"Saud Abdulhamid";"Lens";13;428;0;1;0.16;0.63;0.03;0.13
+408;"Patrik Carlgren";"Nantes";2;91;0;0;0;0;0;0
+409;"Jaydee Canvot";"Toulouse";2;180;0;0;0.1;0;0.05;0
+410;"Juma Bah";"Nice";15;1162;0;0;0.68;0.58;0.05;0.04
+411;"Sékou Doucouré";"Nantes";1;37;0;0;0;0;0;0
+412;"Kyllian Antonio";"Lens";1;90;0;0;0.05;0;0.05;0
+413;"Marius Courcoul";"Angers";15;306;0;0;0.05;0.13;0.02;0.04
+414;"Marius Louãr";"Angers";2;10;0;0;0;0.07;0;0.59
+415;"Mathis Saka";"Toulouse";1;2;0;0;0;0;0;0
+416;"Aladji Bamba";"Monaco";6;128;0;0;0;0;0;0
+417;"Everton Pereira";"Nice";1;70;0;0;0.03;0;0.03;0
+418;"Bernard Nguene";"Nice";6;111;0;0;0.18;0;0.14;0
+419;"Raphaël Le Guen";"Brest";1;1;0;0;0;0;0;0
+420;"Goduine Koyalipou";"Angers";1;17;0;0;0.18;0;0.96;0
+421;"Justin Bourgault";"Brest";1;12;0;0;0.03;0;0.25;0
+422;"Fredrik Oppegård";"Auxerre";14;642;0;0;0.18;0.34;0.03;0.05
+423;"Stephan Zagadou";"Le Havre";2;157;0;0;0;0;0;0
+424;"Hamidou Makalou";"Brest";10;133;0;0;0.04;0.15;0.03;0.1
+425;"Rudy Matondo";"Auxerre";16;588;0;0;0.23;0.1;0.03;0.02
+426;"Telli Siwe";"Auxerre";3;230;0;0;0.02;0.04;0.01;0.02
+427;"Lanroy Machine";"Angers";11;150;0;0;0.92;0;0.55;0
+428;"Andrija Bulatovic";"Lens";9;340;0;1;0.57;1.03;0.15;0.27
+429;"Khalis Merah";"Lyon";13;707;0;1;0.94;1.14;0.12;0.15
+430;"Mathys de Carvalho";"Lyon";10;278;0;0;0.37;0.04;0.12;0.01
+431;"Ayumu Seko";"Le Havre";20;1729;0;0;0.86;0.42;0.04;0.02
+432;"Godson Kyeremeh";"Le Havre";10;325;0;1;0.25;0.5;0.07;0.14
+433;"Lionel Mpasi";"Le Havre";3;270;0;0;0;0;0;0
+434;"Gabin Bernardeau";"Nice";1;1;0;0;0;0;0;0
+435;"Hamza Koutoune";"Nice";1;1;0;0;0;0;0;0
+436;"Mário Sauer";"Toulouse";14;505;0;0;0.22;0.08;0.04;0.02
+437;"Seny Koumbassa";"Toulouse";3;60;0;0;0;0;0;0
+438;"Berke Özer";"Lille";18;1620;0;1;0;0.08;0;0
+439;"Nathan Ngoy";"Lille";18;1407;0;1;1.21;0.94;0.08;0.06
+440;"Maxima Goffi";"Lille";1;33;0;0;0;0;0;0
+441;"Arnaud Bodart";"Lille";2;180;0;0;0;0;0;0
+442;"Ibrahim Osman";"Auxerre";14;631;0;2;1.94;1.18;0.28;0.17
+443;"Lamine Sy";"Auxerre";12;735;0;0;0.15;1.19;0.02;0.15
+444;"Obed Nkambadio";"Paris FC";11;990;0;0;0;0.01;0;0
+445;"Julien Lopez";"Paris FC";5;31;0;0;0;0;0;0
+446;"Tuomas Ollila";"Paris FC";8;293;0;0;0.07;0.15;0.02;0.05
+447;"Jonathan Fischer";"Metz";20;1719;0;0;0;0.03;0;0
+448;"Michel Mboula";"Metz";5;294;0;0;0;0;0;0
+449;"Brian Madjo";"Metz";5;157;0;0;0.32;0;0.18;0
+450;"Idrissa Gueye";"Metz";3;126;0;0;0.12;0;0.09;0
+451;"Alpha Touré";"Metz";20;872;0;0;0.22;0.21;0.02;0.02
+452;"Pape Sy";"Metz";1;81;0;0;0;0;0;0
+453;"Morgan Bokele";"Metz";10;208;0;0;0.21;0.09;0.09;0.04
+454;"Mike Penders";"Strasbourg";19;1710;0;0;0;0;0;0
+455;"Lucas Høgsberg";"Strasbourg";12;1003;0;0;0.09;0;0.01;0
+456;"Tylel Tati";"Nantes";18;1600;0;0;0.5;0.02;0.03;0
+457;"Kwon Hyeok-Kyu";"Nantes";12;777;0;0;0.1;0;0.01;0
+458;"Yassine Benhattab";"Nantes";10;479;0;0;0.18;0.69;0.03;0.13
+459;"Amady Camara";"Nantes";10;131;0;0;0.69;0.12;0.48;0.08
+460;"Otávio";"Paris FC";17;1472;0;0;0.18;0.13;0.01;0.01
+461;"Ismaël Guerti";"Metz";3;15;0;0;0;0;0;0
+462;"Cleo Mélières";"Metz";2;26;0;0;0;0;0;0
+463;"Abdoulaye Faye";"Lorient";7;569;0;0;0.48;0;0.08;0
+464;"Nordan Mukiele";"Rennes";1;25;0;0;0.09;0.09;0.32;0.33
+465;"Rafael Luís";"Strasbourg";8;264;0;0;0.05;0.07;0.02;0.03
+466;"Daouda Guindo";"Brest";14;804;0;0;0.6;0.45;0.07;0.05
+467;"Noah Cadiou";"Lorient";15;681;0;1;0.33;0.26;0.04;0.03
+468;"Terry Yegbe";"Metz";16;1347;0;1;0.82;0.37;0.06;0.02
+469;"Martin Bley";"Lorient";1;1;0;0;0;0;0;0
+470;"Charles Vanhoutte";"Nice";15;1117;0;2;0.12;0.56;0.01;0.05
+471;"Tiago Gouveia";"Nice";12;470;0;0;0.61;0.64;0.12;0.12
+472;"Bahmed Deuff";"Nantes";10;199;0;0;0.23;0.15;0.1;0.07
+473;"Calvin Verdonk";"Lille";8;367;0;0;0.03;0.63;0.01;0.15
+474;"Abu Francis";"Toulouse";8;546;0;0;0.18;0.04;0.03;0.01
+475;"Ryan Rodin";"Auxerre";2;15;0;0;0;0;0;0
+476;"Enzo Koffi";"Le Havre";5;44;0;0;0.31;0;0.62;0
+477;"Pape Cabral";"Monaco";4;53;0;0;0.51;0;0.86;0
+478;"Mathis Jangeal";"Paris Saint Germain";1;6;0;0;0;0;0;0
+479;"Tidiane Devernois";"Auxerre";1;1;0;0;0;0.01;0;0.74
+480;"Believe Munongo";"Metz";2;87;0;0;0;0.01;0;0.01
+481;"Tadjidine Mmadi";"Marseille";2;8;0;0;0;0.02;0;0.26
+482;"Lucas Rosier";"Rennes";2;2;0;0;0;0;0;0
+483;"Brad-Hamilton Mantsounga";"Nice";1;90;0;0;0;0;0;0
+484;"Adil Hamdani";"Lyon";2;4;0;0;0.03;0;0.63;0
+485;"Elias Legendre";"Rennes";5;26;0;0;0.47;0.13;1.62;0.45
+486;"Mamoudou Cissokho";"Auxerre";1;1;0;0;0;0;0;0
+487;"Zoumana Diallo";"Nice";1;7;0;0;0;0.08;0;1.06
+488;"Everton Pereira da Silva";"Nice";1;71;0;0;0.08;0;0.1;0
+489;"Noah Nsoki";"Paris Saint Germain";1;4;0;0;0;0;0;0
+490;"Mohamed Benoit-Dao";"Paris FC";1;1;0;0;0;0;0;0
+491;"Gessime Yassine";"Strasbourg";2;2;0;0;0;0;0;0
+492;"Rémi Himbert";"Lyon";3;7;0;0;0;0;0;0
+493;"Quinten Timber";"Marseille";2;158;0;0;0;0;0;0
+494;"Ali Youssef";"Nantes";1;90;0;0;0;0;0;0
+495;"Kail Boudache";"Nice";1;40;0;0;0.03;0;0.07;0
+496;"Nathan Mbala";"Metz";1;1;0;0;0;0;0;0
+497;"Bryan Okoh";"Auxerre";1;4;0;0;0;0;0;0
