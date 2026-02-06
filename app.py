@@ -9,29 +9,36 @@ import plotly.express as px
 import json
 import os
 import io
-import requests
 import difflib
-from datetime import datetime, timedelta
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
+from datetime import datetime
 
 # --- CONFIGURAZIONE PAGINA ---
 st.set_page_config(page_title="Mathbet fc - ML Ultimate Pro", page_icon="🧠", layout="wide")
 
 # ==============================================================================
-# 📂 CONFIGURAZIONE FILE CSV
+# 📂 CONFIGURAZIONE FILE CSV (SOLO GITHUB)
 # ==============================================================================
 LEAGUE_FILES = {
-    "🇮🇹 Serie A": { "total": "serie_a_total.csv", "home": "serie_a_home.csv", "away": "serie_a_away.csv", "form": "serie_a_form.csv" },
-    "🇬🇧 Premier League": { "total": "premier_total.csv", "home": "premier_home.csv", "away": "premier_away.csv", "form": "premier_form.csv" },
-    "🇪🇸 La Liga": { "total": "liga_total.csv", "home": "liga_home.csv", "away": "liga_away.csv", "form": "liga_form.csv" },
-    "🇩🇪 Bundesliga": { "total": "bundesliga_total.csv", "home": "bundesliga_home.csv", "away": "bundesliga_away.csv", "form": "bundesliga_form.csv" },
-    "🇫🇷 Ligue 1": { "total": "ligue1_total.csv", "home": "ligue1_home.csv", "away": "ligue1_away.csv", "form": "ligue1_form.csv" }
-}
-
-CLUBELO_CODES = {
-    "🇮🇹 Serie A": "ITA_1", "🇬🇧 Premier League": "ENG_1",
-    "🇪🇸 La Liga": "ESP_1", "🇩🇪 Bundesliga": "GER_1", "🇫🇷 Ligue 1": "FRA_1"
+    "🇮🇹 Serie A": { 
+        "total": "serie_a_total.csv", "home": "serie_a_home.csv", "away": "serie_a_away.csv", "form": "serie_a_form.csv",
+        "players": "players_serie_a.csv"
+    },
+    "🇬🇧 Premier League": { 
+        "total": "premier_total.csv", "home": "premier_home.csv", "away": "premier_away.csv", "form": "premier_form.csv",
+        "players": "players_premier.csv"
+    },
+    "🇪🇸 La Liga": { 
+        "total": "liga_total.csv", "home": "liga_home.csv", "away": "liga_away.csv", "form": "liga_form.csv",
+        "players": "players_liga.csv"
+    },
+    "🇩🇪 Bundesliga": { 
+        "total": "bundesliga_total.csv", "home": "bundesliga_home.csv", "away": "bundesliga_away.csv", "form": "bundesliga_form.csv",
+        "players": "players_bundesliga.csv"
+    },
+    "🇫🇷 Ligue 1": { 
+        "total": "ligue1_total.csv", "home": "ligue1_home.csv", "away": "ligue1_away.csv", "form": "ligue1_form.csv",
+        "players": "players_ligue1.csv"
+    }
 }
 
 # --- PARAMETRI ML ---
@@ -45,44 +52,8 @@ LEAGUES = {
 }
 
 # ==============================================================================
-# 🧠 FUNZIONI DATI & API CLUBELO
+# 🧠 FUNZIONI DATI (SOLO GITHUB)
 # ==============================================================================
-
-@st.cache_data(ttl=3600, show_spinner=False)
-def fetch_clubelo_data(mode_preference):
-    if mode_preference == "manual": return "manual", pd.DataFrame()
-
-    session = requests.Session()
-    retry = Retry(total=2, backoff_factor=0.5, status_forcelist=[500, 502, 503, 504])
-    adapter = HTTPAdapter(max_retries=retry)
-    session.mount('http://', adapter)
-    session.mount('https://', adapter)
-    headers = {'User-Agent': 'Mozilla/5.0'}
-
-    if mode_preference in ["auto", "fixtures"]:
-        try:
-            timeout_val = 45 if mode_preference == "fixtures" else 25
-            r = session.get("http://api.clubelo.com/Fixtures", headers=headers, timeout=timeout_val)
-            if r.status_code == 200:
-                df = pd.read_csv(io.StringIO(r.text))
-                if 'EloHome' in df.columns and 'EloAway' in df.columns and 'Date' in df.columns:
-                    df['Date'] = pd.to_datetime(df['Date'])
-                    return "fixtures", df
-        except Exception:
-            if mode_preference == "fixtures": return "none", pd.DataFrame()
-            pass 
-
-    if mode_preference in ["auto", "active"]:
-        try:
-            r = session.get("http://api.clubelo.com/Active", headers=headers, timeout=15)
-            if r.status_code == 200:
-                df = pd.read_csv(io.StringIO(r.text))
-                if 'Club' in df.columns and 'Elo' in df.columns:
-                    return "active", df
-        except Exception:
-            pass 
-
-    return "none", pd.DataFrame()
 
 def fuzzy_match_team(api_name, csv_team_list):
     manual_map = {
@@ -104,13 +75,13 @@ def load_league_stats(league_name):
     stats_db = {}
     team_list = []
 
-    def read_csv_safe(filename):
-        if os.path.exists(filename):
+    def read_csv_local(key_type):
+        filename = files.get(key_type)
+        if filename and os.path.exists(filename):
             try:
-                df = pd.read_csv(filename, sep=None, engine='python')
-                df.columns = [c.strip().lower() for c in df.columns]
-                return df
-            except: return None
+                return pd.read_csv(filename, sep=None, engine='python')
+            except: 
+                return None
         return None
 
     def safe_avg(val, n): return float(val) / n if n > 0 else 0.0
@@ -133,12 +104,15 @@ def load_league_stats(league_name):
             "goals_total": goals, "ga_total": ga, "xg_total": xg, "xga_total": xga, "matches": matches
         }
 
-    df_total = read_csv_safe(files["total"])
-    df_home = read_csv_safe(files["home"])
-    df_away = read_csv_safe(files["away"])
-    df_form = read_csv_safe(files["form"])
+    df_total = read_csv_local("total")
+    df_home = read_csv_local("home")
+    df_away = read_csv_local("away")
+    df_form = read_csv_local("form")
 
     if df_total is None: return {}, []
+
+    for df in [df_total, df_home, df_away, df_form]:
+        if df is not None: df.columns = [c.strip().lower() for c in df.columns]
 
     for _, row in df_total.iterrows():
         team_col = next((c for c in row.index if 'team' in c or 'squad' in c), None)
@@ -171,6 +145,25 @@ def load_league_stats(league_name):
     team_list.sort()
     return stats_db, team_list
 
+@st.cache_data(show_spinner=False)
+def load_player_data(league_name):
+    if league_name not in LEAGUE_FILES: return None
+    filename = LEAGUE_FILES[league_name].get("players")
+    
+    if filename and os.path.exists(filename):
+        try:
+            try:
+                df = pd.read_csv(filename, sep=';', engine='python')
+                if len(df.columns) < 5: 
+                     df = pd.read_csv(filename, sep=None, engine='python')
+            except:
+                df = pd.read_csv(filename, sep=None, engine='python')
+                
+            df.columns = [c.strip().lower() for c in df.columns]
+            return df
+        except: return None
+    return None
+
 # --- FUNZIONI MATEMATICHE ---
 def dixon_coles_probability(h_goals, a_goals, mu_h, mu_a, rho):
     prob = (math.exp(-mu_h) * (mu_h**h_goals) / math.factorial(h_goals)) * \
@@ -183,7 +176,7 @@ def dixon_coles_probability(h_goals, a_goals, mu_h, mu_a, rho):
 
 def calculate_player_probability(metric_per90, expected_mins, team_match_xg, team_avg_xg):
     base_lambda = (metric_per90 / 90.0) * expected_mins
-    if team_avg_xg <= 0: team_avg_xg = 0.01
+    if team_avg_xg <= 0.1: team_avg_xg = max(0.1, team_match_xg)
     match_factor = team_match_xg / team_avg_xg
     final_lambda = base_lambda * match_factor
     return 1 - math.exp(-final_lambda)
@@ -274,75 +267,26 @@ def generate_excel_report():
 # --- INIZIALIZZAZIONE ---
 if 'history' not in st.session_state: st.session_state.history = carica_storico_json()
 if 'analyzed' not in st.session_state: st.session_state.analyzed = False
-if 'auto_elo_h' not in st.session_state: st.session_state.auto_elo_h = 1600.0
-if 'auto_elo_a' not in st.session_state: st.session_state.auto_elo_a = 1550.0
 
 # --- UI SIDEBAR ---
 with st.sidebar:
     st.title("🧠 Configurazione")
     
-    api_mode = st.radio("Fonte Dati ClubElo", ["Automatico (Consigliato)", "Forza Calendario (/Fixtures)", "Forza Rating (/Active)", "Manuale (No API)"], index=0)
-    api_key_map = {
-        "Automatico (Consigliato)": "auto",
-        "Forza Calendario (/Fixtures)": "fixtures",
-        "Forza Rating (/Active)": "active",
-        "Manuale (No API)": "manual"
-    }
-    
+    # 1. SELEZIONE LEGA
     league_name = st.selectbox("Campionato", list(LEAGUES.keys()))
     st.session_state.league_name = league_name
     L_DATA = LEAGUES[league_name]
     
+    # 2. CARICAMENTO DATI (Solo GITHUB/LOCALE)
     STATS_DB, TEAM_LIST = load_league_stats(league_name)
-    if STATS_DB: st.success(f"✅ Dati caricati! ({len(TEAM_LIST)} squadre)")
-    else: st.error("❌ CSV non trovati. Controlla i nomi dei file!")
-    st.markdown("---")
+    PLAYERS_DF = load_player_data(league_name)
     
-    selected_api_mode = api_key_map[api_mode]
-    data_source, df_elo = fetch_clubelo_data(selected_api_mode)
-    clubelo_code = CLUBELO_CODES.get(league_name)
+    if STATS_DB: st.success(f"✅ Dati Squadre: OK ({len(TEAM_LIST)})")
+    else: st.error("❌ CSV Squadre non trovati su GitHub.")
     
-    match_options = []
-    idx_h_auto = 0
-    idx_a_auto = 1
+    if PLAYERS_DF is not None: st.success(f"✅ Dati Giocatori: OK ({len(PLAYERS_DF)})")
+    else: st.warning("⚠️ CSV Giocatori non trovato.")
     
-    if data_source == "fixtures" and not df_elo.empty and clubelo_code:
-        st.caption(f"✅ Modalità: Calendario ({len(df_elo)} match)")
-        today = datetime.now()
-        mask = (df_elo['Country'] == clubelo_code[:3]) & \
-               (df_elo['Date'] >= today - timedelta(days=2)) & \
-               (df_elo['Date'] <= today + timedelta(days=10))
-        
-        league_matches = df_elo.loc[mask].sort_values('Date')
-        
-        if not league_matches.empty:
-            match_options = [f"{r['Home']} - {r['Away']} ({r['Date'].strftime('%d/%m')})" for _, r in league_matches.iterrows()]
-            sel_match = st.selectbox("📅 Seleziona Partita", ["-- Custom --"] + match_options)
-            
-            if sel_match != "-- Custom --":
-                sel_idx = match_options.index(sel_match)
-                row_match = league_matches.iloc[sel_idx]
-                csv_h = fuzzy_match_team(row_match['Home'], TEAM_LIST)
-                csv_a = fuzzy_match_team(row_match['Away'], TEAM_LIST)
-                
-                if 'EloHome' in row_match.index and 'EloAway' in row_match.index:
-                    st.session_state.auto_elo_h = row_match['EloHome']
-                    st.session_state.auto_elo_a = row_match['EloAway']
-                
-                if csv_h and csv_h in TEAM_LIST: idx_h_auto = TEAM_LIST.index(csv_h)
-                if csv_a and csv_a in TEAM_LIST: idx_a_auto = TEAM_LIST.index(csv_a)
-        else:
-             st.caption("⚠️ Nessuna partita prevista in calendario.")
-
-    elif data_source == "active" and not df_elo.empty:
-        st.warning(f"⚡ Modalità Rating Attivi ({len(df_elo)} squadre)")
-
-    elif data_source == "manual":
-        st.info("✍️ Modalità Manuale: Inserisci Elo a mano.")
-        
-    else:
-        st.error("❌ Nessun dato ClubElo disponibile. Inserimento manuale.")
-
     st.markdown("---")
     
     data_mode = st.radio("Dati Analisi", ["Solo Gol Reali", "Solo xG (Expected Goals)", "Ibrido (Consigliato)"], index=2)
@@ -371,44 +315,30 @@ with st.sidebar:
         c_foul_h = st.number_input("Falli Casa", 0.0, 30.0, 11.5, 0.5)
         c_foul_a = st.number_input("Falli Ospite", 0.0, 30.0, 12.5, 0.5)
     
-    # --- UTILITY CALCULATORS ---
     with st.expander("🧮 Calcolatori Utility", expanded=False):
         st.markdown("**Convertitore Quota -> Prob %**")
         fair_odd_input = st.number_input("Inserisci Fair Odd", 1.01, 100.0, 2.00, step=0.05)
         st.caption(f"Probabilità Implicita: **{(1/fair_odd_input):.1%}**")
-        
         st.divider()
-        
         st.markdown("**Calcolatore Value Bet**")
         my_prob = st.number_input("Tua Probabilità (%)", 0.1, 100.0, 50.0, step=1.0)
         book_odd = st.number_input("Quota Bookmaker", 1.01, 100.0, 2.00, step=0.05)
         value_calc = ((my_prob / 100) * book_odd) - 1
-        
-        if value_calc > 0:
-            st.success(f"✅ VALUE BET! (+{value_calc:.1%})")
-        elif value_calc == 0:
-            st.warning("⚖️ Fair (Nessun Valore)")
-        else:
-            st.error(f"❌ No Value ({value_calc:.1%})")
-            
+        if value_calc > 0: st.success(f"✅ VALUE BET! (+{value_calc:.1%})")
+        elif value_calc == 0: st.warning("⚖️ Fair (Nessun Valore)")
+        else: st.error(f"❌ No Value ({value_calc:.1%})")
         st.divider()
-        
         st.markdown("**Calcolatore Kelly (25%)**")
         k_bank = st.number_input("Bankroll Totale (€)", 0.0, 100000.0, 1000.0, step=10.0)
         k_prob = st.number_input("Probabilità Vittoria (%) (K)", 0.1, 100.0, 55.0, step=1.0, key="k_prob")
         k_odd = st.number_input("Quota Evento (K)", 1.01, 100.0, 2.00, step=0.05, key="k_odd")
-
         if k_odd > 1:
-            b = k_odd - 1
-            p = k_prob / 100
-            q = 1 - p
+            b = k_odd - 1; p = k_prob / 100; q = 1 - p
             f = (b * p - q) / b 
-            
             if f > 0:
                 kelly_stake = (f * 0.25) * k_bank 
                 st.success(f"💰 Punta: **€ {kelly_stake:.2f}** ({f*0.25*100:.2f}%)")
-            else:
-                st.warning("⛔ Nessun Valore (No Bet)")
+            else: st.warning("⛔ Nessun Valore (No Bet)")
 
 st.title("Mathbet fc - ML Ultimate Edition 🚀")
 
@@ -419,13 +349,10 @@ def calculate_avg(stats_dict, metric, mode):
     raw = stats_dict
     matches = raw.get('matches', 0)
     if matches <= 0: return 0.0
-    
     if metric == 'gf': 
-        val_real = raw.get('goals_total', 0)
-        val_xg = raw.get('xg_total', 0)
+        val_real = raw.get('goals_total', 0); val_xg = raw.get('xg_total', 0)
     else: 
-        val_real = raw.get('ga_total', 0)
-        val_xg = raw.get('xga_total', 0)
+        val_real = raw.get('ga_total', 0); val_xg = raw.get('xga_total', 0)
         
     if mode == "Solo Gol Reali": return val_real / matches
     elif mode == "Solo xG (Expected Goals)": return val_xg / matches
@@ -442,18 +369,12 @@ def get_form_val(stats_dict, metric, mode):
 
 with col_h:
     st.subheader("🏠 Squadra Casa")
-    if TEAM_LIST: h_name = st.selectbox("Seleziona Casa", TEAM_LIST, index=idx_h_auto, key="h_sel")
+    if TEAM_LIST: h_name = st.selectbox("Seleziona Casa", TEAM_LIST, index=0, key="h_sel")
     else: h_name = st.text_input("Nome Casa", "Inter")
     h_stats = STATS_DB.get(h_name) if STATS_DB else None
     
-    val_elo_h = 1600.0
-    if data_source == "fixtures" and 'auto_elo_h' in st.session_state:
-        val_elo_h = st.session_state.auto_elo_h
-    elif data_source == "active" and not df_elo.empty:
-        match = difflib.get_close_matches(h_name, df_elo['Club'].tolist(), n=1, cutoff=0.5)
-        if match: val_elo_h = df_elo.loc[df_elo['Club'] == match[0], 'Elo'].values[0]
-
-    h_elo = st.number_input("Rating Elo Casa", 1000.0, 2500.0, float(val_elo_h), step=10.0)
+    st.markdown("👉 [Consulta ClubElo.com](http://clubelo.com/)")
+    h_elo = st.number_input("Rating Elo Casa", 1000.0, 2500.0, 1600.0, step=10.0)
     
     with st.expander("📊 Dati", expanded=True):
         def_att_s, def_def_s, def_att_h, def_def_h, def_form_att, def_form_def = 1.85, 0.95, 1.95, 0.85, 1.5, 1.2
@@ -464,8 +385,7 @@ with col_h:
                 def_att_h = get_val(h_stats["home"], 'gf', data_mode)
                 def_def_h = get_val(h_stats["home"], 'gs', data_mode)
             else: 
-                def_att_h = def_att_s * 1.15
-                def_def_h = def_def_s * 0.85
+                def_att_h = def_att_s * 1.15; def_def_h = def_def_s * 0.85
             def_form_att = get_form_val(h_stats, 'gf', data_mode)
             def_form_def = get_form_val(h_stats, 'gs', data_mode)
 
@@ -483,18 +403,12 @@ with col_h:
 
 with col_a:
     st.subheader("✈️ Squadra Ospite")
-    if TEAM_LIST: a_name = st.selectbox("Seleziona Ospite", TEAM_LIST, index=idx_a_auto, key="a_sel")
+    if TEAM_LIST: a_name = st.selectbox("Seleziona Ospite", TEAM_LIST, index=1 if len(TEAM_LIST)>1 else 0, key="a_sel")
     else: a_name = st.text_input("Nome Ospite", "Juve")
     a_stats = STATS_DB.get(a_name) if STATS_DB else None
     
-    val_elo_a = 1550.0
-    if data_source == "fixtures" and 'auto_elo_a' in st.session_state:
-        val_elo_a = st.session_state.auto_elo_a
-    elif data_source == "active" and not df_elo.empty:
-        match = difflib.get_close_matches(a_name, df_elo['Club'].tolist(), n=1, cutoff=0.5)
-        if match: val_elo_a = df_elo.loc[df_elo['Club'] == match[0], 'Elo'].values[0]
-
-    a_elo = st.number_input("Rating Elo Ospite", 1000.0, 2500.0, float(val_elo_a), step=10.0)
+    st.markdown("👉 [Consulta ClubElo.com](http://clubelo.com/)")
+    a_elo = st.number_input("Rating Elo Ospite", 1000.0, 2500.0, 1550.0, step=10.0)
 
     with st.expander("📊 Dati", expanded=True):
         def_att_s_a, def_def_s_a, def_att_a, def_def_a, def_form_att_a, def_form_def_a = 1.45, 0.85, 1.25, 1.05, 1.2, 1.3
@@ -505,8 +419,7 @@ with col_a:
                 def_att_a = get_val(a_stats["away"], 'gf', data_mode)
                 def_def_a = get_val(a_stats["away"], 'gs', data_mode)
             else: 
-                def_att_a = def_att_s_a * 0.85
-                def_def_a = def_def_s_a * 1.15
+                def_att_a = def_att_s_a * 0.85; def_def_a = def_def_s_a * 1.15
             def_form_att_a = get_form_val(a_stats, 'gf', data_mode)
             def_form_def_a = get_form_val(a_stats, 'gs', data_mode)
 
@@ -602,7 +515,7 @@ if st.session_state.analyzed:
     c1.metric("xG Previsti", f"{st.session_state.f_xh:.2f} - {st.session_state.f_xa:.2f}")
     c2.metric("Affidabilità", f"{st.session_state.stability:.1f}%")
 
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(["🏆 Esito", "⚽ Gol/Multigol", "👤 Player", "⛳ Stats Extra", "📝 Storico"])
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["🏆 Esito", "⚽ Gol/Multigol", "👤 Player", "⛳ Stats Extra", "📝 Storico", "⚡ Combo Maker"])
     
     with tab1:
         c_1, c_2 = st.columns(2)
@@ -665,20 +578,76 @@ if st.session_state.analyzed:
             st.dataframe(pd.DataFrame(mg_res), hide_index=True)
 
     with tab3:
-        pl_n = st.text_input("Nome", "Vlahovic")
-        c1, c2 = st.columns(2)
-        pxg = c1.number_input("xG/90", 0.0, 2.0, 0.5)
-        pmin = c2.number_input("Minuti", 1, 100, 90)
+        st.subheader("Analisi Marcatore")
         
-        team_sel = st.radio("Squadra di appartenenza", [f"Casa: {st.session_state.h_name}", f"Ospite: {st.session_state.a_name}"])
+        p_xg_val = 0.0
+        p_xa_val = 0.0
         
-        if "Casa" in team_sel:
-            txg = st.session_state.f_xh
-        else:
-            txg = st.session_state.f_xa
+        if PLAYERS_DF is not None and not PLAYERS_DF.empty:
+            team_h_match = difflib.get_close_matches(st.session_state.h_name, PLAYERS_DF['team'].unique(), n=1, cutoff=0.5)
+            team_a_match = difflib.get_close_matches(st.session_state.a_name, PLAYERS_DF['team'].unique(), n=1, cutoff=0.5)
             
-        pprob = calculate_player_probability(pxg, pmin, txg, 1.4)
-        st.metric(f"Gol {pl_n}", f"{pprob:.1%}", f"Quota: {1/pprob:.2f}")
+            players_h = []
+            players_a = []
+            
+            if team_h_match: players_h = PLAYERS_DF[PLAYERS_DF['team'] == team_h_match[0]]['player'].tolist()
+            if team_a_match: players_a = PLAYERS_DF[PLAYERS_DF['team'] == team_a_match[0]]['player'].tolist()
+                
+            team_sel = st.radio("Scegli Squadra Giocatore", [f"Casa: {st.session_state.h_name}", f"Ospite: {st.session_state.a_name}"])
+            
+            if "Casa" in team_sel:
+                curr_players = players_h
+                txg = st.session_state.f_xh
+                team_avg_xg_season = 1.3
+                if h_stats: team_avg_xg_season = get_val(h_stats["total"], 'xg', data_mode)
+            else:
+                curr_players = players_a
+                txg = st.session_state.f_xa
+                team_avg_xg_season = 1.1
+                if a_stats: team_avg_xg_season = get_val(a_stats["total"], 'xg', data_mode)
+
+            if curr_players:
+                pl_n = st.selectbox("Seleziona Giocatore", curr_players)
+                p_data = PLAYERS_DF[PLAYERS_DF['player'] == pl_n].iloc[0]
+                
+                c_p1, c_p2, c_p3 = st.columns(3)
+                c_p1.metric("Gol", p_data.get('goals', 0))
+                c_p2.metric("xG Tot", p_data.get('xg', 0))
+                p_xg_val = float(p_data.get('xg90', 0.0))
+                c_p3.metric("xG/90", p_xg_val)
+                
+                st.caption(f"Assist: {p_data.get('a',0)} | xA: {p_data.get('xa',0)}")
+                p_xa_val = float(p_data.get('xa90', 0.0))
+            else:
+                st.warning("Nessun giocatore trovato per questa squadra.")
+                pl_n = st.text_input("Nome (Manuale)", "Vlahovic")
+                c1, c2 = st.columns(2)
+                p_xg_val = c1.number_input("xG/90 (Manuale)", 0.0, 2.0, 0.35)
+                p_xa_val = c2.number_input("xA/90 (Manuale)", 0.0, 2.0, 0.20)
+                txg = st.session_state.f_xh if "Casa" in team_sel else st.session_state.f_xa
+                team_avg_xg_season = 1.3
+        else:
+            pl_n = st.text_input("Nome", "Vlahovic")
+            c1, c2 = st.columns(2)
+            p_xg_val = c1.number_input("xG/90", 0.0, 2.0, 0.5)
+            p_xa_val = c2.number_input("xA/90", 0.0, 2.0, 0.2)
+            team_sel = st.radio("Squadra", [f"Casa: {st.session_state.h_name}", f"Ospite: {st.session_state.a_name}"])
+            if "Casa" in team_sel: txg = st.session_state.f_xh
+            else: txg = st.session_state.f_xa
+            team_avg_xg_season = 1.3
+
+        pmin = st.number_input("Minuti Previsti", 1, 100, 90)
+        
+        st.markdown("---")
+        c_prob_g, c_prob_a = st.columns(2)
+        
+        if p_xg_val > 0:
+            pprob = calculate_player_probability(p_xg_val, pmin, txg, team_avg_xg_season)
+            c_prob_g.metric(f"Prob. Gol {pl_n}", f"{pprob:.1%}", f"Quota Fair: {1/pprob:.2f}")
+        
+        if p_xa_val > 0:
+            pprob_assist = calculate_player_probability(p_xa_val, pmin, txg, team_avg_xg_season)
+            c_prob_a.metric(f"Prob. Assist {pl_n}", f"{pprob_assist:.1%}", f"Quota Fair: {1/pprob_assist:.2f}")
 
     with tab4:
         st.subheader("⛳ Angoli, Cartellini e Tiri")
@@ -718,3 +687,54 @@ if st.session_state.analyzed:
         
         excel_data = generate_excel_report()
         c2.download_button("📥 Scarica Report Excel", excel_data, f"Mathbet_{datetime.now().strftime('%H%M')}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+    with tab6:
+        st.subheader("⚡ Crea la tua Combo")
+        st.info("Combina più esiti (es. 1 + Over 2.5) per calcolare la probabilità congiunta reale.")
+        
+        c1, c2, c3 = st.columns(3)
+        sel_res = c1.selectbox("Esito 1X2", ["-", "1", "X", "2", "1X", "X2", "12"])
+        sel_uo = c2.selectbox("Under/Over", ["-", "Over 1.5", "Under 1.5", "Over 2.5", "Under 2.5", "Over 3.5", "Under 3.5"])
+        sel_gg = c3.selectbox("Goal/NoGoal", ["-", "Goal", "No Goal"])
+        
+        if st.button("Calcola Combo"):
+            matrix = st.session_state.matrix
+            prob_combo = 0.0
+            
+            for h in range(10):
+                for a in range(10):
+                    p = matrix[h, a]
+                    if p == 0: continue
+                    
+                    # Verifica condizioni
+                    cond_res = True
+                    if sel_res != "-":
+                        if sel_res == "1" and not (h > a): cond_res = False
+                        elif sel_res == "X" and not (h == a): cond_res = False
+                        elif sel_res == "2" and not (h < a): cond_res = False
+                        elif sel_res == "1X" and not (h >= a): cond_res = False
+                        elif sel_res == "X2" and not (h <= a): cond_res = False
+                        elif sel_res == "12" and not (h != a): cond_res = False
+                    
+                    cond_uo = True
+                    if sel_uo != "-":
+                        limit = float(sel_uo.split()[1])
+                        is_over = "Over" in sel_uo
+                        total_goals = h + a
+                        if is_over and not (total_goals > limit): cond_uo = False
+                        if not is_over and not (total_goals < limit): cond_uo = False
+                        
+                    cond_gg = True
+                    if sel_gg != "-":
+                        is_goal = (h > 0 and a > 0)
+                        if sel_gg == "Goal" and not is_goal: cond_gg = False
+                        if sel_gg == "No Goal" and is_goal: cond_gg = False
+                    
+                    if cond_res and cond_uo and cond_gg:
+                        prob_combo += p
+            
+            if prob_combo > 0:
+                st.success(f"Probabilità Combo: **{prob_combo:.1%}**")
+                st.metric("Quota Fair Combo", f"{1/prob_combo:.2f}")
+            else:
+                st.warning("Probabilità 0% (Evento impossibile secondo il modello)")
