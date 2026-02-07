@@ -13,7 +13,7 @@ import difflib
 from datetime import datetime
 
 # --- CONFIGURAZIONE PAGINA ---
-st.set_page_config(page_title="Mathbet fc - ML Ultimate Pro", page_icon="🧠", layout="wide")
+st.set_page_config(page_title="Mathbet fc - ML Ultimate Pro (Advanced)", page_icon="🧠", layout="wide")
 
 # ==============================================================================
 # 📂 CONFIGURAZIONE FILE CSV (SOLO GITHUB)
@@ -43,15 +43,16 @@ LEAGUE_FILES = {
 
 # --- PARAMETRI ML ---
 LEAGUES = {
-    "🌐 Generico (Default)": { "avg": 1.35, "ha": 0.25, "rho": -0.10 },
-    "🇮🇹 Serie A": { "avg": 1.28, "ha": 0.046, "rho": -0.022 },
-    "🇬🇧 Premier League": { "avg": 1.47, "ha": 0.044, "rho": 0.022 },
-    "🇪🇸 La Liga": { "avg": 1.31, "ha": 0.139, "rho": 0.078 },
-    "🇩🇪 Bundesliga": { "avg": 1.57, "ha": 0.049, "rho": -0.088 },
-    "🇫🇷 Ligue 1": { "avg": 1.49, "ha": 0.120, "rho": -0.015 },
+    "🌐 Generico (Default)": { "avg": 1.35, "ha": 0.25, "rho": -0.08 },
+    "🇮🇹 Serie A":          { "avg": 1.28, "ha": 0.059, "rho": -0.025 },
+    "🇬🇧 Premier League":   { "avg": 1.47, "ha": 0.046, "rho": 0.005 },
+    "🇪🇸 La Liga":          { "avg": 1.31, "ha": 0.143, "rho": 0.050 },
+    "🇩🇪 Bundesliga":       { "avg": 1.57, "ha": 0.066, "rho": -0.080 },
+    "🇫🇷 Ligue 1":          { "avg": 1.49, "ha": 0.120, "rho": -0.020 },
 }
+
 # ==============================================================================
-# 🧠 FUNZIONI DATI (SOLO GITHUB)
+# 🧠 FUNZIONI DATI (SOLO GITHUB - AVANZATO)
 # ==============================================================================
 
 def fuzzy_match_team(api_name, csv_team_list):
@@ -83,8 +84,6 @@ def load_league_stats(league_name):
                 return None
         return None
 
-    def safe_avg(val, n): return float(val) / n if n > 0 else 0.0
-
     def extract_stats(row):
         def get_val(keys, default=0.0):
             for k in keys:
@@ -93,14 +92,33 @@ def load_league_stats(league_name):
                     except: pass
             return float(default)
 
+        # Basic Stats
         goals = get_val(['goals', 'gf', 'g', 'scored'], 0)
         ga = get_val(['ga', 'gs', 'gc', 'conceded', 'missed'], 0)
+        matches = get_val(['matches', 'mp', 'p', 'played', 'pl', 'g', 'm'], 0)
+        pts = get_val(['pts', 'points'], 0)
+
+        # Advanced Stats (NPxG, PPDA, DC, xPTS)
         xg = get_val(['xg', 'xg_for'], 0)
         xga = get_val(['xga', 'xg_against', 'xga_conc'], 0)
-        matches = get_val(['matches', 'mp', 'p', 'played', 'pl', 'g'], 0)
+        
+        npxg = get_val(['npxg', 'non_penalty_xg'], xg) 
+        npxga = get_val(['npxga', 'non_penalty_xga'], xga) 
+        
+        ppda = get_val(['ppda'], 12.0) 
+        oppda = get_val(['oppda'], 12.0)
+        dc = get_val(['dc', 'deep_completions'], 5.0) 
+        odc = get_val(['odc', 'opponent_deep_completions'], 5.0)
+        xpts = get_val(['xpts', 'expected_points'], pts) 
 
         return {
-            "goals_total": goals, "ga_total": ga, "xg_total": xg, "xga_total": xga, "matches": matches
+            "goals_total": goals, "ga_total": ga, 
+            "xg_total": xg, "xga_total": xga, 
+            "npxg_total": npxg, "npxga_total": npxga,
+            "ppda": ppda, "oppda": oppda,
+            "dc": dc, "odc": odc,
+            "pts": pts, "xpts": xpts,
+            "matches": matches
         }
 
     df_total = read_csv_local("total")
@@ -110,6 +128,7 @@ def load_league_stats(league_name):
 
     if df_total is None: return {}, []
 
+    # Normalizzazione colonne
     for df in [df_total, df_home, df_away, df_form]:
         if df is not None: df.columns = [c.strip().lower() for c in df.columns]
 
@@ -117,29 +136,24 @@ def load_league_stats(league_name):
         team_col = next((c for c in row.index if 'team' in c or 'squad' in c), None)
         if not team_col: continue
         team_name = str(row[team_col]).strip()
+        
         stats_db[team_name] = {
             "total": extract_stats(row),
-            "home": {"goals_total":0, "ga_total":0, "xg_total":0, "xga_total":0, "matches":0},
-            "away": {"goals_total":0, "ga_total":0, "xg_total":0, "xga_total":0, "matches":0},
-            "form": {"goals_total":0, "ga_total":0, "xg_total":0, "xga_total":0, "matches":0}
+            "home": extract_stats(row), 
+            "away": extract_stats(row),
+            "form": extract_stats(row)
         }
+        for k in ["home", "away", "form"]: stats_db[team_name][k]["matches"] = 0
+        
         team_list.append(team_name)
 
-    if df_home is not None:
-        for _, row in df_home.iterrows():
-            team_col = next((c for c in row.index if 'team' in c or 'squad' in c), None)
-            if team_col and str(row[team_col]).strip() in stats_db: 
-                stats_db[str(row[team_col]).strip()]["home"] = extract_stats(row)
-    if df_away is not None:
-        for _, row in df_away.iterrows():
-            team_col = next((c for c in row.index if 'team' in c or 'squad' in c), None)
-            if team_col and str(row[team_col]).strip() in stats_db: 
-                stats_db[str(row[team_col]).strip()]["away"] = extract_stats(row)
-    if df_form is not None:
-        for _, row in df_form.iterrows():
-            team_col = next((c for c in row.index if 'team' in c or 'squad' in c), None)
-            if team_col and str(row[team_col]).strip() in stats_db: 
-                stats_db[str(row[team_col]).strip()]["form"] = extract_stats(row)
+    # Popola dati specifici
+    for key, df in [("home", df_home), ("away", df_away), ("form", df_form)]:
+        if df is not None:
+            for _, row in df.iterrows():
+                team_col = next((c for c in row.index if 'team' in c or 'squad' in c), None)
+                if team_col and str(row[team_col]).strip() in stats_db: 
+                    stats_db[str(row[team_col]).strip()][key] = extract_stats(row)
 
     team_list.sort()
     return stats_db, team_list
@@ -157,7 +171,6 @@ def load_player_data(league_name):
                      df = pd.read_csv(filename, sep=None, engine='python')
             except:
                 df = pd.read_csv(filename, sep=None, engine='python')
-                
             df.columns = [c.strip().lower() for c in df.columns]
             return df
         except: return None
@@ -216,6 +229,22 @@ def calcola_forza_squadra(att_season, def_season, att_form, def_form, w_season):
     att = (att_season * w_season) + (att_form * (1-w_season))
     def_ = (def_season * w_season) + (def_form * (1-w_season))
     return att, def_
+
+def calcola_metrica_avanzata(stats_h, stats_a, metric, w_seas):
+    """
+    Calcola il valore pesato (Casa/Fuori vs Forma) per una metrica avanzata.
+    """
+    # Casa (Home Stats vs Home Form)
+    val_h_season = stats_h['home'].get(metric, stats_h['total'].get(metric, 0))
+    val_h_form = stats_h['form'].get(metric, stats_h['total'].get(metric, 0))
+    val_h_final = (val_h_season * w_seas) + (val_h_form * (1-w_seas))
+
+    # Ospite (Away Stats vs Away Form)
+    val_a_season = stats_a['away'].get(metric, stats_a['total'].get(metric, 0))
+    val_a_form = stats_a['form'].get(metric, stats_a['total'].get(metric, 0))
+    val_a_final = (val_a_season * w_seas) + (val_a_form * (1-w_seas))
+
+    return val_h_final, val_a_final
 
 def carica_storico_json():
     try:
@@ -280,7 +309,7 @@ with st.sidebar:
     STATS_DB, TEAM_LIST = load_league_stats(league_name)
     PLAYERS_DF = load_player_data(league_name)
     
-    if STATS_DB: st.success(f"✅ Dati Squadre: OK ({len(TEAM_LIST)})")
+    if STATS_DB: st.success(f"✅ Dati Squadre: OK ({len(TEAM_LIST)}) - Adv Stats Ready")
     else: st.error("❌ CSV Squadre non trovati su GitHub.")
     
     if PLAYERS_DF is not None: st.success(f"✅ Dati Giocatori: OK ({len(PLAYERS_DF)})")
@@ -288,7 +317,7 @@ with st.sidebar:
     
     st.markdown("---")
     
-    data_mode = st.radio("Dati Analisi", ["Solo Gol Reali", "Solo xG (Expected Goals)", "Ibrido (Consigliato)"], index=2)
+    data_mode = st.radio("Dati Analisi", ["Solo Gol Reali", "Solo xG (NPxG Mode)", "Ibrido (Consigliato)"], index=2)
     st.markdown("---")
     st.subheader("⚡ Dinamica")
     volatility = st.slider("Volatilità", 0.8, 1.4, 1.0, 0.05)
@@ -344,17 +373,24 @@ st.title("Mathbet fc - ML Ultimate Edition 🚀")
 col_h, col_a = st.columns(2)
 h_uo_input, a_uo_input = {}, {}
 
+# Updated helper to fetch correct metric based on mode (NPxG Support)
 def calculate_avg(stats_dict, metric, mode):
     raw = stats_dict
     matches = raw.get('matches', 0)
     if matches <= 0: return 0.0
+    
+    # Mapping for GF/Attacks
     if metric == 'gf': 
-        val_real = raw.get('goals_total', 0); val_xg = raw.get('xg_total', 0)
-    else: 
-        val_real = raw.get('ga_total', 0); val_xg = raw.get('xga_total', 0)
+        val_real = raw.get('goals_total', 0)
+        # USA NPxG SE DISPONIBILE, ALTRIMENTI xG
+        val_xg = raw.get('npxg_total', raw.get('xg_total', 0)) 
+    else: # Mapping for GA/Defense
+        val_real = raw.get('ga_total', 0)
+        # USA NPxGA SE DISPONIBILE, ALTRIMENTI xGA
+        val_xg = raw.get('npxga_total', raw.get('xga_total', 0))
         
     if mode == "Solo Gol Reali": return val_real / matches
-    elif mode == "Solo xG (Expected Goals)": return val_xg / matches
+    elif mode == "Solo xG (NPxG Mode)": return val_xg / matches
     else: return ((val_real + val_xg) / 2.0) / matches
 
 def get_val(stats_dict, metric, mode):
@@ -448,17 +484,85 @@ with st.expander("⚙️ Fine Tuning"):
     h_m_d = c1.checkbox("No Difensore Casa"); a_m_d = c2.checkbox("No Difensore Ospite")
 
 if st.button("🚀 ANALIZZA", type="primary", use_container_width=True):
-    with st.spinner("Calcolo in corso..."):
+    with st.spinner("Calcolo Algoritmo ML (NPxG + PPDA + Deep Completions)..."):
         home_adv = L_DATA["ha"] if m_type == "Standard" else (0.0 if m_type == "Campo Neutro" else L_DATA["ha"]*0.5)
         w_split = 0.60
         h_base_att = (h_att*(1-w_split)) + (h_att_home*w_split); h_base_def = (h_def*(1-w_split)) + (h_def_home*w_split)
         a_base_att = (a_att*(1-w_split)) + (a_att_away*w_split); a_base_def = (a_def*(1-w_split)) + (a_def_away*w_split)
         h_fin_att, h_fin_def = calcola_forza_squadra(h_base_att, h_base_def, h_form_att, h_form_def, w_seas)
         a_fin_att, a_fin_def = calcola_forza_squadra(a_base_att, a_base_def, a_form_att, a_form_def, w_seas)
+        
+        # 1. Base Calcolo xG
         xg_h = (h_fin_att * a_fin_def) / L_DATA["avg"]; xg_a = (a_fin_att * h_fin_def) / L_DATA["avg"]
+        
+        # 2. Elo Correction
         elo_diff = (h_elo + (100 if m_type=="Standard" else 0)) - a_elo
         f_xh = (xg_h * (1 + elo_diff/1000.0)) + home_adv
         f_xa = (xg_a * (1 - elo_diff/1000.0))
+
+        # ======================================================================
+        # 🧪 NUOVA LOGICA AVANZATA (PPDA, DC, xPTS, Game State)
+        # ======================================================================
+        if h_stats and a_stats:
+            
+            # Helper per calcolare metrica pesata (Casa vs Forma)
+            h_ppda, _ = calcola_metrica_avanzata(h_stats, a_stats, 'ppda', w_seas)
+            _, a_ppda = calcola_metrica_avanzata(h_stats, a_stats, 'ppda', w_seas)
+            
+            # Per OPPDA usiamo l'opposto (Casa subisce vs Ospite subisce)
+            h_oppda, _ = calcola_metrica_avanzata(h_stats, a_stats, 'oppda', w_seas)
+            _, a_oppda = calcola_metrica_avanzata(h_stats, a_stats, 'oppda', w_seas)
+
+            # A. PRESSING INTENSITY (PPDA)
+            ppda_factor_h = 1.0
+            # Se Casa pressa molto (basso PPDA) e Ospite soffre (alto OPPDA)
+            if h_ppda < 10.5 and a_oppda > 10.5: ppda_factor_h += 0.07 
+            if h_ppda > 14.0: ppda_factor_h -= 0.03 # Pressing scarso
+
+            ppda_factor_a = 1.0
+            if a_ppda < 10.5 and h_oppda > 10.5: ppda_factor_a += 0.07
+            if a_ppda > 14.0: ppda_factor_a -= 0.03
+            
+            f_xh *= ppda_factor_h
+            f_xa *= ppda_factor_a
+
+            # B. DOMINIO TERRITORIALE (Field Tilt / Deep Completions)
+            h_dc, _ = calcola_metrica_avanzata(h_stats, a_stats, 'dc', w_seas)
+            _, a_dc = calcola_metrica_avanzata(h_stats, a_stats, 'dc', w_seas)
+            
+            total_dc = h_dc + a_dc
+            if total_dc > 0:
+                h_tilt = h_dc / total_dc
+                if h_tilt > 0.60: f_xh *= 1.05 # Dominio territoriale
+                elif h_tilt < 0.40: f_xh *= 0.95
+                
+                if h_tilt < 0.40: f_xa *= 1.05 
+                elif h_tilt > 0.60: f_xa *= 0.95
+
+            # C. xPTS REALITY CHECK (Overperformers vs Underperformers)
+            h_pts, _ = calcola_metrica_avanzata(h_stats, a_stats, 'pts', w_seas)
+            h_xpts, _ = calcola_metrica_avanzata(h_stats, a_stats, 'xpts', w_seas)
+            _, a_pts = calcola_metrica_avanzata(h_stats, a_stats, 'pts', w_seas)
+            _, a_xpts = calcola_metrica_avanzata(h_stats, a_stats, 'xpts', w_seas)
+            
+            # Se Punti Reali > xPTS (Fortuna) -> Riduci aspettativa
+            if h_pts > (h_xpts * 1.2): f_xh *= 0.97 
+            if h_pts < (h_xpts * 0.8): f_xh *= 1.03 
+            
+            if a_pts > (a_xpts * 1.2): f_xa *= 0.97
+            if a_pts < (a_xpts * 0.8): f_xa *= 1.03
+
+        # D. GAME STATE ADJUSTMENT (Score Effects)
+        # Chi è molto favorito tende a "gestire" (abbassa xG). Chi rincorre spinge.
+        expected_goal_diff = f_xh - f_xa
+        if expected_goal_diff > 0.45:
+             f_xh *= 0.96 # Casa gestisce
+             f_xa *= 1.04 # Ospite spinge nel finale
+        elif expected_goal_diff < -0.45:
+             f_xa *= 0.96
+             f_xh *= 1.04
+
+        # Standard Modifiers
         f_xh *= volatility; f_xa *= volatility
         if h_rest <= 3: f_xh*=0.95; f_xa*=1.05
         if a_rest <= 3: f_xa*=0.95; f_xh*=1.05
@@ -511,7 +615,7 @@ if st.session_state.analyzed:
     st.markdown("---")
     st.header(f"📊 {st.session_state.h_name} vs {st.session_state.a_name}")
     c1, c2 = st.columns(2)
-    c1.metric("xG Previsti", f"{st.session_state.f_xh:.2f} - {st.session_state.f_xa:.2f}")
+    c1.metric("xG Previsti (Adjusted)", f"{st.session_state.f_xh:.2f} - {st.session_state.f_xa:.2f}")
     c2.metric("Affidabilità", f"{st.session_state.stability:.1f}%")
 
     tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["🏆 Esito", "⚽ Gol/Multigol", "👤 Player", "⛳ Stats Extra", "📝 Storico", "⚡ Combo Maker"])
