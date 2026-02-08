@@ -128,7 +128,6 @@ def load_league_stats(league_name):
 
     if df_total is None: return {}, []
 
-    # Normalizzazione colonne
     for df in [df_total, df_home, df_away, df_form]:
         if df is not None: df.columns = [c.strip().lower() for c in df.columns]
 
@@ -187,11 +186,64 @@ def dixon_coles_probability(h_goals, a_goals, mu_h, mu_a, rho):
     return max(0.0, prob)
 
 def calculate_player_probability(metric_per90, expected_mins, team_match_xg, team_avg_xg):
+    # Logica corretta e smorzata (Damped)
     base_lambda = (metric_per90 / 90.0) * expected_mins
+    
     if team_avg_xg <= 0.1: team_avg_xg = max(0.1, team_match_xg)
-    match_factor = team_match_xg / team_avg_xg
-    final_lambda = base_lambda * match_factor
+    
+    # Fattore Match: Rapporto tra xG previsti oggi e xG medi stagionali
+    raw_factor = team_match_xg / team_avg_xg
+    
+    # Damping: Riduce l'effetto moltiplicativo se il divario è troppo alto
+    # Usiamo radice quadrata o esponente < 1 per evitare picchi irrealistici
+    damped_factor = pow(raw_factor, 0.75) 
+    
+    # Cap di sicurezza (max 2.5x rispetto alla media)
+    final_factor = min(2.5, damped_factor)
+    
+    final_lambda = base_lambda * final_factor
+    
     return 1 - math.exp(-final_lambda)
+
+def calculate_combo_player(matrix, outcome_type, team_type, player_share):
+    """
+    Calcola la probabilità composta: Esito Match + Giocatore Segna.
+    Usa il metodo 'Binomial Share' applicato alla matrice dei risultati esatti.
+    """
+    prob_combo = 0.0
+    
+    for h in range(10):
+        for a in range(10):
+            p_score = matrix[h, a]
+            if p_score == 0: continue
+            
+            # 1. Verifica condizione Esito (1, X, 2)
+            cond_outcome = False
+            if outcome_type == "1": cond_outcome = (h > a)
+            elif outcome_type == "X": cond_outcome = (h == a)
+            elif outcome_type == "2": cond_outcome = (h < a)
+            elif outcome_type == "1X": cond_outcome = (h >= a)
+            elif outcome_type == "X2": cond_outcome = (h <= a)
+            elif outcome_type == "12": cond_outcome = (h != a)
+            else: cond_outcome = True # Nessun esito selezionato
+            
+            if not cond_outcome: continue
+            
+            # 2. Calcola probabilità giocatore dato il punteggio della sua squadra
+            team_goals = h if team_type == "Casa" else a
+            
+            if team_goals == 0:
+                p_player_given_score = 0.0
+            else:
+                # Probabilità che il giocatore segni almeno 1 gol se la squadra ne fa k
+                # P = 1 - (1 - share)^k
+                # share = contributo medio del giocatore agli xG di squadra
+                p_player_given_score = 1 - (1 - player_share)**team_goals
+            
+            # Somma pesata
+            prob_combo += (p_score * p_player_given_score)
+            
+    return prob_combo
 
 def poisson_probability(k, lamb):
     return (math.exp(-lamb) * (lamb**k)) / math.factorial(k)
@@ -231,15 +283,10 @@ def calcola_forza_squadra(att_season, def_season, att_form, def_form, w_season):
     return att, def_
 
 def calcola_metrica_avanzata(stats_h, stats_a, metric, w_seas):
-    """
-    Calcola il valore pesato (Casa/Fuori vs Forma) per una metrica avanzata.
-    """
-    # Casa (Home Stats vs Home Form)
     val_h_season = stats_h['home'].get(metric, stats_h['total'].get(metric, 0))
     val_h_form = stats_h['form'].get(metric, stats_h['total'].get(metric, 0))
     val_h_final = (val_h_season * w_seas) + (val_h_form * (1-w_seas))
 
-    # Ospite (Away Stats vs Away Form)
     val_a_season = stats_a['away'].get(metric, stats_a['total'].get(metric, 0))
     val_a_form = stats_a['form'].get(metric, stats_a['total'].get(metric, 0))
     val_a_final = (val_a_season * w_seas) + (val_a_form * (1-w_seas))
@@ -515,9 +562,8 @@ if st.button("🚀 ANALIZZA", type="primary", use_container_width=True):
 
             # A. PRESSING INTENSITY (PPDA)
             ppda_factor_h = 1.0
-            # Se Casa pressa molto (basso PPDA) e Ospite soffre (alto OPPDA)
             if h_ppda < 10.5 and a_oppda > 10.5: ppda_factor_h += 0.07 
-            if h_ppda > 14.0: ppda_factor_h -= 0.03 # Pressing scarso
+            if h_ppda > 14.0: ppda_factor_h -= 0.03 
 
             ppda_factor_a = 1.0
             if a_ppda < 10.5 and h_oppda > 10.5: ppda_factor_a += 0.07
@@ -553,7 +599,6 @@ if st.button("🚀 ANALIZZA", type="primary", use_container_width=True):
             if a_pts < (a_xpts * 0.8): f_xa *= 1.03
 
         # D. GAME STATE ADJUSTMENT (Score Effects)
-        # Chi è molto favorito tende a "gestire" (abbassa xG). Chi rincorre spinge.
         expected_goal_diff = f_xh - f_xa
         if expected_goal_diff > 0.45:
              f_xh *= 0.96 # Casa gestisce
@@ -607,7 +652,7 @@ if st.button("🚀 ANALIZZA", type="primary", use_container_width=True):
             "corners": {"1": corn_1, "X": corn_X, "2": corn_2, "lines": corn_lines},
             "cards": {"1": card_1, "X": card_X, "2": card_2, "lines": card_lines},
             "shots": {"1": shot_1, "X": shot_X, "2": shot_2, "lines": shot_lines},
-            "sot": {"1": sot_1, "X": sot_X, "2": sot_2, "lines": sot_lines},
+            "sot": {"1": sot_1, "X": sot_2, "2": sot_2, "lines": sot_lines},
             "fouls": {"1": foul_1, "X": foul_X, "2": foul_2, "lines": foul_lines}
         }
 
@@ -698,14 +743,18 @@ if st.session_state.analyzed:
                 
             team_sel = st.radio("Scegli Squadra Giocatore", [f"Casa: {st.session_state.h_name}", f"Ospite: {st.session_state.a_name}"])
             
+            # Parametri per il calcolo avanzato
             if "Casa" in team_sel:
                 curr_players = players_h
                 txg = st.session_state.f_xh
+                team_type = "Casa"
+                # Calcolo xG medio stagionale
                 team_avg_xg_season = 1.3
                 if h_stats: team_avg_xg_season = get_val(h_stats["total"], 'xg', data_mode)
             else:
                 curr_players = players_a
                 txg = st.session_state.f_xa
+                team_type = "Ospite"
                 team_avg_xg_season = 1.1
                 if a_stats: team_avg_xg_season = get_val(a_stats["total"], 'xg', data_mode)
 
@@ -728,6 +777,7 @@ if st.session_state.analyzed:
                 p_xg_val = c1.number_input("xG/90 (Manuale)", 0.0, 2.0, 0.35)
                 p_xa_val = c2.number_input("xA/90 (Manuale)", 0.0, 2.0, 0.20)
                 txg = st.session_state.f_xh if "Casa" in team_sel else st.session_state.f_xa
+                team_type = "Casa" if "Casa" in team_sel else "Ospite"
                 team_avg_xg_season = 1.3
         else:
             pl_n = st.text_input("Nome", "Vlahovic")
@@ -735,8 +785,12 @@ if st.session_state.analyzed:
             p_xg_val = c1.number_input("xG/90", 0.0, 2.0, 0.5)
             p_xa_val = c2.number_input("xA/90", 0.0, 2.0, 0.2)
             team_sel = st.radio("Squadra", [f"Casa: {st.session_state.h_name}", f"Ospite: {st.session_state.a_name}"])
-            if "Casa" in team_sel: txg = st.session_state.f_xh
-            else: txg = st.session_state.f_xa
+            if "Casa" in team_sel: 
+                txg = st.session_state.f_xh
+                team_type = "Casa"
+            else: 
+                txg = st.session_state.f_xa
+                team_type = "Ospite"
             team_avg_xg_season = 1.3
 
         pmin = st.number_input("Minuti Previsti", 1, 100, 90)
@@ -744,6 +798,10 @@ if st.session_state.analyzed:
         st.markdown("---")
         c_prob_g, c_prob_a = st.columns(2)
         
+        pprob = 0.0
+        pprob_assist = 0.0
+        
+        # Calcolo Prob Singole
         if p_xg_val > 0:
             pprob = calculate_player_probability(p_xg_val, pmin, txg, team_avg_xg_season)
             c_prob_g.metric(f"Prob. Gol {pl_n}", f"{pprob:.1%}", f"Quota Fair: {1/pprob:.2f}")
@@ -751,6 +809,40 @@ if st.session_state.analyzed:
         if p_xa_val > 0:
             pprob_assist = calculate_player_probability(p_xa_val, pmin, txg, team_avg_xg_season)
             c_prob_a.metric(f"Prob. Assist {pl_n}", f"{pprob_assist:.1%}", f"Quota Fair: {1/pprob_assist:.2f}")
+            
+        st.markdown("### ⚡ Combo Player")
+        st.info("Calcolo probabilità congiunta (Outcome + Player Score/Assist)")
+        
+        c_c1, c_c2 = st.columns(2)
+        sel_res_p = c_c1.selectbox("Esito Match", ["1", "X", "2", "1X", "X2", "12"])
+        
+        # Calcolo Share per Combo
+        player_share_g = 0.0
+        player_share_a = 0.0
+        if txg > 0:
+            player_share_g = (p_xg_val / 90 * pmin) / txg
+            player_share_a = (p_xa_val / 90 * pmin) / txg
+            
+        # Limita share per evitare errori matematici
+        player_share_g = min(0.99, max(0.01, player_share_g))
+        player_share_a = min(0.99, max(0.01, player_share_a))
+
+        if st.button("Calcola Combo Player"):
+            # Combo Gol
+            if pprob > 0:
+                p_combo_g = calculate_combo_player(st.session_state.matrix, sel_res_p, team_type, player_share_g)
+                if p_combo_g > 0:
+                    st.success(f"{sel_res_p} + Gol {pl_n}: **{p_combo_g:.1%}** (@{1/p_combo_g:.2f})")
+                else:
+                    st.warning("Probabilità Gol Combo troppo bassa.")
+            
+            # Combo Assist
+            if pprob_assist > 0:
+                p_combo_a = calculate_combo_player(st.session_state.matrix, sel_res_p, team_type, player_share_a)
+                if p_combo_a > 0:
+                    st.success(f"{sel_res_p} + Assist {pl_n}: **{p_combo_a:.1%}** (@{1/p_combo_a:.2f})")
+                else:
+                    st.warning("Probabilità Assist Combo troppo bassa.")
 
     with tab4:
         st.subheader("⛳ Angoli, Cartellini e Tiri")
