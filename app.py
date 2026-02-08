@@ -102,14 +102,14 @@ def load_league_stats(league_name):
         xg = get_val(['xg', 'xg_for'], 0)
         xga = get_val(['xga', 'xg_against', 'xga_conc'], 0)
         
-        npxg = get_val(['npxg', 'non_penalty_xg'], xg) 
-        npxga = get_val(['npxga', 'non_penalty_xga'], xga) 
+        npxg = get_val(['npxg', 'non_penalty_xg'], xg) # Fallback su xG se manca NPxG
+        npxga = get_val(['npxga', 'non_penalty_xga'], xga) # Fallback su xGA se manca NPxGA
         
-        ppda = get_val(['ppda'], 12.0) 
+        ppda = get_val(['ppda'], 12.0) # Default media lega approx
         oppda = get_val(['oppda'], 12.0)
         dc = get_val(['dc', 'deep_completions'], 5.0) 
         odc = get_val(['odc', 'opponent_deep_completions'], 5.0)
-        xpts = get_val(['xpts', 'expected_points'], pts) 
+        xpts = get_val(['xpts', 'expected_points'], pts) # Fallback su PTS reali
 
         return {
             "goals_total": goals, "ga_total": ga, 
@@ -128,6 +128,7 @@ def load_league_stats(league_name):
 
     if df_total is None: return {}, []
 
+    # Normalizzazione colonne
     for df in [df_total, df_home, df_away, df_form]:
         if df is not None: df.columns = [c.strip().lower() for c in df.columns]
 
@@ -138,15 +139,16 @@ def load_league_stats(league_name):
         
         stats_db[team_name] = {
             "total": extract_stats(row),
-            "home": extract_stats(row), 
+            "home": extract_stats(row), # Init con totali come fallback
             "away": extract_stats(row),
             "form": extract_stats(row)
         }
+        # Reset matches per le sotto-categorie
         for k in ["home", "away", "form"]: stats_db[team_name][k]["matches"] = 0
         
         team_list.append(team_name)
 
-    # Popola dati specifici
+    # Popola dati specifici se disponibili
     for key, df in [("home", df_home), ("away", df_away), ("form", df_form)]:
         if df is not None:
             for _, row in df.iterrows():
@@ -186,38 +188,21 @@ def dixon_coles_probability(h_goals, a_goals, mu_h, mu_a, rho):
     return max(0.0, prob)
 
 def calculate_player_probability(metric_per90, expected_mins, team_match_xg, team_avg_xg):
-    # Logica corretta e smorzata (Damped)
     base_lambda = (metric_per90 / 90.0) * expected_mins
-    
     if team_avg_xg <= 0.1: team_avg_xg = max(0.1, team_match_xg)
-    
-    # Fattore Match: Rapporto tra xG previsti oggi e xG medi stagionali
     raw_factor = team_match_xg / team_avg_xg
-    
-    # Damping: Riduce l'effetto moltiplicativo se il divario è troppo alto
-    # Usiamo radice quadrata o esponente < 1 per evitare picchi irrealistici
     damped_factor = pow(raw_factor, 0.75) 
-    
-    # Cap di sicurezza (max 2.5x rispetto alla media)
     final_factor = min(2.5, damped_factor)
-    
     final_lambda = base_lambda * final_factor
-    
     return 1 - math.exp(-final_lambda)
 
 def calculate_combo_player(matrix, outcome_type, team_type, player_share):
-    """
-    Calcola la probabilità composta: Esito Match + Giocatore Segna.
-    Usa il metodo 'Binomial Share' applicato alla matrice dei risultati esatti.
-    """
     prob_combo = 0.0
-    
     for h in range(10):
         for a in range(10):
             p_score = matrix[h, a]
             if p_score == 0: continue
             
-            # 1. Verifica condizione Esito (1, X, 2)
             cond_outcome = False
             if outcome_type == "1": cond_outcome = (h > a)
             elif outcome_type == "X": cond_outcome = (h == a)
@@ -225,22 +210,16 @@ def calculate_combo_player(matrix, outcome_type, team_type, player_share):
             elif outcome_type == "1X": cond_outcome = (h >= a)
             elif outcome_type == "X2": cond_outcome = (h <= a)
             elif outcome_type == "12": cond_outcome = (h != a)
-            else: cond_outcome = True # Nessun esito selezionato
+            else: cond_outcome = True
             
             if not cond_outcome: continue
             
-            # 2. Calcola probabilità giocatore dato il punteggio della sua squadra
             team_goals = h if team_type == "Casa" else a
-            
             if team_goals == 0:
                 p_player_given_score = 0.0
             else:
-                # Probabilità che il giocatore segni almeno 1 gol se la squadra ne fa k
-                # P = 1 - (1 - share)^k
-                # share = contributo medio del giocatore agli xG di squadra
                 p_player_given_score = 1 - (1 - player_share)**team_goals
             
-            # Somma pesata
             prob_combo += (p_score * p_player_given_score)
             
     return prob_combo
@@ -426,19 +405,24 @@ def calculate_avg(stats_dict, metric, mode):
     matches = raw.get('matches', 0)
     if matches <= 0: return 0.0
     
-    # Mapping for GF/Attacks
+    # Estrazione valori grezzi
     if metric == 'gf': 
-        val_real = raw.get('goals_total', 0)
-        # USA NPxG SE DISPONIBILE, ALTRIMENTI xG
-        val_xg = raw.get('npxg_total', raw.get('xg_total', 0)) 
-    else: # Mapping for GA/Defense
-        val_real = raw.get('ga_total', 0)
-        # USA NPxGA SE DISPONIBILE, ALTRIMENTI xGA
-        val_xg = raw.get('npxga_total', raw.get('xga_total', 0))
+        val_goals = raw.get('goals_total', 0)
+        val_xg = raw.get('xg_total', 0)
+        val_npxg = raw.get('npxg_total', val_xg) # Fallback su xG se manca NPxG
+    else: 
+        val_goals = raw.get('ga_total', 0)
+        val_xg = raw.get('xga_total', 0)
+        val_npxg = raw.get('npxga_total', val_xg) # Fallback su xGA se manca NPxGA
         
-    if mode == "Solo Gol Reali": return val_real / matches
-    elif mode == "Solo xG (NPxG Mode)": return val_xg / matches
-    else: return ((val_real + val_xg) / 2.0) / matches
+    # Logica di calcolo (divisa per matches alla fine)
+    if mode == "Solo Gol Reali": 
+        return val_goals / matches
+    elif mode == "Solo xG (NPxG Mode)": 
+        return val_npxg / matches
+    else: # Ibrido (Consigliato) - 40% NPxG, 30% xG, 30% Gol
+        weighted_val = (val_npxg * 0.40) + (val_xg * 0.30) + (val_goals * 0.30)
+        return weighted_val / matches
 
 def get_val(stats_dict, metric, mode):
     return calculate_avg(stats_dict, metric, mode)
@@ -652,7 +636,7 @@ if st.button("🚀 ANALIZZA", type="primary", use_container_width=True):
             "corners": {"1": corn_1, "X": corn_X, "2": corn_2, "lines": corn_lines},
             "cards": {"1": card_1, "X": card_X, "2": card_2, "lines": card_lines},
             "shots": {"1": shot_1, "X": shot_X, "2": shot_2, "lines": shot_lines},
-            "sot": {"1": sot_1, "X": sot_2, "2": sot_2, "lines": sot_lines},
+            "sot": {"1": sot_1, "X": sot_X, "2": sot_2, "lines": sot_lines},
             "fouls": {"1": foul_1, "X": foul_X, "2": foul_2, "lines": foul_lines}
         }
 
@@ -743,7 +727,6 @@ if st.session_state.analyzed:
                 
             team_sel = st.radio("Scegli Squadra Giocatore", [f"Casa: {st.session_state.h_name}", f"Ospite: {st.session_state.a_name}"])
             
-            # Parametri per il calcolo avanzato
             if "Casa" in team_sel:
                 curr_players = players_h
                 txg = st.session_state.f_xh
@@ -933,3 +916,4 @@ if st.session_state.analyzed:
                 st.metric("Quota Fair Combo", f"{1/prob_combo:.2f}")
             else:
                 st.warning("Probabilità 0% (Evento impossibile secondo il modello)")
+ 
