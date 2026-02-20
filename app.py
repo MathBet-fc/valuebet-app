@@ -316,6 +316,32 @@ with st.sidebar:
         c_foul_h = st.number_input("Falli Casa", 0.0, 30.0, 11.5, 0.5)
         c_foul_a = st.number_input("Falli Ospite", 0.0, 30.0, 12.5, 0.5)
 
+    # REINSERITO: CALCOLATORI UTILITY
+    with st.expander("🧮 Calcolatori Utility", expanded=False):
+        st.markdown("**Convertitore Quota -> Prob %**")
+        fair_odd_input = st.number_input("Inserisci Fair Odd", 1.01, 100.0, 2.00, step=0.05)
+        st.caption(f"Probabilità Implicita: **{(1/fair_odd_input):.1%}**")
+        st.divider()
+        st.markdown("**Calcolatore Value Bet**")
+        my_prob = st.number_input("Tua Probabilità (%)", 0.1, 100.0, 50.0, step=1.0)
+        book_odd = st.number_input("Quota Bookmaker", 1.01, 100.0, 2.00, step=0.05)
+        value_calc = ((my_prob / 100) * book_odd) - 1
+        if value_calc > 0: st.success(f"✅ VALUE BET! (+{value_calc:.1%})")
+        elif value_calc == 0: st.warning("⚖️ Fair (Nessun Valore)")
+        else: st.error(f"❌ No Value ({value_calc:.1%})")
+        st.divider()
+        st.markdown("**Calcolatore Kelly (25%)**")
+        k_bank = st.number_input("Bankroll Totale (€)", 0.0, 100000.0, 1000.0, step=10.0)
+        k_prob = st.number_input("Probabilità Vittoria (%) (K)", 0.1, 100.0, 55.0, step=1.0, key="k_prob")
+        k_odd = st.number_input("Quota Evento (K)", 1.01, 100.0, 2.00, step=0.05, key="k_odd")
+        if k_odd > 1:
+            b = k_odd - 1; p = k_prob / 100; q = 1 - p
+            f = (b * p - q) / b 
+            if f > 0:
+                kelly_stake = (f * 0.25) * k_bank 
+                st.success(f"💰 Punta: **€ {kelly_stake:.2f}** ({f*0.25*100:.2f}%)")
+            else: st.warning("⛔ Nessun Valore (No Bet)")
+
 st.title("Mathbet fc - ML Ultimate Edition 🚀")
 
 col_h, col_a = st.columns(2)
@@ -514,8 +540,7 @@ if st.session_state.analyzed:
     c1.metric("xG Previsti (Adjusted)", f"{st.session_state.f_xh:.2f} - {st.session_state.f_xa:.2f}")
     c2.metric("Affidabilità", f"{st.session_state.stability:.1f}%")
 
-    # Ho ripristinato le 6 schede originali (incluso lo "Storico")
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["🏆 Esito", "⚽ Goal", "👤 Player", "⛳ Stats & Corners", "📝 Storico", "⚡ Combo"])
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["🏆 Esito", "⚽ Goal", "👤 Player", "⛳ Stats Extra & Corners", "📝 Storico", "⚡ Combo"])
     
     with tab1:
         c_1, c_2 = st.columns(2)
@@ -639,7 +664,6 @@ if st.session_state.analyzed:
             sot = st.session_state.stats["sot"]
             st.dataframe(pd.DataFrame([{"Linea": k, "Over %": f"{v['prob']:.1%}", "Quota": safe_odd(v['prob'])} for k,v in sot["lines"].items()]), hide_index=True)
 
-    # ------------------ RIPRISTINATO IL TAB STORICO ------------------
     with tab5:
         c1, c2 = st.columns(2)
         if c1.button("💾 Salva in Storico"):
@@ -650,7 +674,6 @@ if st.session_state.analyzed:
         excel_data = generate_excel_report()
         c2.download_button("📥 Scarica Report Excel", excel_data, f"Mathbet_{datetime.now().strftime('%H%M')}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
-    # ------------------ RIPRISTINATO IL TAB COMBO MAKER ------------------
     with tab6:
         st.subheader("⚡ Combo Maker")
         c1, c2, c3 = st.columns(3)
