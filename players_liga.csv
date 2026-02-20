@@ -1,0 +1,551 @@
+﻿"number";"player";"team";"apps";"min";"goals";"a";"xG";"xA";"xG90";"xA90"
+1;"Kylian Mbappe-Lottin";"Real Madrid";22;1951;23;4;21.14;6.45;0.98;0.3
+2;"Vedat Muriqi";"Mallorca";23;1902;16;1;14.1;1.07;0.67;0.05
+3;"Ferrán Torres";"Barcelona";22;1404;12;1;13.13;2.11;0.84;0.14
+4;"Ante Budimir";"Osasuna";23;1812;11;0;9.94;0.56;0.49;0.03
+5;"Robert Lewandowski";"Barcelona";19;914;10;1;11.67;1.57;1.15;0.15
+6;"Mikel Oyarzabal";"Real Sociedad";21;1830;10;3;11.3;4.68;0.56;0.23
+7;"Borja Iglesias";"Celta Vigo";22;1338;10;2;8.86;1.58;0.6;0.11
+8;"Lamine Yamal";"Barcelona";20;1698;10;8;10.33;10.61;0.55;0.56
+9;"Alberto Moleiro";"Villarreal";23;1617;9;4;4.83;4.16;0.27;0.23
+10;"Juan Camilo Hernández";"Real Betis";19;1669;8;3;7.66;3.68;0.41;0.2
+11;"Vinícius Júnior";"Real Madrid";23;1799;8;5;8.86;4.9;0.44;0.25
+12;"Raphinha";"Barcelona";15;971;8;3;6.06;4.72;0.56;0.44
+13;"Georges Mikautadze";"Villarreal";19;1188;8;4;8.99;3.09;0.68;0.23
+14;"Gerard Moreno";"Villarreal";12;749;7;0;4.04;2.64;0.49;0.32
+15;"Alexander Sørloth";"Atletico Madrid";23;1220;7;0;7.13;0.65;0.53;0.05
+16;"Hugo Duro";"Valencia";23;1415;7;0;5.99;1.03;0.38;0.07
+17;"Jorge De Frutos";"Rayo Vallecano";21;1570;7;1;7;1.78;0.4;0.1
+18;"Julián Álvarez";"Atletico Madrid";24;1713;7;3;7.81;5.45;0.41;0.29
+19;"Vladyslav Vanat";"Girona";21;1609;7;1;7.6;2.08;0.43;0.12
+20;"Antoine Griezmann";"Atletico Madrid";21;718;6;0;4.93;1.59;0.62;0.2
+21;"Pablo Fornals";"Real Betis";24;1978;6;4;4.24;4.65;0.19;0.21
+22;"Rafa Mir";"Elche";19;1342;6;0;5.53;0.73;0.37;0.05
+23;"Pere Milla";"Espanyol";22;1557;6;0;6.09;3.4;0.35;0.2
+24;"Gonçalo Guedes";"Real Sociedad";24;1335;6;3;3.38;1.84;0.23;0.12
+25;"Dani Olmo";"Barcelona";19;1215;6;6;5.99;4.45;0.44;0.33
+26;"Etta Eyong";"Levante,Villarreal";22;1553;6;3;9.07;2.41;0.53;0.14
+27;"Antony";"Real Betis";19;1623;6;5;5.27;4.51;0.29;0.25
+28;"Akor Adams";"Sevilla";19;1207;6;2;7.61;0.65;0.57;0.05
+29;"Lucas Boyé";"Alaves";18;1348;5;1;7.02;2.02;0.47;0.13
+30;"Mauro Arambarri";"Getafe";24;2139;5;1;5.08;0.57;0.21;0.02
+31;"André Silva";"Elche";18;1026;5;0;5.06;1.35;0.44;0.12
+32;"Brais Méndez";"Real Sociedad";21;1262;5;2;3.52;1.6;0.25;0.11
+33;"Antonio Martínez";"Alaves";23;1556;5;2;6.79;1.92;0.39;0.11
+34;"Roberto Navarro";"Athletic Club";20;715;5;1;2.97;1.3;0.37;0.16
+35;"Abdessamad Ezzalzouli";"Real Betis";15;1143;5;4;6.17;3.59;0.49;0.28
+36;"Alvaro Rodríguez";"Elche";21;1348;5;4;8.11;3.26;0.54;0.22
+37;"Carlos Vicente";"Alaves";21;1250;5;0;3.71;3.86;0.27;0.28
+38;"Tajon Buchanan";"Villarreal";22;1346;5;1;2.37;2.21;0.16;0.15
+39;"Roberto Fernández";"Espanyol";24;1747;5;2;6.05;3.02;0.31;0.16
+40;"Marcus Rashford";"Barcelona";21;1242;4;6;6.91;3.92;0.5;0.28
+41;"Borja Mayoral";"Getafe";14;1066;4;1;3.41;0.53;0.29;0.04
+42;"Kike García";"Espanyol";23;900;4;1;5.97;2.24;0.6;0.22
+43;"Aitor Ruibal";"Real Betis";19;1185;4;1;2.97;1.49;0.23;0.11
+44;"Gorka Guruzeta";"Athletic Club";21;1409;4;1;6.58;2.38;0.42;0.15
+45;"Raul García";"Osasuna";23;640;4;0;4.52;0.31;0.64;0.04
+46;"German Valera";"Elche";23;1815;4;3;2;4.22;0.1;0.21
+47;"Jude Bellingham";"Real Madrid";18;1298;4;3;6.21;2.52;0.43;0.17
+48;"Nico Williams";"Athletic Club";19;1335;4;2;4.95;3.84;0.33;0.26
+49;"Iván Romero";"Levante";20;1596;4;1;6.52;1.71;0.37;0.1
+50;"Samú Costa";"Mallorca";21;1625;4;0;1.89;0.96;0.1;0.05
+51;"Viktor Tsygankov";"Girona";18;1424;4;2;3.04;2.1;0.19;0.13
+52;"Carlos Romero";"Espanyol";22;1958;4;2;2.2;2.45;0.1;0.11
+53;"Fermín López";"Barcelona";18;1067;4;5;4.33;5.51;0.36;0.47
+54;"Gonzalo García";"Real Madrid";19;501;4;0;3.9;0.36;0.7;0.06
+55;"Víctor Muñoz";"Osasuna";24;1867;4;1;3.51;0.9;0.17;0.04
+56;"Cristhian Stuani";"Girona";12;195;3;0;3.81;0.05;1.76;0.02
+57;"Djibril Sow";"Sevilla";20;1342;3;0;0.87;0.93;0.06;0.06
+58;"Nicolas Pepe";"Villarreal";23;1437;3;4;6.43;4.48;0.4;0.28
+59;"Leandro Cabrera";"Espanyol";23;2070;3;0;2.76;0.78;0.12;0.03
+60;"Álvaro García";"Rayo Vallecano";23;1629;3;4;5.26;5.28;0.29;0.29
+61;"Ander Barrenetxea";"Real Sociedad";19;1107;3;3;1.66;4.6;0.13;0.37
+62;"Ruben Vargas";"Sevilla";13;908;3;4;2.22;1.76;0.22;0.17
+63;"Arnaut Danjuma Groeneveld";"Valencia";22;1434;3;2;4.56;3.26;0.29;0.2
+64;"Azz-Eddine Ounahi";"Girona";10;796;3;1;1.11;1.3;0.13;0.15
+65;"Ferrán Jutglà";"Celta Vigo";16;838;3;1;2.96;0.97;0.32;0.1
+66;"Diego López";"Valencia";22;1312;3;0;2.78;1.29;0.19;0.09
+67;"Williot Swedberg";"Celta Vigo";17;695;3;0;3.4;0.31;0.44;0.04
+68;"Carlos Álvarez";"Levante";24;1674;3;1;1.74;4.32;0.09;0.23
+69;"Arda Güler";"Real Madrid";24;1571;3;7;4.42;6.86;0.25;0.39
+70;"Isaac Romero";"Sevilla";18;1003;3;0;4.83;0.85;0.43;0.08
+71;"Thiago Almada";"Atletico Madrid";16;701;3;1;2.82;1.71;0.36;0.22
+72;"Ilyas Chaira";"Real Oviedo";21;1434;3;1;3.87;1.34;0.24;0.08
+73;"Federico Viñas";"Real Oviedo";19;1291;3;1;4.4;2.05;0.31;0.14
+74;"Adrián Liso";"Getafe";20;1375;3;0;2.37;0.13;0.16;0.01
+75;"Alexis Sánchez";"Sevilla";16;769;2;1;2.3;1.23;0.27;0.14
+76;"Ayoze Pérez";"Villarreal";16;687;2;3;2.72;1.57;0.36;0.21
+77;"Salomón Rondón";"Real Oviedo";16;1054;2;0;3.78;0.19;0.32;0.02
+78;"Rubén García";"Osasuna";22;1372;2;5;1.27;4.48;0.08;0.29
+79;"Koke";"Atletico Madrid";22;1433;2;2;0.68;1.88;0.04;0.12
+80;"Iago Aspas";"Celta Vigo";21;752;2;3;2.91;3.18;0.35;0.38
+81;"Cédric Bakambu";"Real Betis";10;298;2;0;2.45;0.02;0.74;0
+82;"Carlos Soler";"Real Sociedad";20;1308;2;2;1.95;2.7;0.13;0.19
+83;"Pepelu";"Valencia";22;1730;2;0;3.22;1.2;0.17;0.06
+84;"Thomas Lemar";"Girona";15;776;2;1;1.68;1.05;0.19;0.12
+85;"Alex Berenguer";"Athletic Club";20;1485;2;2;4.19;4.35;0.25;0.26
+86;"Giovani Lo Celso";"Real Betis";17;1098;2;2;2.73;2.55;0.22;0.21
+87;"Javi Puado";"Espanyol";10;687;2;0;4.84;0.96;0.63;0.13
+88;"Santiago Comesaña";"Villarreal";22;1477;2;2;3.22;1.33;0.2;0.08
+89;"Alejandro Catena";"Osasuna";22;1941;2;2;2.04;0.83;0.09;0.04
+90;"Oihan Sancet";"Athletic Club";17;1176;2;0;4.25;0.9;0.33;0.07
+91;"Iker Losada";"Levante";13;474;2;0;1.97;0.27;0.37;0.05
+92;"Aleix Febas";"Elche";23;2065;2;1;1.77;0.95;0.08;0.04
+93;"Luis Rioja";"Valencia";23;1656;2;4;1.66;2.25;0.09;0.12
+94;"Takefusa Kubo";"Real Sociedad";18;1203;2;3;2.5;3.27;0.19;0.24
+95;"Ronald Araújo";"Barcelona";13;666;2;0;1.23;0.05;0.17;0.01
+96;"Sergio Carreira";"Celta Vigo";21;1651;2;1;1.23;0.75;0.07;0.04
+97;"Álex Baena";"Atletico Madrid";16;855;2;1;1.15;2.45;0.12;0.26
+98;"Pape Alassane Gueye";"Villarreal";18;1230;2;1;1.45;1.23;0.11;0.09
+99;"Pedri";"Barcelona";16;1233;2;5;2.22;3.61;0.16;0.26
+100;"Conor Gallagher";"Atletico Madrid";19;630;2;0;1.27;0.5;0.18;0.07
+101;"Giuliano Simeone";"Atletico Madrid";21;1625;2;5;4.85;3.79;0.27;0.21
+102;"Isi Palazón";"Rayo Vallecano";22;1680;2;3;3.42;2.96;0.18;0.16
+103;"Hugo Álvarez";"Celta Vigo";15;631;2;1;0.63;1.02;0.09;0.15
+104;"Adrián De la Fuente";"Levante";21;1631;2;1;2.13;0.51;0.12;0.03
+105;"Álvaro Fernández";"Real Madrid";21;1792;2;2;0.37;1.32;0.02;0.07
+106;"Fran Pérez";"Rayo Vallecano";19;748;2;0;1.74;1.61;0.21;0.19
+107;"Largie Ramazani";"Valencia";13;252;2;1;1.34;0.63;0.48;0.22
+108;"Pablo Durán";"Celta Vigo";19;924;2;2;2.76;1.71;0.27;0.17
+109;"Mateo Joseph";"Mallorca";23;1336;2;2;3.86;1.37;0.26;0.09
+110;"Mario Martín";"Getafe";22;1492;2;0;1.66;0.3;0.1;0.02
+111;"Mikel Jauregizar";"Athletic Club";24;2042;2;0;1.04;1.25;0.05;0.05
+112;"Nobel Mendy";"Rayo Vallecano";14;1147;2;0;2.17;0.04;0.17;0
+113;"Javier Rueda";"Celta Vigo";17;866;2;4;1.13;2.78;0.12;0.29
+114;"Peque";"Sevilla";20;855;2;1;0.73;0.61;0.08;0.06
+115;"Orri Óskarsson";"Real Sociedad";8;152;2;0;2.2;0.33;1.3;0.19
+116;"Raúl";"Real Madrid";17;1152;2;0;1.02;0.21;0.08;0.02
+117;"Jones El Abdellaoui";"Celta Vigo";14;421;2;0;1.9;0.34;0.41;0.07
+118;"Alberto Reina";"Real Oviedo";22;1272;2;0;1.63;1.37;0.12;0.1
+119;"Martim Neto";"Elche";20;1085;2;4;1.04;2.21;0.09;0.18
+120;"Tani Oluwaseyi";"Villarreal";20;590;2;1;3.55;1.76;0.54;0.27
+121;"Luis Vázquez";"Getafe";4;331;2;0;0.76;0.1;0.21;0.03
+122;"Jeremy Toljan";"Levante";23;2007;1;3;0.64;3.5;0.03;0.16
+123;"Juanmi";"Getafe";8;152;1;0;0.14;0.06;0.08;0.03
+124;"Pablo Maffeo";"Mallorca";19;1635;1;0;0.21;0.22;0.01;0.01
+125;"Umar Sadiq";"Real Sociedad,Valencia";11;286;1;0;0.78;0.53;0.24;0.17
+126;"Marcos Alonso";"Celta Vigo";21;1801;1;0;2.06;0.83;0.1;0.04
+127;"Diego Llorente";"Real Betis";7;337;1;0;0.74;0;0.2;0
+128;"Morales";"Levante";17;248;1;1;2.4;1.04;0.87;0.38
+129;"Denis Suárez";"Alaves";19;991;1;0;1.3;0.89;0.12;0.08
+130;"Iñaki Williams";"Athletic Club";16;1085;1;2;4.1;2.04;0.34;0.17
+131;"Álvaro Odriozola";"Real Sociedad";4;193;1;0;0.57;1.14;0.27;0.53
+132;"Marc Bartra";"Real Betis";20;1582;1;0;0.44;0.09;0.02;0
+133;"Omar Mascarell";"Mallorca";17;1158;1;1;0.16;0.27;0.01;0.02
+134;"José Gayá";"Valencia";20;1561;1;1;0.65;1.44;0.04;0.08
+135;"Alfonso";"Villarreal";18;1087;1;2;1.13;3.2;0.09;0.26
+136;"Sergi Darder";"Mallorca";24;1687;1;3;2.03;3.37;0.11;0.18
+137;"Axel Witsel";"Girona";18;1391;1;0;1.56;0.32;0.1;0.02
+138;"Neal Maupay";"Sevilla";3;248;1;0;0.65;0.1;0.24;0.04
+139;"Baptiste Santamaria";"Valencia";19;731;1;1;0.52;0.74;0.06;0.09
+140;"Mouctar Diakhaby";"Valencia";8;539;1;0;0.63;0.06;0.11;0.01
+141;"Dodi Lukebakio";"Sevilla";2;180;1;0;0.05;0.86;0.03;0.43
+142;"Takuma Asano";"Mallorca";15;487;1;0;1.26;0.93;0.23;0.17
+143;"Ander Guevara";"Alaves";16;465;1;0;0.6;0.12;0.12;0.02
+144;"Federico Valverde";"Real Madrid";23;1917;1;6;1.06;3.73;0.05;0.18
+145;"Jules Koundé";"Barcelona";23;1714;1;2;1.4;2.06;0.07;0.11
+146;"Manuel Morlanes";"Mallorca";18;964;1;0;0.54;0.76;0.05;0.07
+147;"Grady Diangana";"Elche";13;615;1;0;0.6;0.63;0.09;0.09
+148;"Miguel Ángel Rubio";"Espanyol";8;133;1;0;0.56;0;0.38;0
+149;"Fran Beltrán";"Celta Vigo,Girona";14;784;1;0;0.49;0.47;0.06;0.05
+150;"Ezequiel Ávila";"Real Betis";10;218;1;0;1.51;0.24;0.62;0.1
+151;"Nicolás González";"Atletico Madrid";18;1161;1;0;3.68;1.69;0.29;0.13
+152;"Adrià Pedrosa";"Elche,Sevilla";16;714;1;1;0.57;1.34;0.07;0.17
+153;"Leander Dendoncker";"Real Oviedo";18;1324;1;0;0.54;0.43;0.04;0.03
+154;"Robin Le Normand";"Atletico Madrid";18;1172;1;0;1.09;0.05;0.08;0
+155;"Eduardo Camavinga";"Real Madrid";18;979;1;0;1.05;1.21;0.1;0.11
+156;"Manuel Sánchez";"Levante";20;1753;1;1;1.08;0.97;0.06;0.05
+157;"Eder Militão";"Real Madrid";13;1006;1;1;1.47;1.09;0.13;0.1
+158;"Nemanja Gudelj";"Sevilla";20;1406;1;0;0.55;0.19;0.04;0.01
+159;"Pol Lozano";"Espanyol";22;1604;1;0;0.41;0.67;0.02;0.04
+160;"Rodrygo";"Real Madrid";18;604;1;3;2.21;2.81;0.33;0.42
+161;"Eric Garcia";"Barcelona";24;1922;1;0;3.22;1.03;0.15;0.05
+162;"Mateu Morey";"Mallorca";14;634;1;0;0.18;0.52;0.03;0.07
+163;"Lucien Agoume";"Sevilla";21;1689;1;2;0.65;2.2;0.03;0.12
+164;"Pablo Martínez";"Levante";17;1176;1;2;1.84;2.82;0.14;0.22
+165;"Batista Mendy";"Sevilla";19;1440;1;0;0.81;0.49;0.05;0.03
+166;"Chidera Ejuke";"Sevilla";17;494;1;1;1.17;0.84;0.21;0.15
+167;"Alfonso Espino";"Rayo Vallecano";17;633;1;0;1.45;1.15;0.21;0.16
+168;"Aitor Paredes";"Athletic Club";17;1445;1;0;1.34;0.74;0.08;0.05
+169;"Martín Satriano";"Getafe";5;439;1;0;1.03;0.29;0.21;0.06
+170;"Óscar Mingueza";"Celta Vigo";21;1264;1;2;0.45;2.7;0.03;0.19
+171;"John Donald";"Elche";14;449;1;0;0.73;0;0.15;0
+172;"Juan Iglesias";"Getafe";23;1949;1;2;1.03;1.27;0.05;0.06
+173;"Alfon";"Sevilla";10;298;1;0;0.9;0.34;0.27;0.1
+174;"Antonio Blanco";"Alaves";22;1886;1;1;0.56;0.7;0.03;0.03
+175;"Jon Ander Olasagasti";"Levante";20;606;1;2;0.38;1.73;0.06;0.26
+176;"Inigo Ruiz de Galarreta";"Athletic Club";22;1472;1;1;0.49;1.44;0.03;0.09
+177;"José Ángel Carmona";"Sevilla";22;1799;1;3;0.72;1.42;0.04;0.07
+178;"Fran García";"Real Madrid";7;413;1;0;0.85;0.07;0.18;0.02
+179;"Óscar Valentín";"Rayo Vallecano";20;1312;1;0;1.45;0.66;0.1;0.05
+180;"Pathé Ciss";"Rayo Vallecano";16;1124;1;0;1.55;0.21;0.12;0.02
+181;"Nicolás Serrano";"Athletic Club";11;306;1;0;0.58;0.45;0.17;0.13
+182;"Bryan Zaragoza";"Celta Vigo";19;1138;1;1;1.91;2.26;0.15;0.18
+183;"Rafa Marín";"Villarreal";16;1398;1;0;0.18;0.68;0.01;0.04
+184;"Iker Benito";"Osasuna";5;147;1;0;0.39;0.14;0.24;0.09
+185;"Kike Salas";"Sevilla";13;1029;1;0;0.55;0.17;0.05;0.02
+186;"Nahuel Tenaglia";"Alaves";22;1980;1;0;1.29;0.25;0.06;0.01
+187;"Eray Cömert";"Valencia";7;471;1;0;0.96;0.08;0.18;0.02
+188;"Luka Ilic";"Real Oviedo";14;541;1;0;1.2;0.06;0.2;0.01
+189;"Pablo Barrios Rivas";"Atletico Madrid";21;1591;1;1;1.4;1.7;0.08;0.1
+190;"Manor Solomon";"Villarreal";6;129;1;1;0.61;0.47;0.42;0.33
+191;"Pablo Ibáñez";"Alaves";24;1466;1;1;3.08;0.94;0.19;0.06
+192;"Ramón Terrats";"Espanyol";16;439;1;1;0.64;1.55;0.13;0.32
+193;"Arnau Martinez";"Girona";21;1560;1;1;1.01;1.2;0.06;0.07
+194;"Joel Roca";"Girona";20;841;1;1;2.45;0.83;0.26;0.09
+195;"Marcão";"Sevilla";13;935;1;0;0.92;0;0.09;0
+196;"Pablo Torre";"Mallorca";22;762;1;2;1.21;1.63;0.14;0.19
+197;"Pep Chavarría";"Rayo Vallecano";22;1911;1;2;0.5;2.16;0.02;0.1
+198;"Rodrigo Mendoza";"Atletico Madrid,Elche";18;894;1;0;0.59;0.75;0.06;0.08
+199;"Unai Gómez";"Athletic Club";16;463;1;1;1.29;0.34;0.25;0.07
+200;"Lucas Beltrán";"Valencia";21;1118;1;2;3.61;1.89;0.29;0.15
+201;"Dean Huijsen";"Real Madrid";18;1387;1;2;1.88;1.13;0.12;0.07
+202;"Sergi Altimira";"Real Betis";16;801;1;1;0.37;0.37;0.04;0.04
+203;"Pau Cubarsí";"Barcelona";20;1770;1;0;0.5;0.35;0.03;0.02
+204;"Alan Matturro";"Levante";11;498;1;0;0.56;0.01;0.1;0
+205;"Hector Fort";"Elche";9;323;1;2;0.65;0.21;0.18;0.06
+206;"Jon Aramburu";"Real Sociedad";22;1828;1;0;1.77;0.29;0.09;0.01
+207;"Asier Osambela";"Osasuna";10;265;1;0;0.28;0.11;0.09;0.04
+208;"Christantus Uche";"Getafe";3;270;1;1;1.44;0.64;0.48;0.21
+209;"Abel Bretones";"Osasuna";20;1376;1;0;0.58;0.44;0.04;0.03
+210;"Marc Bernal";"Barcelona";11;181;1;1;0.39;0.67;0.19;0.33
+211;"Luka Sucic";"Real Sociedad";10;403;1;0;0.95;0.12;0.21;0.03
+212;"Enzo Boyomo";"Osasuna";20;1644;1;1;0.66;1.34;0.04;0.07
+213;"Goduine Koyalipou";"Levante";11;217;1;0;1.27;0.36;0.52;0.15
+214;"Vitor Reis";"Girona";23;1967;1;1;0.84;0.8;0.04;0.04
+215;"Maroan Sannadi";"Athletic Club";8;246;1;0;0.96;0.59;0.35;0.22
+216;"Miguel Román";"Celta Vigo";16;1027;1;0;1.1;1.92;0.1;0.17
+217;"Alejandro Rego";"Athletic Club";16;495;1;0;0.43;0.36;0.08;0.07
+218;"Unai Elgezabal";"Levante";12;963;1;0;0.62;0.13;0.06;0.01
+219;"Carlos Espí";"Levante";12;268;1;0;1.08;0;0.36;0
+220;"Tyrhys Dolan";"Espanyol";23;1544;1;3;2.02;2.77;0.12;0.16
+221;"Valentín Gómez";"Real Betis";17;1086;1;0;0.91;0.31;0.08;0.03
+222;"Franco Mastantuono";"Real Madrid";15;757;1;0;2.03;1.73;0.24;0.21
+223;"Jon Gorrotxategi";"Real Sociedad";22;1714;1;3;0.79;0.81;0.04;0.04
+224;"David Carmo";"Real Oviedo";17;1358;1;0;0.95;0.21;0.06;0.01
+225;"Adam El Mokhtari";"Elche";6;84;1;0;0.27;0.07;0.29;0.08
+226;"Kervin Arriaga";"Levante";17;1101;1;1;0.24;0.4;0.02;0.03
+227;"Alemão";"Rayo Vallecano";13;621;1;0;2.1;0.21;0.3;0.03
+228;"Roony Bardghji";"Barcelona";13;276;1;1;1.48;1.68;0.48;0.55
+229;"Andreas Christensen";"Barcelona";12;346;0;0;0.13;0.02;0.03;0
+230;"Ørjan Nyland";"Sevilla";4;360;0;0;0;0;0;0
+231;"Ricardo Rodríguez";"Real Betis";16;1048;0;1;0.12;0.44;0.01;0.04
+232;"Adnan Januzaj";"Sevilla";10;230;0;0;0.19;0.63;0.07;0.25
+233;"Odisseas Vlachodimos";"Sevilla";20;1800;0;0;0;0;0;0
+234;"David Alaba";"Real Madrid";6;93;0;0;0.05;0;0.04;0
+235;"Héctor Bellerín";"Real Betis";16;1084;0;2;0.2;2.85;0.02;0.24
+236;"Daley Blind";"Girona";22;1859;0;0;0.01;0.6;0;0.03
+237;"Nyom";"Getafe";10;280;0;0;0.13;0.11;0.04;0.03
+238;"Thibaut Courtois";"Real Madrid";24;2160;0;0;0;0;0;0
+239;"César Azpilicueta";"Sevilla";11;787;0;0;0;0.02;0;0
+240;"Santiago Cazorla";"Real Oviedo";14;462;0;0;0.22;0.85;0.04;0.17
+241;"Paulo Gazzaniga";"Girona";21;1842;0;0;0;0;0;0
+242;"Wojciech Szczesny";"Barcelona";6;540;0;0;0;0;0;0
+243;"Matías Vecino";"Celta Vigo";1;1;0;0;0;0;0;0
+244;"Eric Bailly";"Real Oviedo";6;506;0;0;0.14;0;0.03;0
+245;"Ovie Ejaria";"Real Oviedo";7;181;0;0;0.22;0.08;0.11;0.04
+246;"Trent Alexander-Arnold";"Real Madrid";10;470;0;2;0.06;1.1;0.01;0.21
+247;"Antonio Rüdiger";"Real Madrid";8;671;0;0;0.14;0.25;0.02;0.03
+248;"Ionut Radu";"Celta Vigo";24;2160;0;0;0;0;0;0
+249;"David López";"Girona";3;207;0;0;0.65;0;0.28;0
+250;"Marc-André ter Stegen";"Girona";2;180;0;0;0;0;0;0
+251;"Pau López";"Real Betis";8;720;0;0;0;0;0;0
+252;"Joan Jordán";"Sevilla";3;15;0;0;0;0;0;0
+253;"Moi Gómez";"Osasuna";17;925;0;0;0.3;0.73;0.03;0.07
+254;"Aritz Elustondo";"Real Sociedad";8;334;0;0;0.1;0;0.03;0
+255;"Yuri";"Athletic Club";21;1750;0;2;0.35;1.43;0.02;0.07
+256;"Isco";"Real Betis";1;29;0;1;0.1;0.46;0.32;1.42
+257;"Daniel Carvajal";"Real Madrid";8;401;0;0;0.14;0.59;0.03;0.13
+258;"Jan Oblak";"Atletico Madrid";23;2070;0;0;0;0;0;0
+259;"Giménez";"Atletico Madrid";10;811;0;0;0.98;0;0.11;0
+260;"Jonny";"Alaves";23;2016;0;0;0.78;0.95;0.03;0.04
+261;"Thomas Partey";"Villarreal";15;667;0;0;0.33;0.19;0.04;0.03
+262;"Aarón";"Real Oviedo";23;2070;0;0;0;0.05;0;0
+263;"Pedro Bigas";"Elche";17;1348;0;2;0.8;1.72;0.05;0.11
+264;"Daniel Parejo";"Villarreal";20;1025;0;0;0.15;1.51;0.01;0.13
+265;"João Cancelo";"Barcelona";3;92;0;0;0;0.4;0;0.4
+266;"Mat Ryan";"Levante";22;1980;0;0;0.09;0;0;0
+267;"Íñigo Lekue";"Athletic Club";7;354;0;0;0.13;0;0.03;0
+268;"David Soria";"Getafe";24;2160;0;0;0;0.05;0;0
+269;"Igor Zubeldia";"Real Sociedad";19;1660;0;1;0.24;0.61;0.01;0.03
+270;"Dani Ceballos";"Real Madrid";14;433;0;0;0.08;0.59;0.02;0.12
+271;"Toni Lato";"Mallorca";7;329;0;1;0;0.45;0;0.12
+272;"Aymeric Laporte";"Athletic Club";13;1042;0;1;0.31;0.35;0.03;0.03
+273;"Dimitri Foulquier";"Valencia";15;1149;0;0;0.43;0.24;0.03;0.02
+274;"Marcos Llorente";"Atletico Madrid";20;1621;0;3;1.61;3.37;0.09;0.19
+275;"Remiro";"Real Sociedad";24;2160;0;0;0;0.11;0;0
+276;"Raíllo";"Mallorca";18;1620;0;1;0.51;0.3;0.03;0.02
+277;"Dani Calvo";"Real Oviedo";9;694;0;0;0;0;0;0
+278;"Gerard Gumbau";"Rayo Vallecano";16;447;0;1;0.36;0.38;0.07;0.08
+279;"Stole Dimitrievski";"Valencia";6;540;0;0;0;0;0;0
+280;"Óscar Trejo";"Rayo Vallecano";5;44;0;0;0.11;0.15;0.23;0.31
+281;"Unai López";"Rayo Vallecano";17;1074;0;3;0.48;1.24;0.04;0.1
+282;"Álex Moreno";"Girona";21;1839;0;3;1.47;2.22;0.07;0.11
+283;"David Costas";"Real Oviedo";17;1441;0;0;0.45;0.15;0.03;0.01
+284;"Javi Muñoz";"Getafe";13;480;0;0;0.33;0.13;0.06;0.02
+285;"Kiko Femenía";"Getafe";19;1428;0;1;0.12;1.07;0.01;0.07
+286;"Clement Lenglet";"Atletico Madrid";11;850;0;0;0.15;0.07;0.02;0.01
+287;"Carles Aleñá";"Alaves";24;1477;0;4;1.41;3.23;0.09;0.2
+288;"Diego Rico";"Getafe";20;1524;0;0;0.19;0.83;0.01;0.05
+289;"Florian Lejeune";"Rayo Vallecano";23;2063;0;0;1.11;0.22;0.05;0.01
+290;"Mikel Vesga";"Athletic Club";14;254;0;0;0.2;0.07;0.07;0.02
+291;"Edu Expósito";"Espanyol";23;1618;0;5;1.93;5.82;0.11;0.32
+292;"Marc Roca";"Real Betis";19;1360;0;2;0.73;1.62;0.05;0.11
+293;"Mariano";"Alaves";9;266;0;0;0.15;0.76;0.05;0.26
+294;"Kike Barja";"Osasuna";15;153;0;0;0.02;0.08;0.01;0.04
+295;"Nacho Vidal";"Real Oviedo";15;1159;0;0;1.34;0.07;0.1;0.01
+296;"Jon Guridi";"Alaves";16;562;0;0;0.96;0.03;0.15;0
+297;"Unai Simón";"Athletic Club";24;2160;0;0;0;0.03;0;0
+298;"Raba";"Valencia";11;235;0;1;0.2;0.32;0.08;0.12
+299;"Josip Brekalo";"Real Oviedo";14;482;0;0;0.31;1.65;0.06;0.31
+300;"Ademola Lookman";"Atletico Madrid";2;94;0;0;0.08;0.06;0.07;0.06
+301;"Valentin Rosier";"Osasuna";17;1318;0;1;0.15;0.87;0.01;0.06
+302;"Iván Balliu";"Rayo Vallecano";9;236;0;0;0.61;0.02;0.23;0.01
+303;"Mihailo Ristic";"Celta Vigo";4;265;0;0;0.02;0.07;0.01;0.02
+304;"Antonio Sivera";"Alaves";24;2160;0;0;0;0;0;0
+305;"Portu";"Girona";10;463;0;0;1.67;0.19;0.33;0.04
+306;"Unai Núñez";"Valencia";2;162;0;0;0.02;0;0.01;0
+307;"Djené Dakonam";"Getafe";23;1763;0;0;0.07;0.07;0;0
+308;"Luiz Felipe";"Rayo Vallecano";8;293;0;0;0.24;0;0.07;0
+309;"Marko Dmitrovic";"Espanyol";24;2160;0;0;0;0.03;0;0
+310;"Ferland Mendy";"Real Madrid";1;1;0;0;0;0;0;0
+311;"Johan Mojica";"Mallorca";24;1835;0;3;0.35;2.3;0.02;0.11
+312;"Diego Pampín";"Levante";6;357;0;0;0.13;0.09;0.03;0.02
+313;"Juan Foyth";"Villarreal";13;946;0;0;0.07;0;0.01;0
+314;"Marash Kumbulla";"Mallorca";7;419;0;0;0.09;0.02;0.02;0
+315;"Andoni Gorosabel";"Athletic Club";13;661;0;1;0.18;0.45;0.02;0.06
+316;"Brahim Diaz";"Real Madrid";16;414;0;4;0.49;1.95;0.11;0.42
+317;"Júnior Firpo";"Real Betis";8;542;0;1;0.44;0.92;0.07;0.15
+318;"Aurelien Tchouameni";"Real Madrid";21;1752;0;0;1.91;2.11;0.1;0.11
+319;"Sergio Gómez";"Real Sociedad";22;1623;0;1;0.66;3.29;0.04;0.18
+320;"Gonzalo Villar";"Elche";1;7;0;0;0;0;0;0
+321;"Dani Vivian";"Athletic Club";19;1650;0;0;1.23;0.72;0.07;0.04
+322;"Fernando Calero";"Espanyol";19;1505;0;0;1.86;0.55;0.11;0.03
+323;"Duje Caleta-Car";"Real Sociedad";15;1139;0;0;0.97;0.2;0.08;0.02
+324;"Lucas Torró";"Osasuna";22;1608;0;1;1.56;1;0.09;0.06
+325;"David Hancko";"Atletico Madrid";23;1852;0;2;0.79;2.05;0.04;0.1
+326;"Juan Musso";"Atletico Madrid";1;90;0;0;0;0;0;0
+327;"Iñaki Peña";"Elche";16;1440;0;0;0;0.4;0;0.03
+328;"Aihen Muñoz";"Real Sociedad";16;663;0;0;0.44;0.33;0.06;0.04
+329;"Bryan Gil Salvatierra";"Girona";21;1220;0;3;2.17;3.31;0.16;0.24
+330;"Yangel Herrera";"Girona,Real Sociedad";6;278;0;0;0.57;0;0.19;0
+331;"Javi Galán";"Atletico Madrid,Osasuna";12;736;0;1;0.12;1.13;0.01;0.14
+332;"Alex Sola";"Getafe";1;10;0;0;0;0;0;0
+333;"Giacomo Raspadori";"Atletico Madrid";12;203;0;1;0.88;0.95;0.39;0.42
+334;"Andrei Ratiu";"Rayo Vallecano";20;1747;0;2;1.89;3.75;0.1;0.19
+335;"Sergio Camello";"Rayo Vallecano";13;443;0;0;1.37;0.17;0.28;0.03
+336;"Iván Martín";"Girona";22;1814;0;1;0.95;1.24;0.05;0.06
+337;"Abel Ruiz";"Girona";3;28;0;0;0;0;0;0
+338;"Leo Petrot";"Elche";21;915;0;0;0.28;0.03;0.03;0
+339;"Moussa Diarra";"Alaves";3;225;0;0;0;0.02;0;0.01
+340;"Carl Starfelt";"Celta Vigo";17;1312;0;0;0.39;0.08;0.03;0.01
+341;"Frenkie de Jong";"Barcelona";18;1400;0;4;0.59;4.15;0.04;0.27
+342;"Joseph Aidoo";"Celta Vigo";3;195;0;0;0.35;0;0.16;0
+343;"Martin Valjent";"Mallorca";24;2160;0;0;0.42;0.12;0.02;0.01
+344;"Dani Rodríguez";"Mallorca";2;56;0;0;0.02;0;0.04;0
+345;"Jon Moncayola";"Osasuna";22;1863;0;4;2.05;3.67;0.1;0.18
+346;"Sergio Herrera";"Osasuna";24;2160;0;0;0;0;0;0
+347;"Domingos Duarte";"Getafe";21;1819;0;0;0.53;0;0.03;0
+348;"Sheraldo Becker";"Osasuna";9;124;0;0;0.17;0.25;0.12;0.18
+349;"Sofyan Amrabat";"Real Betis";8;593;0;0;0.11;0.19;0.02;0.03
+350;"Nianzou Kouassi";"Sevilla";8;411;0;0;0.13;0.07;0.03;0.02
+351;"Rodrigo Riquelme";"Real Betis";17;592;0;1;2.05;1.37;0.31;0.21
+352;"Abdón Prats";"Mallorca";9;56;0;0;0.56;0.11;0.9;0.18
+353;"Thierry Correia";"Valencia";15;971;0;1;0.23;1.11;0.02;0.1
+354;"Guido Rodríguez";"Valencia";2;50;0;0;0.03;0;0.05;0
+355;"Unai Vencedor";"Levante";15;828;0;0;0;1.51;0;0.16
+356;"Juanlu Sanchez";"Sevilla";20;1356;0;2;0.6;1.13;0.04;0.07
+357;"Javier López";"Real Oviedo";11;675;0;0;0.07;0.35;0.01;0.05
+358;"Sergio Lozano";"Levante";1;7;0;0;0;0;0;0
+359;"Jon Pacheco Dozagarat";"Alaves";18;1501;0;0;0.24;0.76;0.01;0.05
+360;"Aimar Oroz";"Osasuna";18;1338;0;2;1.1;2.49;0.07;0.17
+361;"Víctor García";"Levante";11;411;0;0;0.18;0.49;0.04;0.11
+362;"Arnau Tenas";"Villarreal";3;270;0;0;0;0;0;0
+363;"Raul Moro";"Osasuna";3;180;0;1;0.11;0.34;0.05;0.17
+364;"Yvan Neyou";"Getafe";5;49;0;0;0;0;0;0
+365;"Luis Milla";"Getafe";23;2034;0;8;0.86;5.01;0.04;0.22
+366;"Juan Cruz";"Osasuna";12;586;0;0;0.55;0.07;0.08;0.01
+367;"Arsen Zakharyan";"Real Sociedad";12;263;0;0;0.13;0.86;0.04;0.29
+368;"Oriol Rey";"Levante";12;745;0;0;0.18;0.1;0.02;0.01
+369;"Donny van de Beek";"Girona";2;37;0;0;0.08;0;0.19;0
+370;"Urko Gonzalez";"Espanyol,Real Sociedad";23;1448;0;1;0.5;0.17;0.03;0.01
+371;"Matteo Ruggeri";"Atletico Madrid";17;1061;0;0;0.18;1.2;0.02;0.1
+372;"Josan";"Elche";12;402;0;2;0.28;2.03;0.06;0.45
+373;"Tete Morente";"Elche";1;85;0;0;0.12;0;0.13;0
+374;"José Salinas";"Espanyol";9;213;0;0;0;0.13;0;0.05
+375;"Mourad El Ghezouani";"Elche";2;42;0;0;0.11;0.03;0.24;0.06
+376;"Nahuel Molina";"Atletico Madrid";16;703;0;1;0.05;1.32;0.01;0.17
+377;"Victor Chust";"Elche";18;1387;0;0;0.3;0.05;0.02;0
+378;"Jairo Izquierdo";"Elche";1;22;0;0;0;0;0;0
+379;"Yeremi Pino";"Villarreal";2;165;0;1;0.13;0.86;0.07;0.47
+380;"Jesús Vázquez";"Valencia";14;626;0;0;0.19;0.39;0.03;0.06
+381;"Ilaix Moriba";"Celta Vigo";24;1582;0;1;1.15;1.62;0.07;0.09
+382;"Abdelkabir Abqar";"Getafe";12;856;0;1;0.39;0.61;0.04;0.06
+383;"Pablo Cuñat";"Levante";2;180;0;0;0;0;0;0
+384;"Beñat Turrientes";"Real Sociedad";15;639;0;1;0.58;0.7;0.08;0.1
+385;"Beñat Prados";"Athletic Club";2;87;0;0;0.02;0.04;0.02;0.04
+386;"Carlos Domínguez";"Celta Vigo";6;425;0;0;0.04;0.03;0.01;0.01
+387;"Hugo Sotelo";"Celta Vigo";14;922;0;1;0.09;1.49;0.01;0.15
+388;"Jesús Areso";"Athletic Club";20;1264;0;1;0.1;1.38;0.01;0.1
+389;"Joan García";"Barcelona";18;1620;0;0;0;0;0;0
+390;"Matías Dituro";"Elche";8;720;0;0;0;0.08;0;0.01
+391;"Gavi";"Barcelona";2;50;0;1;0;0.14;0;0.25
+392;"Álex Balde";"Barcelona";20;1465;0;2;0.31;2.84;0.02;0.17
+393;"Randy Nteka";"Rayo Vallecano";7;66;0;0;0.21;0.02;0.28;0.03
+394;"Julen Agirrezabala";"Valencia";18;1620;0;0;0;0.01;0;0
+395;"Leo Román";"Mallorca";19;1710;0;0;0;0;0;0
+396;"Jon Karrikaburu";"Real Sociedad";6;106;0;0;0.69;0.02;0.59;0.02
+397;"Antonio Sánchez";"Mallorca";20;745;0;0;0.16;0.73;0.02;0.09
+398;"Rubén Sánchez";"Espanyol";13;433;0;0;0.05;0.07;0.01;0.02
+399;"Carlos Martín";"Rayo Vallecano";4;210;0;0;0.28;0.53;0.12;0.23
+400;"César Tárrega";"Valencia";21;1677;0;0;0.28;0.09;0.02;0
+401;"Ilias Akhomach";"Rayo Vallecano,Villarreal";12;371;0;0;1.8;1;0.44;0.24
+402;"Javi Llabrés";"Mallorca";12;125;0;0;0.22;0.04;0.16;0.03
+403;"Rubén Iranzo";"Valencia";1;1;0;0;0;0;0;0
+404;"Marc Pubill";"Atletico Madrid";10;680;0;1;0.11;0.52;0.02;0.07
+405;"Jofre Carreras";"Espanyol";16;626;0;0;0.69;1.14;0.1;0.16
+406;"Javier Guerra";"Valencia";23;1077;0;3;1.13;1.81;0.09;0.15
+407;"Zito";"Mallorca";1;41;0;0;0;0;0;0
+408;"Ugo Raghouber";"Levante";5;352;0;0;0.02;0;0.01;0
+409;"Abu Kamara";"Getafe";9;162;0;0;0.37;0.05;0.21;0.03
+410;"Damián Rodríguez";"Celta Vigo";2;155;0;0;0.07;0.12;0.04;0.07
+411;"Luca Koleosho";"Espanyol";3;48;0;0;0.02;0.02;0.05;0.04
+412;"Jorge Herrando";"Osasuna";20;1106;0;1;0.17;0.69;0.01;0.06
+413;"Omar El Hilali";"Espanyol";22;1689;0;2;0.01;1.29;0;0.07
+414;"Charles Pickel";"Espanyol";15;443;0;0;0.31;0.04;0.06;0.01
+415;"Copete";"Valencia";20;1677;0;0;1.91;0.16;0.1;0.01
+416;"André Almeida";"Valencia";14;809;0;1;0.82;1.41;0.09;0.16
+417;"Marc Casadó";"Barcelona";16;719;0;1;0.46;0.43;0.06;0.05
+418;"Pablo Marín";"Real Sociedad";21;957;0;0;1.22;0.21;0.12;0.02
+419;"Manu Bueno";"Sevilla";4;62;0;0;0.1;0.2;0.14;0.29
+420;"Cyril Ngonge";"Espanyol";2;88;0;1;0.07;0.41;0.07;0.41
+421;"Gabriel Suazo";"Sevilla";17;1339;0;2;0.26;2.16;0.02;0.15
+422;"Dawda Camara";"Girona";2;73;0;0;0.16;0.07;0.2;0.09
+423;"Renato Veiga";"Villarreal";21;1550;0;0;0.18;0.05;0.01;0
+424;"Iker Muñoz";"Osasuna";10;500;0;0;0.09;0.04;0.02;0.01
+425;"Haissem Hassan";"Real Oviedo";22;1312;0;2;1.34;1.29;0.09;0.09
+426;"Yago Alonso";"Elche";8;269;0;0;0.15;0.08;0.05;0.03
+427;"Federico Gattoni";"Sevilla";1;5;0;0;0;0;0;0
+428;"Álvaro Vallés";"Real Betis";16;1440;0;0;0;0;0;0
+429;"Sergi Cardona";"Villarreal";19;1209;0;3;0.61;2.2;0.05;0.16
+430;"Lucas Bergström";"Mallorca";5;450;0;0;0;0;0;0
+431;"Abderrahmane Rebbach";"Alaves";19;807;0;0;2.23;2.83;0.25;0.32
+432;"Carlos Benavídez";"Alaves";7;204;0;0;0.15;0.08;0.07;0.04
+433;"Adrià Alti";"Villarreal";1;7;0;0;0;0;0;0
+434;"Natan";"Real Betis";22;1907;0;0;0.36;0.19;0.02;0.01
+435;"Clemens Riedel";"Espanyol";11;726;0;1;0.11;0.14;0.01;0.02
+436;"Dani Pérez";"Real Betis";1;1;0;0;0;0;0;0
+437;"Jhon Solis";"Girona";12;362;0;0;0.18;0.06;0.05;0.02
+438;"David López";"Mallorca";5;424;0;0;0.16;0;0.03;0
+439;"Javier Rodríguez";"Celta Vigo";20;1497;0;0;0.72;0.14;0.04;0.01
+440;"Hugo Rincón";"Girona";21;1198;0;1;0.59;0.97;0.04;0.07
+441;"Victor Parada";"Alaves";17;1091;0;1;1.19;1.5;0.1;0.12
+442;"Augusto Batalla";"Rayo Vallecano";23;2070;0;0;0;0.05;0;0
+443;"Johnny Cardoso";"Atletico Madrid";9;551;0;0;0.04;0.27;0.01;0.04
+444;"Jon Martín";"Real Sociedad";15;1350;0;0;1.04;0.19;0.07;0.01
+445;"Stanis Idumbo Muzambo";"Sevilla";1;48;0;0;0.05;0.27;0.09;0.5
+446;"Iñigo Arguibide";"Osasuna";5;182;0;0;0;0.03;0;0.02
+447;"Yoel Lago";"Celta Vigo";4;340;0;0;0;0.02;0;0.01
+448;"Ladislav Krejcí";"Girona";2;180;0;0;0.12;0;0.06;0
+449;"Alejandro Francés";"Girona";14;463;0;0;0.1;0.52;0.02;0.1
+450;"Adama Boiro";"Athletic Club";8;507;0;0;0.04;0.14;0.01;0.02
+451;"Gerard Martín";"Barcelona";20;1106;0;0;0.06;0.64;0.01;0.05
+452;"Pedro Díaz";"Rayo Vallecano";20;1148;0;0;0.73;0.89;0.06;0.07
+453;"Pelayo Fernández";"Rayo Vallecano";1;37;0;0;0.06;0;0.14;0
+454;"Marc Domenech";"Mallorca";7;198;0;1;0.12;0.5;0.05;0.23
+455;"Endrick";"Real Madrid";1;5;0;0;0;0;0;0
+456;"Antoniu Roca";"Espanyol";8;92;0;0;0.18;0.02;0.18;0.02
+457;"Pau Navarro";"Villarreal";12;1010;0;0;0.02;0.4;0;0.04
+458;"Luiz Júnior";"Villarreal";21;1890;0;0;0;0;0;0
+459;"Jan Salas";"Mallorca";2;6;0;0;0;0;0;0
+460;"Bojan Miovski";"Girona";1;44;0;0;0;0;0;0
+461;"Santiago Mouriño";"Villarreal";17;1441;0;1;0.47;0.16;0.03;0.01
+462;"Yáser Asprilla";"Girona";15;601;0;0;0.56;1.78;0.08;0.27
+463;"Coba da Costa";"Getafe";14;318;0;0;0.23;0.08;0.07;0.02
+464;"Matías Moreno";"Levante";16;1228;0;0;0.9;0.12;0.07;0.01
+465;"Toni Fernández";"Barcelona";1;48;0;0;0;0.09;0;0.17
+466;"David Jiménez";"Real Madrid";2;78;0;0;0.09;0;0.1;0
+467;"Ramón Martínez";"Sevilla";2;99;0;0;0;0;0;0
+468;"Fernando López";"Celta Vigo";3;258;0;0;0;0.06;0;0.02
+469;"Arkaitz Mariezkurrena";"Real Sociedad";1;1;0;0;0;0;0;0
+470;"Youssef Lekhedim";"Alaves";18;915;0;0;0.75;1.33;0.07;0.13
+471;"Facundo Garcés";"Alaves";9;760;0;0;0.57;0;0.07;0
+472;"Ismael Bekhoucha";"Getafe";4;106;0;1;0.03;0.72;0.02;0.61
+473;"Ángel Ortiz";"Real Betis";10;426;0;0;0.03;0.82;0.01;0.17
+474;"Pablo García";"Real Betis";14;331;0;0;1.3;0.06;0.35;0.01
+475;"Vladyslav Krapyvtsov";"Girona";2;136;0;0;0;0;0;0
+476;"Valde";"Real Madrid";1;81;0;0;0;0.02;0;0.02
+477;"Daniel Díaz";"Real Sociedad";1;13;0;0;0;0;0;0
+478;"Mikel Goti";"Real Sociedad";4;64;0;0;0.78;0;1.09;0
+479;"Andrés Castrín";"Sevilla";9;645;0;0;0.2;0.03;0.03;0
+480;"Oso";"Sevilla";8;546;0;1;0.72;1.49;0.12;0.24
+481;"Hugo Solozabal";"Getafe";1;4;0;0;0;0;0;0
+482;"Lander Pinillos";"Alaves";1;1;0;0;0;0;0;0
+483;"Claudio Echeverri";"Girona";4;104;0;0;0.16;0.31;0.14;0.27
+484;"Jozhua Vertrouwd";"Rayo Vallecano";7;259;0;0;0.08;0.08;0.03;0.03
+485;"Samu Becerra";"Rayo Vallecano";3;9;0;0;0;0.08;0;0.85
+486;"Oier Luengo";"Real Oviedo";3;228;0;1;0.07;0.1;0.03;0.04
+487;"Rahim Alhassane";"Real Oviedo";19;1402;0;0;0.05;1.39;0;0.09
+488;"Kwasi Sibo";"Real Oviedo";14;853;0;0;0.25;0.03;0.03;0
+489;"Borja Sánchez";"Real Oviedo";1;9;0;0;0;0;0;0
+490;"Marco Esteban";"Real Oviedo";1;40;0;0;0;0;0;0
+491;"Omar Falah";"Real Oviedo";1;9;0;0;0;0;0;0
+492;"Jofre Torrents";"Barcelona";3;33;0;0;0;0;0;0
+493;"Dro Fernández";"Barcelona";4;83;0;0;0;0.05;0;0.06
+494;"Filip Ugrinic";"Valencia";14;754;0;3;0.26;1.73;0.03;0.21
+495;"Calebe";"Alaves";16;732;0;0;0.14;0.42;0.02;0.05
+496;"Jorge Cabello";"Levante";5;367;0;0;0;0;0;0
+497;"Roger Brugué";"Levante";15;914;0;1;2.85;0.66;0.28;0.06
+498;"Paco Cortés";"Levante";6;162;0;0;0.07;0.05;0.04;0.03
+499;"Nacho Pérez";"Levante";1;78;0;0;0;0.02;0;0.03
+500;"Manuel Fernández";"Celta Vigo";12;723;0;0;0.04;0.03;0.01;0
+501;"Davinchi";"Getafe";7;416;0;0;0.17;0.03;0.04;0.01
+502;"Joselu Pérez";"Getafe";2;16;0;0;0.01;0;0.08;0
+503;"Urko Izeta";"Athletic Club";9;122;0;0;1.1;0.32;0.81;0.24
+504;"Miguel Sierra";"Sevilla";4;50;0;0;0.2;0;0.35;0
+505;"Álvaro Núñez";"Elche";19;1668;0;2;0.17;2.52;0.01;0.14
+506;"David Affengruber";"Elche";22;1817;0;0;0.69;0.3;0.03;0.02
+507;"Ali Houary";"Elche";2;133;0;0;0.06;0;0.04;0
+508;"Marc Aguado";"Elche";23;1610;0;1;0.06;0.08;0;0
+509;"Federico Redondo";"Elche";7;46;0;0;0;0;0;0
+510;"Bambo Diaby";"Elche";4;98;0;0;0;0;0;0
+511;"Iván Corralejo";"Real Betis";1;11;0;0;0;0;0;0
+512;"Jano Monserrate";"Atletico Madrid";1;13;0;0;0;0;0;0
+513;"Santiago Colombatto";"Real Oviedo";19;1483;0;1;0.59;1.9;0.04;0.12
+514;"Álex Forés";"Real Oviedo";13;264;0;1;0.79;0.02;0.27;0.01
+515;"Jan Virgili";"Mallorca";19;1303;0;4;1.7;3.47;0.12;0.24
+516;"Hugo Lopez";"Villarreal";2;57;0;0;0;0;0;0
+517;"Nelson Deossa";"Real Betis";14;516;0;0;0.42;0.51;0.07;0.09
+518;"Fábio Cardoso";"Sevilla";4;309;0;0;0;0;0;0
+519;"Lucas Ahijado";"Real Oviedo";13;874;0;1;1.08;0.95;0.11;0.1
+520;"Alex Sancris";"Getafe";15;628;0;1;0.35;0.99;0.05;0.14
+521;"Lancinet Kourouma";"Girona";5;23;0;0;0;0;0;0
+522;"Diego Morcillo";"Alaves";1;8;0;0;0.57;0;6.38;0
+523;"Selton Sánchez";"Athletic Club";5;138;0;1;0.28;0.16;0.19;0.1
+524;"Pablo Agudín";"Real Oviedo";4;46;0;0;0.04;0;0.08;0
+525;"Asier Hierro";"Athletic Club";1;30;0;0;0.09;0.02;0.26;0.06
+526;"Jorge Montes";"Getafe";1;24;0;0;0;0;0;0
+527;"Tomás Marqués";"Barcelona";1;3;0;0;0;0;0;0
+528;"Gorka Carrera";"Real Sociedad";1;8;0;0;0;0;0;0
+529;"Carlos Macià";"Villarreal";4;64;0;0;0.02;0;0.03;0
+530;"Aitor Mañas";"Alaves";5;57;0;0;0.57;0.03;0.9;0.05
+531;"Juan Arango";"Girona";2;14;0;0;0;0;0;0
+532;"Jorge Cestero";"Real Madrid";2;8;0;0;0;0;0;0
+533;"Kareem Tunde";"Levante";8;516;0;0;0.39;0.48;0.07;0.08
+534;"Lander Astiazarán";"Real Sociedad";1;1;0;0;0.02;0;1.9;0
+535;"Alejandro Mestanza";"Getafe";3;68;0;0;0.02;0;0.02;0
+536;"Nicolás Fonseca";"Real Oviedo";6;125;0;0;0.03;0.02;0.02;0.01
+537;"Thiago Borbas";"Real Oviedo";3;20;0;0;0;0;0;0
+538;"Hugo Burcio";"Celta Vigo";1;4;0;0;0;0;0;0
+539;"Job Ochieng";"Real Sociedad";1;21;0;0;0;0.15;0;0.66
+540;"Álex Sánchez";"Elche";1;5;0;1;0;0.08;0;1.44
+541;"Zaid Romero";"Getafe";4;360;0;0;0.27;0.02;0.07;0
+542;"Sebastián Boselli";"Getafe";3;6;0;0;0.28;0;4.21;0
+543;"Ángel Pérez";"Alaves";2;49;0;0;0.05;0;0.1;0
+544;"Thiago Fernández";"Real Oviedo";2;56;0;1;0.09;0.89;0.14;1.43
+545;"Alexander Freeman";"Villarreal";3;26;0;0;0;0;0;0
+546;"Tai Abed";"Levante";1;1;0;0;0;0;0;0
+547;"Lucas Cepeda";"Elche";3;105;0;0;0.44;0.03;0.37;0.03
+548;"Wesley";"Real Sociedad";2;60;0;0;0;0;0;0
+549;"Obed Vargas";"Atletico Madrid";2;50;0;0;0;0;0;0
+550;"Álvaro Fidalgo";"Real Betis";2;158;0;0;0.06;0.12;0.03;0.07
