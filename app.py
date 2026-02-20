@@ -431,6 +431,8 @@ with st.expander("⚙️ Fine Tuning"):
     c1, c2 = st.columns(2)
     h_str = c1.slider("Titolari % Casa", 50, 100, 100); a_str = c2.slider("Titolari % Ospite", 50, 100, 100)
     h_rest = c1.slider("Riposo Casa", 2, 10, 7); a_rest = c2.slider("Riposo Ospite", 2, 10, 7)
+    h_m_a = c1.checkbox("No Bomber Casa"); a_m_a = c2.checkbox("No Bomber Ospite")
+    h_m_d = c1.checkbox("No Difensore Casa"); a_m_d = c2.checkbox("No Difensore Ospite")
 
 # ==============================================================================
 # 🚀 MOTORE DI ANALISI (ANALIZZA)
@@ -490,6 +492,11 @@ if st.button("🚀 ANALIZZA", type="primary", use_container_width=True):
         if h_rest <= 3: f_xh*=0.95; f_xa*=1.05
         if a_rest <= 3: f_xa*=0.95; f_xh*=1.05
         if is_big_match: f_xh*=0.9; f_xa*=0.9
+        
+        if h_m_a: f_xh *= 0.85 
+        if h_m_d: f_xa *= 1.20
+        if a_m_a: f_xa *= 0.85 
+        if a_m_d: f_xh *= 1.20
 
         matrix = np.zeros((10,10)); scores = []
         p1, pX, p2, pGG = 0,0,0,0
@@ -541,7 +548,7 @@ if st.session_state.analyzed:
     c1.metric("xG Previsti (Adjusted)", f"{st.session_state.f_xh:.2f} - {st.session_state.f_xa:.2f}")
     c2.metric("Affidabilità", f"{st.session_state.stability:.1f}%")
 
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["🏆 Esito", "⚽ Goal", "👤 Player", "⛳ Stats Extra & Corners", "📝 Storico", "⚡ Combo"])
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["🏆 Esito", "⚽ Goal", "👤 Player & Assist", "⛳ Stats Extra & Corners", "📝 Storico", "⚡ Combo"])
     
     with tab1:
         c_1, c_2 = st.columns(2)
@@ -593,8 +600,9 @@ if st.session_state.analyzed:
                 mg_res.append({"Range": f"{r[0]}-{r[1]}", "Prob %": f"{pm:.1%}", "Quota": f"{1/pm:.2f}"})
             st.dataframe(pd.DataFrame(mg_res), hide_index=True)
 
+    # ------------------ RIPRISTINATA E MIGLIORATA LA SCHEDA GOL + ASSIST ------------------
     with tab3:
-        st.subheader("Analisi Marcatore e Combo")
+        st.subheader("Analisi Marcatore, Assist e Combo")
         if PLAYERS_DF is not None and not PLAYERS_DF.empty:
             team_sel = st.radio("Scegli Squadra", [f"Casa: {st.session_state.h_name}", f"Ospite: {st.session_state.a_name}"])
             is_home = "Casa" in team_sel
@@ -609,24 +617,40 @@ if st.session_state.analyzed:
                 st.warning("Giocatori non trovati. Inserimento manuale.")
                 pl_n = st.text_input("Nome", "Player")
                 c1, c2 = st.columns(2)
-                p_xg_val = c1.number_input("xG/90", 0.0, 2.0, 0.4)
-                p_xa_val = c2.number_input("xA/90", 0.0, 2.0, 0.2)
+                p_xg_val = c1.number_input("xG/90 (Gol)", 0.0, 2.0, 0.4)
+                p_xa_val = c2.number_input("xA/90 (Assist)", 0.0, 2.0, 0.2)
             
             txg = st.session_state.f_xh if is_home else st.session_state.f_xa
             t_type = "Casa" if is_home else "Ospite"
             t_avg_xg_seas = get_val(h_stats["total"] if is_home else a_stats["total"], 'xg', data_mode) if (h_stats and a_stats) else 1.2
             pmin = st.number_input("Minuti Previsti", 1, 100, 90)
 
+            st.markdown("---")
+            col_prob1, col_prob2 = st.columns(2)
+
             if p_xg_val > 0:
-                pprob = calculate_player_probability(p_xg_val, pmin, txg, t_avg_xg_seas)
-                st.write(f"**Gol {pl_n}:** {pprob:.1%} (@{1/pprob:.2f})")
+                pprob_gol = calculate_player_probability(p_xg_val, pmin, txg, t_avg_xg_seas)
+                col_prob1.success(f"⚽ **Probabilità GOL {pl_n}:** {pprob_gol:.1%} (@{1/pprob_gol:.2f})")
+            
+            if p_xa_val > 0:
+                pprob_assist = calculate_player_probability(p_xa_val, pmin, txg, t_avg_xg_seas)
+                col_prob2.info(f"👟 **Probabilità ASSIST {pl_n}:** {pprob_assist:.1%} (@{1/pprob_assist:.2f})")
                 
-                c_c1, c_c2 = st.columns(2)
-                sel_res_p = c_c1.selectbox("Esito Match per Combo", ["1", "X", "2"])
-                if st.button("Calcola Combo Gol"):
-                    share = min(0.99, (p_xg_val / 90 * pmin) / max(0.1, txg))
-                    p_combo = calculate_combo_player(st.session_state.matrix, sel_res_p, t_type, share)
-                    st.success(f"Combo {sel_res_p} + Gol: **{p_combo:.1%}** (@{1/p_combo:.2f})")
+            st.markdown("### ⚡ Combo Player")
+            c_c1, c_c2 = st.columns(2)
+            sel_res_p = c_c1.selectbox("Scegli Esito Match per la Combo", ["1", "X", "2", "1X", "X2", "12"])
+            
+            c_btn1, c_btn2 = st.columns(2)
+            if c_btn1.button("Calcola Combo GOL"):
+                share_g = min(0.99, (p_xg_val / 90 * pmin) / max(0.1, txg))
+                p_combo_g = calculate_combo_player(st.session_state.matrix, sel_res_p, t_type, share_g)
+                st.success(f"Combo **{sel_res_p} + Gol {pl_n}**: {p_combo_g:.1%} (@{1/p_combo_g:.2f})")
+
+            if c_btn2.button("Calcola Combo ASSIST"):
+                share_a = min(0.99, (p_xa_val / 90 * pmin) / max(0.1, txg))
+                p_combo_a = calculate_combo_player(st.session_state.matrix, sel_res_p, t_type, share_a)
+                st.info(f"Combo **{sel_res_p} + Assist {pl_n}**: {p_combo_a:.1%} (@{1/p_combo_a:.2f})")
+
         else:
             st.warning("Dati giocatori non caricati.")
 
