@@ -316,7 +316,6 @@ with st.sidebar:
         c_foul_h = st.number_input("Falli Casa", 0.0, 30.0, 11.5, 0.5)
         c_foul_a = st.number_input("Falli Ospite", 0.0, 30.0, 12.5, 0.5)
 
-    # REINSERITO: CALCOLATORI UTILITY
     with st.expander("🧮 Calcolatori Utility", expanded=False):
         st.markdown("**Convertitore Quota -> Prob %**")
         fair_odd_input = st.number_input("Inserisci Fair Odd", 1.01, 100.0, 2.00, step=0.05)
@@ -370,6 +369,7 @@ with col_h:
     st.subheader("🏠 Squadra Casa")
     h_name = st.selectbox("Seleziona Casa", TEAM_LIST, index=0) if TEAM_LIST else st.text_input("Nome Casa", "Inter")
     h_stats = STATS_DB.get(h_name) if STATS_DB else None
+    st.markdown("👉 [Consulta ClubElo.com](http://clubelo.com/)")
     h_elo = st.number_input("Rating Elo Casa", 1000.0, 2500.0, 1600.0, step=10.0)
     
     with st.expander("📊 Dati", expanded=True):
@@ -391,12 +391,13 @@ with col_h:
         h_form_def = st.number_input("Difesa L5 (C)", 0.0, 25.0, float(def_form_def), 0.1)
 
     with st.expander("Over Trend"):
-        for l in [0.5, 1.5, 2.5, 3.5]: h_uo_input[l] = st.slider(f"Over {l} % H", 0, 100, 50, key=f"ho{l}")
+        for l in [0.5, 1.5, 2.5, 3.5, 4.5]: h_uo_input[l] = st.slider(f"Over {l} % H", 0, 100, 50, key=f"ho{l}")
 
 with col_a:
     st.subheader("✈️ Squadra Ospite")
     a_name = st.selectbox("Seleziona Ospite", TEAM_LIST, index=1 if len(TEAM_LIST)>1 else 0) if TEAM_LIST else st.text_input("Nome Ospite", "Juve")
     a_stats = STATS_DB.get(a_name) if STATS_DB else None
+    st.markdown("👉 [Consulta ClubElo.com](http://clubelo.com/)")
     a_elo = st.number_input("Rating Elo Ospite", 1000.0, 2500.0, 1550.0, step=10.0)
 
     with st.expander("📊 Dati", expanded=True):
@@ -418,7 +419,7 @@ with col_a:
         a_form_def = st.number_input("Difesa L5 (O)", 0.0, 25.0, float(def_form_def_a), 0.1)
 
     with st.expander("Over Trend"):
-        for l in [0.5, 1.5, 2.5, 3.5]: a_uo_input[l] = st.slider(f"Over {l} % A", 0, 100, 50, key=f"ao{l}")
+        for l in [0.5, 1.5, 2.5, 3.5, 4.5]: a_uo_input[l] = st.slider(f"Over {l} % A", 0, 100, 50, key=f"ao{l}")
 
 st.subheader("💰 Quote")
 q1, qx, q2 = st.columns(3)
@@ -577,7 +578,7 @@ if st.session_state.analyzed:
         with c1:
             st.subheader("Under / Over")
             uo_list = []
-            for l in [0.5, 1.5, 2.5, 3.5]:
+            for l in [0.5, 1.5, 2.5, 3.5, 4.5]:
                 p_pure = np.sum(st.session_state.matrix[np.indices((10,10))[0] + np.indices((10,10))[1] > l])
                 pf = (p_pure*0.7) + (((h_uo_input.get(l,50) + a_uo_input.get(l,50))/200.0)*0.3)
                 uo_list.append({"Linea": f"Over {l}", "Prob %": f"{pf:.1%}", "Quota": f"{1/pf:.2f}"})
@@ -678,7 +679,7 @@ if st.session_state.analyzed:
         st.subheader("⚡ Combo Maker")
         c1, c2, c3 = st.columns(3)
         sel_res = c1.selectbox("Esito 1X2", ["-", "1", "X", "2", "1X", "X2", "12"])
-        sel_uo = c2.selectbox("Under/Over", ["-", "Over 1.5", "Under 1.5", "Over 2.5", "Under 2.5", "Over 3.5", "Under 3.5"])
+        sel_uo = c2.selectbox("Under/Over", ["-", "Over 1.5", "Under 1.5", "Over 2.5", "Under 2.5", "Over 3.5", "Under 3.5", "Over 4.5", "Under 4.5"])
         sel_gg = c3.selectbox("Goal/NoGoal", ["-", "Goal", "No Goal"])
         
         if st.button("Calcola Combo", type="primary"):
