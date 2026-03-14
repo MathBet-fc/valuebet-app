@@ -29,31 +29,66 @@ def fetch_understat_data_auto(league_name):
     u_league = LEAGUES_CONFIG[league_name]["understat"]
     try:
         with UnderstatClient() as client:
-            # Uso '2025' per la stagione corrente 2025/2026
             data = client.league(u_league).get_team_data('2025')
             stats_db, team_list = {}, []
+            
             for team_id, details in data.items():
                 t_name = details['title']
                 team_list.append(t_name)
                 hist = details['history']
-                m = max(1, len(hist))
+                m = len(hist)
                 
-                ppda_val = sum([h['ppda']['att']/h['ppda']['def'] if h['ppda']['def'] > 0 else 12 for h in hist]) / m
-                oppda_val = sum([h['oppda']['att']/h['oppda']['def'] if h['oppda']['def'] > 0 else 12 for h in hist]) / m
+                # Se una squadra non ha ancora giocato, blocca tutto
+                if m == 0:
+                    raise ValueError(f"Nessuna partita registrata finora per {t_name}.")
                 
+                goals = ga = xg = xga = npxg = npxga = dc = odc = pts = xpts = 0
+                ppda_sum = oppda_sum = 0
+                
+                for match in hist:
+                    # 1. CONTROLLO RIGIDO: Tutti i parametri esatti di Understat
+                    required_keys = ['scored', 'missed', 'xG', 'xGA', 'npxG', 'npxGA', 'ppda', 'ppda_allowed', 'deep', 'deep_allowed', 'pts', 'xpts']
+                    
+                    for key in required_keys:
+                        if key not in match:
+                            raise ValueError(f"Il dato vitale '{key}' manca nei server Understat per la partita del {t_name}.")
+                            
+                    # 2. SOMMA DEI DATI REALI
+                    goals += match['scored']
+                    ga += match['missed']
+                    xg += match['xG']
+                    xga += match['xGA']
+                    npxg += match['npxG']
+                    npxga += match['npxGA']
+                    dc += match['deep']
+                    odc += match['deep_allowed']  # Sostituisce il vecchio parametro hardcoded "odc"
+                    pts += match['pts']
+                    xpts += match['xpts']
+                    
+                    # 3. CONTROLLO MATEMATICO (Evita la divisione per zero)
+                    if match['ppda']['def'] == 0 or match['ppda_allowed']['def'] == 0:
+                        raise ValueError(f"Dati difensivi a 0 (impossibile calcolare il PPDA) per {t_name}.")
+                        
+                    ppda_sum += match['ppda']['att'] / match['ppda']['def']
+                    oppda_sum += match['ppda_allowed']['att'] / match['ppda_allowed']['def']
+                    
                 stats_db[t_name] = {
                     "total": {
-                        "goals_total": sum([h['scored'] for h in hist]), "ga_total": sum([h['missed'] for h in hist]),
-                        "xg_total": sum([h['xG'] for h in hist]), "xga_total": sum([h['xGA'] for h in hist]),
-                        "npxg_total": sum([h['npxG'] for h in hist]), "npxga_total": sum([h['npxGA'] for h in hist]),
-                        "ppda": ppda_val, "oppda": oppda_val, "dc": sum([h['deep'] for h in hist]) / m, 
-                        "odc": 5.0, "pts": sum([h['pts'] for h in hist]), "xpts": sum([h['xpts'] for h in hist]), "matches": m
+                        "goals_total": goals, "ga_total": ga,
+                        "xg_total": xg, "xga_total": xga,
+                        "npxg_total": npxg, "npxga_total": npxga,
+                        "ppda": ppda_sum / m, "oppda": oppda_sum / m,
+                        "dc": dc / m, "odc": odc / m,
+                        "pts": pts, "xpts": xpts, "matches": m
                     }
                 }
             return stats_db, sorted(team_list)
+            
     except Exception as e:
-        # QUESTO È IL PUNTO CHIAVE: ora stamperà l'errore sullo schermo
-        st.error(f"🚨 BLOCCO UNDERSTAT ({league_name}): {str(e)}")
+        # Se c'è un errore, ferma l'app ed espone il problema crudo all'utente
+        st.error(f"🚨 ERRORE CRITICO SORGENTE DATI ({league_name}): {str(e)}")
+        st.warning("L'elaborazione è stata fermata perché i dati alla fonte non sono completi o corretti.")
+        st.stop() # Impedisce a Streamlit di caricare il resto della pagina vuota
         return {}, []
 
 @st.cache_data(ttl=3600)
