@@ -5,7 +5,7 @@ import json
 import io
 import difflib
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta
 from understatapi import UnderstatClient
 import streamlit as st
 
@@ -21,11 +21,42 @@ LEAGUES_CONFIG = {
 }
 
 # ==============================================================================
-# FUNZIONI DI DATA EXTRACTION (CON CACHE "ZERO SPRECHI")
+# FUNZIONI DI DATA EXTRACTION
 # ==============================================================================
+
+@st.cache_data(ttl=43200) # Aggiorna ogni 12 ore
+def fetch_clubelo_ratings():
+    """Scarica i rating Elo globali da ClubElo aggiornati a oggi."""
+    try:
+        # Tenta di scaricare i dati di oggi
+        date_str = datetime.now().strftime('%Y-%m-%d')
+        df = pd.read_csv(f"http://api.clubelo.com/{date_str}")
+    except Exception:
+        try:
+            # Fallback: scarica i dati di ieri se oggi non è ancora disponibile
+            date_str = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+            df = pd.read_csv(f"http://api.clubelo.com/{date_str}")
+        except Exception as e:
+            st.warning("⚠️ Impossibile collegarsi a ClubElo. Verranno usati valori standard (1500).")
+            return {}
+            
+    if 'Club' in df.columns and 'Elo' in df.columns:
+        return dict(zip(df['Club'], df['Elo']))
+    return {}
+
+def get_elo_for_team(team_name, elo_dict, default_elo=1500.0):
+    """Accoppia in modo intelligente il nome della squadra (es. 'Milan' -> 'AC Milan')"""
+    if not elo_dict or not team_name: return default_elo
+    if team_name in elo_dict: return float(elo_dict[team_name])
+    
+    # Fuzzy Matching per trovare il nome più simile
+    matches = difflib.get_close_matches(team_name, elo_dict.keys(), n=1, cutoff=0.55)
+    if matches:
+        return float(elo_dict[matches[0]])
+    return default_elo
+
 @st.cache_data(ttl=3600)
 def fetch_understat_data_auto(league_name):
-    import streamlit as st
     u_league = LEAGUES_CONFIG[league_name]["understat"]
     try:
         with UnderstatClient() as client:
@@ -37,23 +68,16 @@ def fetch_understat_data_auto(league_name):
                 team_list.append(t_name)
                 hist = details['history']
                 m = len(hist)
-                
-                # Se una squadra non ha ancora giocato, blocca tutto
-                if m == 0:
-                    raise ValueError(f"Nessuna partita registrata finora per {t_name}.")
+                if m == 0: raise ValueError(f"Nessuna partita registrata finora per {t_name}.")
                 
                 goals = ga = xg = xga = npxg = npxga = dc = odc = pts = xpts = 0
                 ppda_sum = oppda_sum = 0
                 
                 for match in hist:
-                    # 1. CONTROLLO RIGIDO: Tutti i parametri esatti di Understat
-                    required_keys = ['scored', 'missed', 'xG', 'xGA', 'npxG', 'npxGA', 'ppda', 'ppda_allowed', 'deep', 'deep_allowed', 'pts', 'xpts']
-                    
-                    for key in required_keys:
-                        if key not in match:
-                            raise ValueError(f"Il dato vitale '{key}' manca nei server Understat per la partita del {t_name}.")
+                    req_keys = ['scored', 'missed', 'xG', 'xGA', 'npxG', 'npxGA', 'ppda', 'ppda_allowed', 'deep', 'deep_allowed', 'pts', 'xpts']
+                    for key in req_keys:
+                        if key not in match: raise ValueError(f"Dato '{key}' mancante per {t_name}.")
                             
-                    # 2. SOMMA DEI DATI REALI
                     goals += match['scored']
                     ga += match['missed']
                     xg += match['xG']
@@ -61,34 +85,27 @@ def fetch_understat_data_auto(league_name):
                     npxg += match['npxG']
                     npxga += match['npxGA']
                     dc += match['deep']
-                    odc += match['deep_allowed']  # Sostituisce il vecchio parametro hardcoded "odc"
+                    odc += match['deep_allowed']
                     pts += match['pts']
                     xpts += match['xpts']
                     
-                    # 3. CONTROLLO MATEMATICO (Evita la divisione per zero)
                     if match['ppda']['def'] == 0 or match['ppda_allowed']['def'] == 0:
-                        raise ValueError(f"Dati difensivi a 0 (impossibile calcolare il PPDA) per {t_name}.")
+                        raise ValueError(f"Dati difensivi a 0 per {t_name}.")
                         
                     ppda_sum += match['ppda']['att'] / match['ppda']['def']
                     oppda_sum += match['ppda_allowed']['att'] / match['ppda_allowed']['def']
                     
                 stats_db[t_name] = {
                     "total": {
-                        "goals_total": goals, "ga_total": ga,
-                        "xg_total": xg, "xga_total": xga,
-                        "npxg_total": npxg, "npxga_total": npxga,
-                        "ppda": ppda_sum / m, "oppda": oppda_sum / m,
-                        "dc": dc / m, "odc": odc / m,
-                        "pts": pts, "xpts": xpts, "matches": m
+                        "goals_total": goals, "ga_total": ga, "xg_total": xg, "xga_total": xga,
+                        "npxg_total": npxg, "npxga_total": npxga, "ppda": ppda_sum / m, "oppda": oppda_sum / m,
+                        "dc": dc / m, "odc": odc / m, "pts": pts, "xpts": xpts, "matches": m
                     }
                 }
             return stats_db, sorted(team_list)
-            
     except Exception as e:
-        # Se c'è un errore, ferma l'app ed espone il problema crudo all'utente
         st.error(f"🚨 ERRORE CRITICO SORGENTE DATI ({league_name}): {str(e)}")
-        st.warning("L'elaborazione è stata fermata perché i dati alla fonte non sono completi o corretti.")
-        st.stop() # Impedisce a Streamlit di caricare il resto della pagina vuota
+        st.stop()
         return {}, []
 
 @st.cache_data(ttl=3600)
@@ -108,53 +125,37 @@ def fetch_understat_players(league_name):
 
 @st.cache_data(ttl=3600)
 def fetch_league_odds(league_id, api_key):
-    """Scarica tutte le quote del campionato una sola volta all'ora (con avvisi di errore)."""
-    import streamlit as st
     if not api_key or api_key == "INSERISCI_QUI_LA_TUA_CHIAVE": 
         st.warning("⚠️ API Key di The Odds API non valida o non inserita.")
         return []
         
     url = f"https://api.the-odds-api.com/v4/sports/{league_id}/odds/"
-    
-    # 🟢 CORREZIONE: Rimosso 'btts' che causava l'errore 422 sui download massivi
     params = {"apiKey": api_key, "regions": "eu", "markets": "h2h,totals", "oddsFormat": "decimal"}
     
     try:
         res = requests.get(url, params=params)
-        res.raise_for_status() # Forza l'errore se l'API rifiuta la connessione
+        res.raise_for_status() 
         data = res.json()
-        
         if not isinstance(data, list):
             st.error(f"🚨 Formato dati inatteso dalle quote: {data}")
             return []
-            
         return data
     except Exception as e:
         st.error(f"🚨 ERRORE THE ODDS API ({league_id}): {str(e)}")
         return []
 
 def extract_match_odds(all_odds, home_team, away_team):
-    """Filtra le quote di un singolo match con tolleranza sui nomi."""
-    if not all_odds: 
-        return None
-        
-    # Estrae tutti i nomi delle squadre in casa dal feed API
+    if not all_odds: return None
     feed_home_teams = [m['home_team'] for m in all_odds]
-    
-    # Abbassiamo il cutoff a 0.45 per tollerare discrepanze come "Roma" vs "AS Roma"
     h_match = difflib.get_close_matches(home_team, feed_home_teams, n=1, cutoff=0.45)
     
     if h_match:
         matched_home = h_match[0]
         for match in all_odds:
             if match['home_team'] == matched_home:
-                # Se non ci sono bookmaker disponibili per questo match, salta
-                if not match.get('bookmakers'):
-                    return None
-                    
+                if not match.get('bookmakers'): return None
                 bookie = match['bookmakers'][0] 
                 odds_data = {"h2h": {}, "totals": {}, "btts": {}}
-                
                 for m in bookie['markets']:
                     if m['key'] == 'h2h':
                         odds_data['h2h'] = {o['name']: o['price'] for o in m['outcomes']}
@@ -162,8 +163,6 @@ def extract_match_odds(all_odds, home_team, away_team):
                         o25 = [o['price'] for o in m['outcomes'] if o['name'] == 'Over' and o['point'] == 2.5]
                         u25 = [o['price'] for o in m['outcomes'] if o['name'] == 'Under' and o['point'] == 2.5]
                         if o25 and u25: odds_data['totals'] = {"Over 2.5": o25[0], "Under 2.5": u25[0]}
-                    elif m['key'] == 'btts':
-                        odds_data['btts'] = {o['name']: o['price'] for o in m['outcomes']}
                 return odds_data
     return None
 
@@ -252,9 +251,9 @@ def monte_carlo_simulation(f_xh, f_xa, n_sims=5000):
     return sim
 
 # ==============================================================================
-# MOTORE TOP 5 VALUE BETS
+# MOTORE TOP 5 VALUE BETS (AGGIORNATO CON ELO CLUBELO)
 # ==============================================================================
-def find_top_value_bets(all_odds, stats_db, L_DATA, volatility):
+def find_top_value_bets(all_odds, stats_db, L_DATA, volatility, m_type, elo_dict):
     if not all_odds: return []
     team_list = list(stats_db.keys())
     value_bets = []
@@ -277,21 +276,36 @@ def find_top_value_bets(all_odds, stats_db, L_DATA, volatility):
                     b2 = next((o['price'] for o in m['outcomes'] if o['name'] == match['away_team']), 0)
                 elif m['key'] == 'totals':
                     bO25 = next((o['price'] for o in m['outcomes'] if o['name'] == 'Over' and o['point'] == 2.5), 0)
-                elif m['key'] == 'btts':
-                    bGG = next((o['price'] for o in m['outcomes'] if o['name'] == 'Yes'), 0)
         except: continue
         
+        # 1. Recupero Elo automatico da ClubElo
+        h_elo = get_elo_for_team(h_name, elo_dict, 1500.0)
+        a_elo = get_elo_for_team(a_name, elo_dict, 1500.0)
+        
+        # 2. Calcolo xG attesi Base
         h_att = h_stats['total']['xg_total'] / h_stats['total']['matches']
         h_def = h_stats['total']['xga_total'] / h_stats['total']['matches']
         a_att = a_stats['total']['xg_total'] / a_stats['total']['matches']
         a_def = a_stats['total']['xga_total'] / a_stats['total']['matches']
         
-        xg_h = ((h_att * a_def) / L_DATA["avg"]) + L_DATA["ha"]
-        xg_a = (a_att * h_def) / L_DATA["avg"]
-        if h_stats['total']['ppda'] < 10.5: xg_h *= 1.05
-        if a_stats['total']['ppda'] < 10.5: xg_a *= 1.05
+        xg_h_base = (h_att * a_def) / L_DATA["avg"]
+        xg_a_base = (a_att * h_def) / L_DATA["avg"]
         
-        f_xh, f_xa = xg_h * volatility, xg_a * volatility
+        # 3. Applicazione Differenziale ELO + Fattore Campo
+        home_adv = L_DATA["ha"] if m_type == "Standard" else (0.0 if m_type == "Campo Neutro" else L_DATA["ha"]*0.5)
+        elo_diff = (h_elo + (100 if m_type=="Standard" else 0)) - a_elo
+        
+        f_xh = (xg_h_base * (1 + elo_diff/1000.0)) + home_adv
+        f_xa = (xg_a_base * (1 - elo_diff/1000.0))
+        
+        # 4. Aggiustamento PPDA
+        if h_stats['total']['ppda'] < 10.5: f_xh *= 1.05
+        if a_stats['total']['ppda'] < 10.5: f_xa *= 1.05
+        
+        # 5. Aggiustamento Volatilità
+        f_xh *= volatility
+        f_xa *= volatility
+        
         p1, pX, p2, pGG, pO25 = 0,0,0,0,0
         for h in range(10):
             for a in range(10):
@@ -302,7 +316,7 @@ def find_top_value_bets(all_odds, stats_db, L_DATA, volatility):
                 if h>0 and a>0: pGG+=p
                 if (h+a) > 2.5: pO25+=p
                 
-        evals = [("1", p1, b1), ("X", pX, bX), ("2", p2, b2), ("Over 2.5", pO25, bO25), ("Goal (GG)", pGG, bGG)]
+        evals = [("1", p1, b1), ("X", pX, bX), ("2", p2, b2), ("Over 2.5", pO25, bO25)]
         for bet_type, prob, odd in evals:
             if odd > 1.0 and prob > 0:
                 val = (prob * odd) - 1
