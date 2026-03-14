@@ -15,6 +15,7 @@ st.set_page_config(page_title="Mathbet fc - ML Ultimate Pro", page_icon="🧠", 
 
 if 'history' not in st.session_state: st.session_state.history = engine.carica_storico_json()
 if 'analyzed' not in st.session_state: st.session_state.analyzed = False
+if 'ml_active' not in st.session_state: st.session_state.ml_active = False
 
 # ==============================================================================
 # 🎛️ UI SIDEBAR
@@ -28,16 +29,15 @@ with st.sidebar:
     with st.spinner("Estrazione dati LIVE in corso..."):
         STATS_DB, TEAM_LIST = engine.fetch_understat_data_auto(league_name)
         PLAYERS_DF = engine.fetch_understat_players(league_name)
-        ELO_DICT = engine.fetch_clubelo_ratings() # 🟢 NUOVO: Carica Elo Rating
+        ELO_DICT = engine.fetch_clubelo_ratings() 
         ALL_LEAGUE_ODDS = engine.fetch_league_odds(L_DATA["odds_id"], ODDS_API_KEY)
     
-    if STATS_DB: st.success("✅ Dati Squadre Sincronizzati")
-    if ELO_DICT: st.success("✅ ClubElo Rating Sincronizzato")
-    
     st.markdown("---")
+    use_ml_boost = st.toggle("🤖 Attiva Apprendimento ML", value=False)
     data_mode = st.radio("Dati Analisi", ["Solo Gol Reali", "Solo xG (NPxG Mode)", "Ibrido (Consigliato)"], index=2)
     volatility = st.slider("Volatilità", 0.8, 1.4, 1.0, 0.05)
-    matchday = st.slider("Giornata", 1, 38, 22)
+    matchday = st.slider("Giornata Attuale", 1, 38, 22)
+    w_seas = min(0.90, 0.30 + (matchday * 0.02)) 
     m_type = st.radio("Contesto", ["Standard", "Derby", "Campo Neutro"])
     is_big_match = st.checkbox("🔥 Big Match")
     
@@ -75,32 +75,32 @@ with st.sidebar:
 
 st.title("Mathbet fc - ML Ultimate Pro 🚀")
 
+ml_model = None
+if use_ml_boost:
+    ml_model = engine.train_ml_model(st.session_state.history)
+
 # --- SCANNER AUTOMATICO TOP 5 ---
 with st.expander("🔥 SCANNER GIORNALIERO: TOP 5 VALUE BETS", expanded=False):
-    st.markdown("Cerca le migliori occasioni matematiche sul palinsesto (Scraping Integrato ClubElo).")
+    st.markdown("Cerca le migliori occasioni matematiche sul palinsesto.")
     if st.button("🔍 Cerca Top 5 Value Bets Ora", type="primary"):
         with st.spinner(f"Elaborazione in corso..."):
-            # 🟢 INIETTA ELO_DICT NELLO SCANNER
-            top_5 = engine.find_top_value_bets(ALL_LEAGUE_ODDS, STATS_DB, L_DATA, volatility, m_type, ELO_DICT)
+            top_5 = engine.find_top_value_bets(ALL_LEAGUE_ODDS, STATS_DB, L_DATA, volatility, m_type, ELO_DICT, w_seas, ml_model)
             if top_5:
                 df_top5 = pd.DataFrame(top_5)
                 st.table(df_top5.style.format({"Prob %": "{:.1%}", "Fair Odd": "{:.2f}", "Valore %": "{:.1%}"}).applymap(lambda x: 'background-color: #d4edda; font-weight: bold;', subset=['Valore %']))
             else:
                 st.warning("Nessuna Value Bet significativa (>3%) trovata.")
+st.divider()
+
 # ==============================================================================
-# 🗓️ NUOVA SELEZIONE MATCH DA PALINSESTO
+# 🗓️ SELEZIONE MATCH DA PALINSESTO
 # ==============================================================================
 st.subheader("🗓️ Selezione Partita")
 
 if ALL_LEAGUE_ODDS:
-    # 1. Crea la tendina con le partite REALI offerte dai bookmaker
     match_options = [f"{m['home_team']} - {m['away_team']}" for m in ALL_LEAGUE_ODDS]
     selected_match = st.selectbox("Scegli il Match in programma", match_options)
-    
-    # 2. Estrapola i nomi esatti usati dai bookmaker
     bookie_h_name, bookie_a_name = selected_match.split(" - ")
-    
-    # 3. Abbina in automatico i nomi del bookmaker con quelli di Understat
     auto_h_name = engine.fuzzy_match_team(bookie_h_name, TEAM_LIST)
     auto_a_name = engine.fuzzy_match_team(bookie_a_name, TEAM_LIST)
 else:
@@ -112,21 +112,24 @@ else:
 col_h, col_a = st.columns(2)
 h_uo_input, a_uo_input = {}, {}
 
-def get_val_ui(stats_dict, metric, mode):
-    raw = stats_dict["total"]
-    matches = raw.get('matches', 0)
-    if matches <= 0: return 0.0
-    if metric == 'gf': 
-        v_goals, v_xg, v_npxg = raw.get('goals_total', 0), raw.get('xg_total', 0), raw.get('npxg_total', 0)
-    else: 
-        v_goals, v_xg, v_npxg = raw.get('ga_total', 0), raw.get('xga_total', 0), raw.get('npxga_total', 0)
-    if mode == "Solo Gol Reali": return v_goals / matches
-    elif mode == "Solo xG (NPxG Mode)": return v_npxg / matches
-    else: return ((v_npxg * 0.40) + (v_xg * 0.30) + (v_goals * 0.30)) / matches
+def get_blended_val(stats_dict, metric, mode, w_seas):
+    def extract_val(raw_segment):
+        matches = raw_segment.get('matches', 0)
+        if matches <= 0: return 0.0
+        if metric == 'gf': 
+            v_goals, v_xg, v_npxg = raw_segment.get('goals_total', 0), raw_segment.get('xg_total', 0), raw_segment.get('npxg_total', 0)
+        else: 
+            v_goals, v_xg, v_npxg = raw_segment.get('ga_total', 0), raw_segment.get('xga_total', 0), raw_segment.get('npxga_total', 0)
+        if mode == "Solo Gol Reali": return v_goals / matches
+        elif mode == "Solo xG (NPxG Mode)": return v_npxg / matches
+        else: return ((v_npxg * 0.40) + (v_xg * 0.30) + (v_goals * 0.30)) / matches
+
+    val_tot = extract_val(stats_dict.get("total", {}))
+    val_form = extract_val(stats_dict.get("form", {}))
+    return (val_tot * w_seas) + (val_form * (1 - w_seas))
 
 with col_h:
     st.subheader("🏠 Squadra Casa")
-    # Imposta la tendina sul nome trovato in automatico
     h_idx = TEAM_LIST.index(auto_h_name) if auto_h_name in TEAM_LIST else 0
     h_name = st.selectbox("Dati Understat Casa", TEAM_LIST, index=h_idx) if TEAM_LIST else st.text_input("Nome Casa", "Inter")
     h_stats = STATS_DB.get(h_name) if STATS_DB else None
@@ -134,15 +137,17 @@ with col_h:
     default_elo_h = engine.get_elo_for_team(h_name, ELO_DICT, 1600.0) if h_name else 1600.0
     h_elo = st.number_input("Rating Elo Casa (Auto)", 1000.0, 2500.0, float(default_elo_h), step=10.0)
     
-    with st.expander("📊 Dati", expanded=True):
-        def_att_s = get_val_ui(h_stats, 'gf', data_mode) if h_stats else 1.85
-        def_def_s = get_val_ui(h_stats, 'gs', data_mode) if h_stats else 0.95
+    with st.expander("📊 Dati (Mix Stagione/Trend)", expanded=True):
+        def_att_s = get_blended_val(h_stats, 'gf', data_mode, w_seas) if h_stats else 1.85
+        def_def_s = get_blended_val(h_stats, 'gs', data_mode, w_seas) if h_stats else 0.95
         c1, c2 = st.columns(2)
         h_att = c1.number_input("Attacco Totale (C)", 0.0, 5.0, float(def_att_s), 0.01)
         h_def = c2.number_input("Difesa Totale (C)", 0.0, 5.0, float(def_def_s), 0.01)
         c3, c4 = st.columns(2)
-        h_att_home = c3.number_input("Attacco Casa", 0.0, 5.0, float(def_att_s*1.15), 0.01)
-        h_def_home = c4.number_input("Difesa Casa", 0.0, 5.0, float(def_def_s*0.85), 0.01)
+        h_att_home_raw = get_blended_val({"total": h_stats["home"], "form": h_stats["home"]}, 'gf', data_mode, 1.0) if h_stats else def_att_s*1.15
+        h_def_home_raw = get_blended_val({"total": h_stats["home"], "form": h_stats["home"]}, 'gs', data_mode, 1.0) if h_stats else def_def_s*0.85
+        h_att_home = c3.number_input("Attacco Casa", 0.0, 5.0, float(h_att_home_raw), 0.01)
+        h_def_home = c4.number_input("Difesa Casa", 0.0, 5.0, float(h_def_home_raw), 0.01)
     with st.expander("Over Trend"):
         for l in [0.5, 1.5, 2.5, 3.5, 4.5]: h_uo_input[l] = st.slider(f"Over {l} % H", 0, 100, 50, key=f"ho{l}")
 
@@ -155,19 +160,20 @@ with col_a:
     default_elo_a = engine.get_elo_for_team(a_name, ELO_DICT, 1550.0) if a_name else 1550.0
     a_elo = st.number_input("Rating Elo Ospite (Auto)", 1000.0, 2500.0, float(default_elo_a), step=10.0)
     
-    with st.expander("📊 Dati", expanded=True):
-        def_att_s_a = get_val_ui(a_stats, 'gf', data_mode) if a_stats else 1.45
-        def_def_s_a = get_val_ui(a_stats, 'gs', data_mode) if a_stats else 0.85
+    with st.expander("📊 Dati (Mix Stagione/Trend)", expanded=True):
+        def_att_s_a = get_blended_val(a_stats, 'gf', data_mode, w_seas) if a_stats else 1.45
+        def_def_s_a = get_blended_val(a_stats, 'gs', data_mode, w_seas) if a_stats else 0.85
         c5, c6 = st.columns(2)
         a_att = c5.number_input("Attacco Totale (O)", 0.0, 5.0, float(def_att_s_a), 0.01)
         a_def = c6.number_input("Difesa Totale (O)", 0.0, 5.0, float(def_def_s_a), 0.01)
         c7, c8 = st.columns(2)
-        a_att_away = c7.number_input("Attacco Fuori", 0.0, 5.0, float(def_att_s_a*0.85), 0.01)
-        a_def_away = c8.number_input("Difesa Fuori", 0.0, 5.0, float(def_def_s_a*1.15), 0.01)
+        a_att_away_raw = get_blended_val({"total": a_stats["away"], "form": a_stats["away"]}, 'gf', data_mode, 1.0) if a_stats else def_att_s_a*0.85
+        a_def_away_raw = get_blended_val({"total": a_stats["away"], "form": a_stats["away"]}, 'gs', data_mode, 1.0) if a_stats else def_def_s_a*1.15
+        a_att_away = c7.number_input("Attacco Fuori", 0.0, 5.0, float(a_att_away_raw), 0.01)
+        a_def_away = c8.number_input("Difesa Fuori", 0.0, 5.0, float(a_def_away_raw), 0.01)
     with st.expander("Over Trend"):
         for l in [0.5, 1.5, 2.5, 3.5, 4.5]: a_uo_input[l] = st.slider(f"Over {l} % A", 0, 100, 50, key=f"ao{l}")
 
-# 🟢 Estrae le quote usando i nomi ESATTI del bookmaker selezionati dalla tendina
 live_match_odds = engine.extract_match_odds(ALL_LEAGUE_ODDS, bookie_h_name, bookie_a_name)
 
 st.subheader("💰 Quote Reali")
@@ -196,7 +202,7 @@ with st.expander("⚙️ Fine Tuning"):
 # 🚀 TRIGGER ANALISI E INVIO A ENGINE
 # ==============================================================================
 if st.button("🚀 ANALIZZA", type="primary", use_container_width=True):
-    with st.spinner("Calcolo Algoritmo ML (xG + xCorners + Deep Completions)..."):
+    with st.spinner("Calcolo Algoritmo ML (xG + Form + xCorners + Deep Completions)..."):
         home_adv = L_DATA["ha"] if m_type == "Standard" else (0.0 if m_type == "Campo Neutro" else L_DATA["ha"]*0.5)
         w_split = 0.60
         h_fin_att = (h_att*(1-w_split)) + (h_att_home*w_split); h_fin_def = (h_def*(1-w_split)) + (h_def_home*w_split)
@@ -207,17 +213,21 @@ if st.button("🚀 ANALIZZA", type="primary", use_container_width=True):
         f_xh = (xg_h * (1 + elo_diff/1000.0)) + home_adv
         f_xa = (xg_a * (1 - elo_diff/1000.0))
 
-        h_dc, a_dc = 5.0, 5.0 
+        h_ppda, a_ppda, h_dc, a_dc = 10.0, 10.0, 5.0, 5.0 
         if h_stats and a_stats:
-            h_ppda, a_ppda = h_stats['total']['ppda'], a_stats['total']['ppda']
-            h_oppda, a_oppda = h_stats['total']['oppda'], a_stats['total']['oppda']
+            h_ppda = (h_stats['total']['ppda'] * w_seas) + (h_stats['form']['ppda'] * (1 - w_seas))
+            a_ppda = (a_stats['total']['ppda'] * w_seas) + (a_stats['form']['ppda'] * (1 - w_seas))
+            h_oppda = (h_stats['total']['oppda'] * w_seas) + (h_stats['form']['oppda'] * (1 - w_seas))
+            a_oppda = (a_stats['total']['oppda'] * w_seas) + (a_stats['form']['oppda'] * (1 - w_seas))
 
             ppda_factor_h, ppda_factor_a = 1.0, 1.0
             if h_ppda < 10.5 and a_oppda > 10.5: ppda_factor_h += 0.07 
             if a_ppda < 10.5 and h_oppda > 10.5: ppda_factor_a += 0.07
             f_xh *= ppda_factor_h; f_xa *= ppda_factor_a
 
-            h_dc, a_dc = h_stats['total']['dc'], a_stats['total']['dc']
+            h_dc = (h_stats['total']['dc'] * w_seas) + (h_stats['form']['dc'] * (1 - w_seas))
+            a_dc = (a_stats['total']['dc'] * w_seas) + (a_stats['form']['dc'] * (1 - w_seas))
+            
             if (h_dc + a_dc) > 0:
                 h_tilt = h_dc / (h_dc + a_dc)
                 if h_tilt > 0.60: f_xh *= 1.05; f_xa *= 0.95 
@@ -256,6 +266,13 @@ if st.button("🚀 ANALIZZA", type="primary", use_container_width=True):
                 if h<6 and a<6: scores.append({"Risultato": f"{h}-{a}", "Prob": p})
         tot = np.sum(matrix); matrix/=tot; p1/=tot; pX/=tot; p2/=tot; pGG/=tot
         
+        # 🟢 APPLICAZIONE MACHINE LEARNING CON TUTTE E 13 LE FEATURES
+        if ml_model and use_ml_boost:
+            p1, pX, p2 = engine.apply_ml_boost(ml_model, f_xh, f_xa, p1, pX, p2, h_elo, a_elo, h_ppda, a_ppda, h_dc, a_dc, w_seas, volatility)
+            st.session_state.ml_active = True
+        else:
+            st.session_state.ml_active = False
+            
         sim = engine.monte_carlo_simulation(f_xh, f_xa)
         stability = max(0, 100 - ((abs(p1-(sim.count(1)/5000))+abs(pX-(sim.count(0)/5000))+abs(p2-(sim.count(2)/5000)))/3*400))
 
@@ -266,10 +283,13 @@ if st.button("🚀 ANALIZZA", type="primary", use_container_width=True):
         sot_1, sot_X, sot_2, sot_lines = engine.calculate_stats_probs(c_sot_h, c_sot_a)
         foul_1, foul_X, foul_2, foul_lines = engine.calculate_stats_probs(c_foul_h, c_foul_a)
 
+        # 🟢 SALVATAGGIO DEI PARAMETRI NELLA SESSIONE (Perché il tasto 'Salva' possa leggerli)
         st.session_state.analyzed = True
         st.session_state.update({
             "f_xh": f_xh, "f_xa": f_xa, "h_name": h_name, "a_name": a_name, "league_name": league_name,
             "p1": p1, "pX": pX, "p2": p2, "pGG": pGG, "stability": stability,
+            "h_elo": h_elo, "a_elo": a_elo, "h_ppda": h_ppda, "a_ppda": a_ppda, "h_dc": h_dc, "a_dc": a_dc,
+            "w_seas": w_seas, "volatility": volatility,
             "matrix": matrix, "scores": scores, "b1": b1, "bX": bX, "b2": b2, "history": st.session_state.history,
             "stats": {
                 "corners": {"1": corn_1, "X": corn_X, "2": corn_2, "lines": corn_lines, "xH": xCorn_H, "xA": xCorn_A},
@@ -285,12 +305,17 @@ if st.button("🚀 ANALIZZA", type="primary", use_container_width=True):
 # ==============================================================================
 if st.session_state.analyzed:
     st.markdown("---")
+    if st.session_state.ml_active:
+        st.success("🤖 L'Intelligenza Artificiale ha applicato correzioni in base alla tua esperienza passata!")
+    elif use_ml_boost and not ml_model:
+        st.warning("🤖 Il Machine Learning necessita di almeno 15 partite salvate con esito reale nel Tab Storico per attivarsi.")
+        
     st.header(f"📊 {st.session_state.h_name} vs {st.session_state.a_name}")
     c1, c2 = st.columns(2)
     c1.metric("xG Previsti (Adjusted)", f"{st.session_state.f_xh:.2f} - {st.session_state.f_xa:.2f}")
     c2.metric("Affidabilità", f"{st.session_state.stability:.1f}%")
 
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["🏆 Esito", "⚽ Goal", "👤 Player & Assist", "⛳ Stats Extra & Corners", "📝 Storico", "⚡ Combo"])
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["🏆 Esito", "⚽ Goal", "👤 Player", "⛳ Extra", "📝 Addestramento ML", "⚡ Combo"])
     
     with tab1:
         c_1, c_2 = st.columns(2)
@@ -417,14 +442,45 @@ if st.session_state.analyzed:
             st.dataframe(pd.DataFrame([{"Linea": k, "Over %": f"{v['prob']:.1%}", "Quota": safe_odd(v['prob'])} for k,v in sot["lines"].items()]), hide_index=True)
 
     with tab5:
-        c1, c2 = st.columns(2)
-        if c1.button("💾 Salva in Storico"):
-            st.session_state.history.append({"Match": f"{st.session_state.h_name}-{st.session_state.a_name}", "xG": f"{st.session_state.f_xh:.2f}-{st.session_state.f_xa:.2f}", "P1": st.session_state.p1})
-            engine.salva_storico_json(st.session_state.history)
-            st.success("Salvato!")
+        st.subheader("📝 Storico & Addestramento ML")
+        st.markdown("Inserisci qui sotto i risultati reali delle partite una volta concluse. L'Intelligenza Artificiale ora impara da **13 parametri tattici** incrociati.")
         
+        c1, c2 = st.columns(2)
+        if c1.button("💾 Salva Match Corrente"):
+            # 🟢 CATTURA TUTTE E 13 LE FEATURES DA PASSARE AL ML
+            st.session_state.history.append({
+                "Match": f"{st.session_state.h_name} - {st.session_state.a_name}",
+                "Data": str(datetime.now().strftime("%Y-%m-%d")),
+                "f_xh": st.session_state.f_xh, "f_xa": st.session_state.f_xa,
+                "P1_Stat": st.session_state.p1, "PX_Stat": st.session_state.pX, "P2_Stat": st.session_state.p2,
+                "h_elo": st.session_state.h_elo, "a_elo": st.session_state.a_elo,
+                "h_ppda": st.session_state.h_ppda, "a_ppda": st.session_state.a_ppda,
+                "h_dc": st.session_state.h_dc, "a_dc": st.session_state.a_dc,
+                "w_seas": st.session_state.w_seas, "volatility": st.session_state.volatility,
+                "Real_Result": "-"
+            })
+            engine.salva_storico_json(st.session_state.history)
+            st.success("Tutti i 13 parametri sono stati aggiunti al Database di Addestramento!")
+            
         excel_data = engine.generate_excel_report(st.session_state)
         c2.download_button("📥 Scarica Report Excel", excel_data, f"Mathbet_{datetime.now().strftime('%H%M')}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+        st.divider()
+        st.markdown("#### I tuoi ultimi Match da Insegnare all'IA")
+        if st.session_state.history:
+            for i, match in enumerate(reversed(st.session_state.history[-10:])):
+                true_idx = len(st.session_state.history) - 1 - i
+                
+                col1, col2 = st.columns([3, 1])
+                col1.write(f"**{match['Match']}** (xG: {match.get('f_xh',0):.2f} - {match.get('f_xa',0):.2f})")
+                
+                curr_res = match.get("Real_Result", "-")
+                new_res = col2.selectbox("Risultato", ["-", "1", "X", "2"], index=["-", "1", "X", "2"].index(curr_res), key=f"res_{true_idx}")
+                
+                if new_res != curr_res:
+                    st.session_state.history[true_idx]["Real_Result"] = new_res
+                    engine.salva_storico_json(st.session_state.history)
+                    st.toast(f"Hai Insegnato all'IA il risultato di {match['Match']}!")
 
     with tab6:
         st.subheader("⚡ Combo Maker")
