@@ -25,9 +25,11 @@ LEAGUES_CONFIG = {
 # ==============================================================================
 @st.cache_data(ttl=3600)
 def fetch_understat_data_auto(league_name):
+    import streamlit as st
     u_league = LEAGUES_CONFIG[league_name]["understat"]
     try:
         with UnderstatClient() as client:
+            # Uso '2025' per la stagione corrente 2025/2026
             data = client.league(u_league).get_team_data('2025')
             stats_db, team_list = {}, []
             for team_id, details in data.items():
@@ -49,7 +51,9 @@ def fetch_understat_data_auto(league_name):
                     }
                 }
             return stats_db, sorted(team_list)
-    except Exception:
+    except Exception as e:
+        # QUESTO È IL PUNTO CHIAVE: ora stamperà l'errore sullo schermo
+        st.error(f"🚨 BLOCCO UNDERSTAT ({league_name}): {str(e)}")
         return {}, []
 
 @st.cache_data(ttl=3600)
