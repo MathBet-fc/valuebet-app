@@ -4,12 +4,12 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 from datetime import datetime
-import engine # <--- IMPORTA TUTTA LA TUA LOGICA QUI
+import engine 
 
 # ==============================================================================
 # CONFIGURAZIONE API & PAGINA
 # ==============================================================================
-ODDS_API_KEY = "1b31f14ebbc80b505c8412a5dc4d6791"
+ODDS_API_KEY = "INSERISCI_QUI_LA_TUA_CHIAVE"
 
 st.set_page_config(page_title="Mathbet fc - ML Ultimate Pro", page_icon="🧠", layout="wide")
 
@@ -28,11 +28,11 @@ with st.sidebar:
     with st.spinner("Estrazione dati LIVE in corso..."):
         STATS_DB, TEAM_LIST = engine.fetch_understat_data_auto(league_name)
         PLAYERS_DF = engine.fetch_understat_players(league_name)
-        # 🟢 TRUCCO ZERO SPRECHI: Scarica le quote una volta sola e le salva in cache
+        ELO_DICT = engine.fetch_clubelo_ratings() # 🟢 NUOVO: Carica Elo Rating
         ALL_LEAGUE_ODDS = engine.fetch_league_odds(L_DATA["odds_id"], ODDS_API_KEY)
     
     if STATS_DB: st.success("✅ Dati Squadre Sincronizzati")
-    if PLAYERS_DF is not None: st.success("✅ Dati Giocatori Sincronizzati")
+    if ELO_DICT: st.success("✅ ClubElo Rating Sincronizzato")
     
     st.markdown("---")
     data_mode = st.radio("Dati Analisi", ["Solo Gol Reali", "Solo xG (NPxG Mode)", "Ibrido (Consigliato)"], index=2)
@@ -77,10 +77,11 @@ st.title("Mathbet fc - ML Ultimate Pro 🚀")
 
 # --- SCANNER AUTOMATICO TOP 5 ---
 with st.expander("🔥 SCANNER GIORNALIERO: TOP 5 VALUE BETS", expanded=False):
-    st.markdown("Cerca le migliori occasioni matematiche sul palinsesto (Usa quote in cache, zero chiamate API perse!).")
+    st.markdown("Cerca le migliori occasioni matematiche sul palinsesto (Scraping Integrato ClubElo).")
     if st.button("🔍 Cerca Top 5 Value Bets Ora", type="primary"):
         with st.spinner(f"Elaborazione in corso..."):
-            top_5 = engine.find_top_value_bets(ALL_LEAGUE_ODDS, STATS_DB, L_DATA, volatility)
+            # 🟢 INIETTA ELO_DICT NELLO SCANNER
+            top_5 = engine.find_top_value_bets(ALL_LEAGUE_ODDS, STATS_DB, L_DATA, volatility, m_type, ELO_DICT)
             if top_5:
                 df_top5 = pd.DataFrame(top_5)
                 st.table(df_top5.style.format({"Prob %": "{:.1%}", "Fair Odd": "{:.2f}", "Valore %": "{:.1%}"}).applymap(lambda x: 'background-color: #d4edda; font-weight: bold;', subset=['Valore %']))
@@ -107,7 +108,11 @@ with col_h:
     st.subheader("🏠 Squadra Casa")
     h_name = st.selectbox("Seleziona Casa", TEAM_LIST, index=0) if TEAM_LIST else st.text_input("Nome Casa", "Inter")
     h_stats = STATS_DB.get(h_name) if STATS_DB else None
-    h_elo = st.number_input("Rating Elo Casa", 1000.0, 2500.0, 1600.0, step=10.0)
+    
+    # 🟢 CARICAMENTO AUTOMATICO ELO
+    default_elo_h = engine.get_elo_for_team(h_name, ELO_DICT, 1600.0) if h_name else 1600.0
+    h_elo = st.number_input("Rating Elo Casa (Auto)", 1000.0, 2500.0, float(default_elo_h), step=10.0)
+    
     with st.expander("📊 Dati", expanded=True):
         def_att_s = get_val_ui(h_stats, 'gf', data_mode) if h_stats else 1.85
         def_def_s = get_val_ui(h_stats, 'gs', data_mode) if h_stats else 0.95
@@ -124,7 +129,11 @@ with col_a:
     st.subheader("✈️ Squadra Ospite")
     a_name = st.selectbox("Seleziona Ospite", TEAM_LIST, index=1 if len(TEAM_LIST)>1 else 0) if TEAM_LIST else st.text_input("Nome Ospite", "Juve")
     a_stats = STATS_DB.get(a_name) if STATS_DB else None
-    a_elo = st.number_input("Rating Elo Ospite", 1000.0, 2500.0, 1550.0, step=10.0)
+    
+    # 🟢 CARICAMENTO AUTOMATICO ELO
+    default_elo_a = engine.get_elo_for_team(a_name, ELO_DICT, 1550.0) if a_name else 1550.0
+    a_elo = st.number_input("Rating Elo Ospite (Auto)", 1000.0, 2500.0, float(default_elo_a), step=10.0)
+    
     with st.expander("📊 Dati", expanded=True):
         def_att_s_a = get_val_ui(a_stats, 'gf', data_mode) if a_stats else 1.45
         def_def_s_a = get_val_ui(a_stats, 'gs', data_mode) if a_stats else 0.85
@@ -137,7 +146,6 @@ with col_a:
     with st.expander("Over Trend"):
         for l in [0.5, 1.5, 2.5, 3.5, 4.5]: a_uo_input[l] = st.slider(f"Over {l} % A", 0, 100, 50, key=f"ao{l}")
 
-# 🟢 TRUCCO ZERO SPRECHI: Estrae quote singole dalla Cache
 live_match_odds = engine.extract_match_odds(ALL_LEAGUE_ODDS, h_name, a_name)
 
 st.subheader("💰 Quote Reali")
@@ -147,7 +155,6 @@ else:
     st.success("✅ Quote sincronizzate con successo dai Bookmaker")
 
 q1, qx, q2 = st.columns(3)
-# Se live_match_odds fallisce, il .get() non funzionerebbe, quindi mettiamo un controllo extra
 val_1 = live_match_odds['h2h'].get(h_name, 2.10) if live_match_odds and 'h2h' in live_match_odds else 2.10
 val_X = live_match_odds['h2h'].get('Draw', 3.20) if live_match_odds and 'h2h' in live_match_odds else 3.20
 val_2 = live_match_odds['h2h'].get(a_name, 3.60) if live_match_odds and 'h2h' in live_match_odds else 3.60
@@ -252,7 +259,7 @@ if st.button("🚀 ANALIZZA", type="primary", use_container_width=True):
         })
 
 # ==============================================================================
-# 📊 VISUALIZZAZIONE RISULTATI (TUTTI E 6 I TAB)
+# 📊 VISUALIZZAZIONE RISULTATI
 # ==============================================================================
 if st.session_state.analyzed:
     st.markdown("---")
