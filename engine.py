@@ -115,11 +115,13 @@ def fetch_league_odds(league_id, api_key):
         return []
         
     url = f"https://api.the-odds-api.com/v4/sports/{league_id}/odds/"
-    params = {"apiKey": api_key, "regions": "eu", "markets": "h2h,totals,btts", "oddsFormat": "decimal"}
+    
+    # 🟢 CORREZIONE: Rimosso 'btts' che causava l'errore 422 sui download massivi
+    params = {"apiKey": api_key, "regions": "eu", "markets": "h2h,totals", "oddsFormat": "decimal"}
     
     try:
         res = requests.get(url, params=params)
-        res.raise_for_status() # Forza l'errore se l'API rifiuta la connessione (es. 401, 429)
+        res.raise_for_status() # Forza l'errore se l'API rifiuta la connessione
         data = res.json()
         
         if not isinstance(data, list):
