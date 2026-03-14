@@ -87,7 +87,27 @@ with st.expander("🔥 SCANNER GIORNALIERO: TOP 5 VALUE BETS", expanded=False):
                 st.table(df_top5.style.format({"Prob %": "{:.1%}", "Fair Odd": "{:.2f}", "Valore %": "{:.1%}"}).applymap(lambda x: 'background-color: #d4edda; font-weight: bold;', subset=['Valore %']))
             else:
                 st.warning("Nessuna Value Bet significativa (>3%) trovata.")
-st.divider()
+# ==============================================================================
+# 🗓️ NUOVA SELEZIONE MATCH DA PALINSESTO
+# ==============================================================================
+st.subheader("🗓️ Selezione Partita")
+
+if ALL_LEAGUE_ODDS:
+    # 1. Crea la tendina con le partite REALI offerte dai bookmaker
+    match_options = [f"{m['home_team']} - {m['away_team']}" for m in ALL_LEAGUE_ODDS]
+    selected_match = st.selectbox("Scegli il Match in programma", match_options)
+    
+    # 2. Estrapola i nomi esatti usati dai bookmaker
+    bookie_h_name, bookie_a_name = selected_match.split(" - ")
+    
+    # 3. Abbina in automatico i nomi del bookmaker con quelli di Understat
+    auto_h_name = engine.fuzzy_match_team(bookie_h_name, TEAM_LIST)
+    auto_a_name = engine.fuzzy_match_team(bookie_a_name, TEAM_LIST)
+else:
+    st.warning("⚠️ Palinsesto quote vuoto o non caricato. Inserimento manuale attivo.")
+    bookie_h_name, bookie_a_name = "", ""
+    auto_h_name = TEAM_LIST[0] if TEAM_LIST else None
+    auto_a_name = TEAM_LIST[1] if len(TEAM_LIST)>1 else None
 
 col_h, col_a = st.columns(2)
 h_uo_input, a_uo_input = {}, {}
@@ -106,10 +126,11 @@ def get_val_ui(stats_dict, metric, mode):
 
 with col_h:
     st.subheader("🏠 Squadra Casa")
-    h_name = st.selectbox("Seleziona Casa", TEAM_LIST, index=0) if TEAM_LIST else st.text_input("Nome Casa", "Inter")
+    # Imposta la tendina sul nome trovato in automatico
+    h_idx = TEAM_LIST.index(auto_h_name) if auto_h_name in TEAM_LIST else 0
+    h_name = st.selectbox("Dati Understat Casa", TEAM_LIST, index=h_idx) if TEAM_LIST else st.text_input("Nome Casa", "Inter")
     h_stats = STATS_DB.get(h_name) if STATS_DB else None
     
-    # 🟢 CARICAMENTO AUTOMATICO ELO
     default_elo_h = engine.get_elo_for_team(h_name, ELO_DICT, 1600.0) if h_name else 1600.0
     h_elo = st.number_input("Rating Elo Casa (Auto)", 1000.0, 2500.0, float(default_elo_h), step=10.0)
     
@@ -127,10 +148,10 @@ with col_h:
 
 with col_a:
     st.subheader("✈️ Squadra Ospite")
-    a_name = st.selectbox("Seleziona Ospite", TEAM_LIST, index=1 if len(TEAM_LIST)>1 else 0) if TEAM_LIST else st.text_input("Nome Ospite", "Juve")
+    a_idx = TEAM_LIST.index(auto_a_name) if auto_a_name in TEAM_LIST else 0
+    a_name = st.selectbox("Dati Understat Ospite", TEAM_LIST, index=a_idx) if TEAM_LIST else st.text_input("Nome Ospite", "Juve")
     a_stats = STATS_DB.get(a_name) if STATS_DB else None
     
-    # 🟢 CARICAMENTO AUTOMATICO ELO
     default_elo_a = engine.get_elo_for_team(a_name, ELO_DICT, 1550.0) if a_name else 1550.0
     a_elo = st.number_input("Rating Elo Ospite (Auto)", 1000.0, 2500.0, float(default_elo_a), step=10.0)
     
@@ -146,18 +167,19 @@ with col_a:
     with st.expander("Over Trend"):
         for l in [0.5, 1.5, 2.5, 3.5, 4.5]: a_uo_input[l] = st.slider(f"Over {l} % A", 0, 100, 50, key=f"ao{l}")
 
-live_match_odds = engine.extract_match_odds(ALL_LEAGUE_ODDS, h_name, a_name)
+# 🟢 Estrae le quote usando i nomi ESATTI del bookmaker selezionati dalla tendina
+live_match_odds = engine.extract_match_odds(ALL_LEAGUE_ODDS, bookie_h_name, bookie_a_name)
 
 st.subheader("💰 Quote Reali")
 if not live_match_odds:
-    st.warning(f"⚠️ Quote non trovate nel palinsesto per {h_name} - {a_name}. Il match potrebbe essere passato, troppo lontano nel tempo, o con nomi incompatibili. Inserimento manuale attivo:")
+    st.warning("⚠️ Impossibile caricare le quote per questo match. Inserimento manuale:")
 else:
-    st.success("✅ Quote sincronizzate con successo dai Bookmaker")
+    st.success("✅ Quote sincronizzate e bloccate con successo")
 
 q1, qx, q2 = st.columns(3)
-val_1 = live_match_odds['h2h'].get(h_name, 2.10) if live_match_odds and 'h2h' in live_match_odds else 2.10
+val_1 = live_match_odds['h2h'].get(bookie_h_name, 2.10) if live_match_odds and 'h2h' in live_match_odds else 2.10
 val_X = live_match_odds['h2h'].get('Draw', 3.20) if live_match_odds and 'h2h' in live_match_odds else 3.20
-val_2 = live_match_odds['h2h'].get(a_name, 3.60) if live_match_odds and 'h2h' in live_match_odds else 3.60
+val_2 = live_match_odds['h2h'].get(bookie_a_name, 3.60) if live_match_odds and 'h2h' in live_match_odds else 3.60
 
 b1 = q1.number_input("Q1", 1.01, 100.0, float(val_1))
 bX = qx.number_input("QX", 1.01, 100.0, float(val_X))
