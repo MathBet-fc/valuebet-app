@@ -137,14 +137,24 @@ with col_a:
     with st.expander("Over Trend"):
         for l in [0.5, 1.5, 2.5, 3.5, 4.5]: a_uo_input[l] = st.slider(f"Over {l} % A", 0, 100, 50, key=f"ao{l}")
 
-# 🟢 TRUCCO ZERO SPRECHI: Estrae quote singole dalla Cache invece di chiamare l'API
+# 🟢 TRUCCO ZERO SPRECHI: Estrae quote singole dalla Cache
 live_match_odds = engine.extract_match_odds(ALL_LEAGUE_ODDS, h_name, a_name)
 
 st.subheader("💰 Quote Reali")
+if not live_match_odds:
+    st.warning(f"⚠️ Quote non trovate nel palinsesto per {h_name} - {a_name}. Il match potrebbe essere passato, troppo lontano nel tempo, o con nomi incompatibili. Inserimento manuale attivo:")
+else:
+    st.success("✅ Quote sincronizzate con successo dai Bookmaker")
+
 q1, qx, q2 = st.columns(3)
-b1 = q1.number_input("Q1", 1.01, 100.0, live_match_odds['h2h'].get(h_name, 2.10) if live_match_odds else 2.10)
-bX = qx.number_input("QX", 1.01, 100.0, live_match_odds['h2h'].get('Draw', 3.20) if live_match_odds else 3.20)
-b2 = q2.number_input("Q2", 1.01, 100.0, live_match_odds['h2h'].get(a_name, 3.60) if live_match_odds else 3.60)
+# Se live_match_odds fallisce, il .get() non funzionerebbe, quindi mettiamo un controllo extra
+val_1 = live_match_odds['h2h'].get(h_name, 2.10) if live_match_odds and 'h2h' in live_match_odds else 2.10
+val_X = live_match_odds['h2h'].get('Draw', 3.20) if live_match_odds and 'h2h' in live_match_odds else 3.20
+val_2 = live_match_odds['h2h'].get(a_name, 3.60) if live_match_odds and 'h2h' in live_match_odds else 3.60
+
+b1 = q1.number_input("Q1", 1.01, 100.0, float(val_1))
+bX = qx.number_input("QX", 1.01, 100.0, float(val_X))
+b2 = q2.number_input("Q2", 1.01, 100.0, float(val_2))
 
 with st.expander("⚙️ Fine Tuning"):
     c1, c2 = st.columns(2)
