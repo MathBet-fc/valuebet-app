@@ -8,6 +8,7 @@ import requests
 from datetime import datetime, timedelta
 from understatapi import UnderstatClient
 import streamlit as st
+from sklearn.ensemble import RandomForestClassifier
 
 # ==============================================================================
 # CONFIGURAZIONE COSTANTI
@@ -23,36 +24,27 @@ LEAGUES_CONFIG = {
 # ==============================================================================
 # FUNZIONI DI DATA EXTRACTION
 # ==============================================================================
-
-@st.cache_data(ttl=43200) # Aggiorna ogni 12 ore
+@st.cache_data(ttl=43200) 
 def fetch_clubelo_ratings():
-    """Scarica i rating Elo globali da ClubElo aggiornati a oggi."""
     try:
-        # Tenta di scaricare i dati di oggi
         date_str = datetime.now().strftime('%Y-%m-%d')
         df = pd.read_csv(f"http://api.clubelo.com/{date_str}")
     except Exception:
         try:
-            # Fallback: scarica i dati di ieri se oggi non è ancora disponibile
             date_str = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
             df = pd.read_csv(f"http://api.clubelo.com/{date_str}")
         except Exception as e:
             st.warning("⚠️ Impossibile collegarsi a ClubElo. Verranno usati valori standard (1500).")
             return {}
-            
     if 'Club' in df.columns and 'Elo' in df.columns:
         return dict(zip(df['Club'], df['Elo']))
     return {}
 
 def get_elo_for_team(team_name, elo_dict, default_elo=1500.0):
-    """Accoppia in modo intelligente il nome della squadra (es. 'Milan' -> 'AC Milan')"""
     if not elo_dict or not team_name: return default_elo
     if team_name in elo_dict: return float(elo_dict[team_name])
-    
-    # Fuzzy Matching per trovare il nome più simile
     matches = difflib.get_close_matches(team_name, elo_dict.keys(), n=1, cutoff=0.55)
-    if matches:
-        return float(elo_dict[matches[0]])
+    if matches: return float(elo_dict[matches[0]])
     return default_elo
 
 @st.cache_data(ttl=3600)
@@ -63,44 +55,50 @@ def fetch_understat_data_auto(league_name):
             data = client.league(u_league).get_team_data('2025')
             stats_db, team_list = {}, []
             
-            for team_id, details in data.items():
-                t_name = details['title']
-                team_list.append(t_name)
-                hist = details['history']
-                m = len(hist)
-                if m == 0: raise ValueError(f"Nessuna partita registrata finora per {t_name}.")
+            def calculate_segment(hist_list):
+                m = len(hist_list)
+                if m == 0:
+                    return {"goals_total": 0, "ga_total": 0, "xg_total": 0, "xga_total": 0, "npxg_total": 0, "npxga_total": 0, "ppda": 12.0, "oppda": 12.0, "dc": 5.0, "odc": 5.0, "pts": 0, "xpts": 0, "matches": 0}
                 
                 goals = ga = xg = xga = npxg = npxga = dc = odc = pts = xpts = 0
                 ppda_sum = oppda_sum = 0
                 
-                for match in hist:
-                    req_keys = ['scored', 'missed', 'xG', 'xGA', 'npxG', 'npxGA', 'ppda', 'ppda_allowed', 'deep', 'deep_allowed', 'pts', 'xpts']
-                    for key in req_keys:
-                        if key not in match: raise ValueError(f"Dato '{key}' mancante per {t_name}.")
-                            
-                    goals += match['scored']
-                    ga += match['missed']
-                    xg += match['xG']
-                    xga += match['xGA']
-                    npxg += match['npxG']
-                    npxga += match['npxGA']
-                    dc += match['deep']
-                    odc += match['deep_allowed']
-                    pts += match['pts']
-                    xpts += match['xpts']
+                for h in hist_list:
+                    goals += h.get('scored', 0)
+                    ga += h.get('missed', 0)
+                    xg += h.get('xG', 0)
+                    xga += h.get('xGA', 0)
+                    npxg += h.get('npxG', h.get('xG', 0))
+                    npxga += h.get('npxGA', h.get('xGA', 0))
+                    dc += h.get('deep', 5)
+                    odc += h.get('deep_allowed', 5)
+                    pts += h.get('pts', 0)
+                    xpts += h.get('xpts', 0)
                     
-                    if match['ppda']['def'] == 0 or match['ppda_allowed']['def'] == 0:
-                        raise ValueError(f"Dati difensivi a 0 per {t_name}.")
-                        
-                    ppda_sum += match['ppda']['att'] / match['ppda']['def']
-                    oppda_sum += match['ppda_allowed']['att'] / match['ppda_allowed']['def']
+                    p_att = h.get('ppda', {}).get('att', 0)
+                    p_def = h.get('ppda', {}).get('def', 0)
+                    ppda_sum += (p_att/p_def) if p_def > 0 else 12.0
                     
+                    op_att = h.get('ppda_allowed', {}).get('att', 0)
+                    op_def = h.get('ppda_allowed', {}).get('def', 0)
+                    oppda_sum += (op_att/op_def) if op_def > 0 else 12.0
+                
+                return {
+                    "goals_total": goals, "ga_total": ga, "xg_total": xg, "xga_total": xga,
+                    "npxg_total": npxg, "npxga_total": npxga, "ppda": ppda_sum / m, "oppda": oppda_sum / m,
+                    "dc": dc / m, "odc": odc / m, "pts": pts, "xpts": xpts, "matches": m
+                }
+
+            for team_id, details in data.items():
+                t_name = details['title']
+                team_list.append(t_name)
+                hist = details['history']
+                
                 stats_db[t_name] = {
-                    "total": {
-                        "goals_total": goals, "ga_total": ga, "xg_total": xg, "xga_total": xga,
-                        "npxg_total": npxg, "npxga_total": npxga, "ppda": ppda_sum / m, "oppda": oppda_sum / m,
-                        "dc": dc / m, "odc": odc / m, "pts": pts, "xpts": xpts, "matches": m
-                    }
+                    "total": calculate_segment(hist),
+                    "form": calculate_segment(hist[-5:]),
+                    "home": calculate_segment([m for m in hist if m.get('h_a') == 'h']),
+                    "away": calculate_segment([m for m in hist if m.get('h_a') == 'a'])
                 }
             return stats_db, sorted(team_list)
     except Exception as e:
@@ -126,29 +124,23 @@ def fetch_understat_players(league_name):
 @st.cache_data(ttl=3600)
 def fetch_league_odds(league_id, api_key):
     if not api_key or api_key == "INSERISCI_QUI_LA_TUA_CHIAVE": 
-        st.warning("⚠️ API Key di The Odds API non valida o non inserita.")
+        st.warning("⚠️ API Key di The Odds API non valida.")
         return []
-        
     url = f"https://api.the-odds-api.com/v4/sports/{league_id}/odds/"
     params = {"apiKey": api_key, "regions": "eu", "markets": "h2h,totals", "oddsFormat": "decimal"}
-    
     try:
         res = requests.get(url, params=params)
         res.raise_for_status() 
         data = res.json()
-        if not isinstance(data, list):
-            st.error(f"🚨 Formato dati inatteso dalle quote: {data}")
-            return []
+        if not isinstance(data, list): return []
         return data
     except Exception as e:
-        st.error(f"🚨 ERRORE THE ODDS API ({league_id}): {str(e)}")
         return []
 
 def extract_match_odds(all_odds, home_team, away_team):
     if not all_odds: return None
     feed_home_teams = [m['home_team'] for m in all_odds]
     h_match = difflib.get_close_matches(home_team, feed_home_teams, n=1, cutoff=0.45)
-    
     if h_match:
         matched_home = h_match[0]
         for match in all_odds:
@@ -171,7 +163,55 @@ def fuzzy_match_team(api_name, csv_team_list):
     return matches[0] if matches else None
 
 # ==============================================================================
-# FUNZIONI MATEMATICHE & ML
+# 🤖 MACHINE LEARNING (AGGIORNATO CON 13 FEATURES)
+# ==============================================================================
+def train_ml_model(history_data):
+    X, y = [], []
+    for match in history_data:
+        if match.get("Real_Result") in ["1", "X", "2"] and "f_xh" in match:
+            # 🟢 Estrae tutti i 13 parametri dal database (con fallback sicuri per i vecchi salvataggi)
+            features = [
+                float(match.get("f_xh", 1.0)), float(match.get("f_xa", 1.0)),
+                float(match.get("P1_Stat", 0.33)), float(match.get("PX_Stat", 0.33)), float(match.get("P2_Stat", 0.33)),
+                float(match.get("h_elo", 1500.0)), float(match.get("a_elo", 1500.0)),
+                float(match.get("h_ppda", 10.0)), float(match.get("a_ppda", 10.0)),
+                float(match.get("h_dc", 5.0)), float(match.get("a_dc", 5.0)),
+                float(match.get("w_seas", 0.70)), float(match.get("volatility", 1.0))
+            ]
+            X.append(features)
+            target = {"1": 1, "X": 0, "2": 2}[match["Real_Result"]]
+            y.append(target)
+            
+    # Richiede almeno 15 partite di storico per attivarsi ed evitare over-fitting
+    if len(X) < 15: return None 
+    
+    # 🟢 Modello più profondo e accurato per gestire i 13 parametri
+    model = RandomForestClassifier(n_estimators=200, max_depth=7, random_state=42)
+    model.fit(X, y)
+    return model
+
+def apply_ml_boost(model, f_xh, f_xa, p1_stat, px_stat, p2_stat, h_elo, a_elo, h_ppda, a_ppda, h_dc, a_dc, w_seas, volatility):
+    if not model: return p1_stat, px_stat, p2_stat
+    
+    # Costruisce l'array esatto per la predizione live
+    features = np.array([[f_xh, f_xa, p1_stat, px_stat, p2_stat, h_elo, a_elo, h_ppda, a_ppda, h_dc, a_dc, w_seas, volatility]])
+    probs = model.predict_proba(features)[0]
+    
+    classes = list(model.classes_)
+    ml_p1 = probs[classes.index(1)] if 1 in classes else 0.0
+    ml_px = probs[classes.index(0)] if 0 in classes else 0.0
+    ml_p2 = probs[classes.index(2)] if 2 in classes else 0.0
+    
+    # Mix: 75% Statistica Pura + 25% Machine Learning
+    f_p1 = (p1_stat * 0.75) + (ml_p1 * 0.25)
+    f_px = (px_stat * 0.75) + (ml_px * 0.25)
+    f_p2 = (p2_stat * 0.75) + (ml_p2 * 0.25)
+    
+    tot = f_p1 + f_px + f_p2
+    return f_p1/tot, f_px/tot, f_p2/tot
+
+# ==============================================================================
+# FUNZIONI MATEMATICHE & ML STATISTICO
 # ==============================================================================
 def dixon_coles_probability(h_goals, a_goals, mu_h, mu_a, rho):
     prob = (math.exp(-mu_h) * (mu_h**h_goals) / math.factorial(h_goals)) * (math.exp(-mu_a) * (mu_a**a_goals) / math.factorial(a_goals))
@@ -251,9 +291,9 @@ def monte_carlo_simulation(f_xh, f_xa, n_sims=5000):
     return sim
 
 # ==============================================================================
-# MOTORE TOP 5 VALUE BETS (AGGIORNATO CON ELO CLUBELO)
+# MOTORE TOP 5 VALUE BETS
 # ==============================================================================
-def find_top_value_bets(all_odds, stats_db, L_DATA, volatility, m_type, elo_dict):
+def find_top_value_bets(all_odds, stats_db, L_DATA, volatility, m_type, elo_dict, w_seas, ml_model=None):
     if not all_odds: return []
     team_list = list(stats_db.keys())
     value_bets = []
@@ -268,7 +308,7 @@ def find_top_value_bets(all_odds, stats_db, L_DATA, volatility, m_type, elo_dict
         
         try:
             bookie = match['bookmakers'][0]
-            b1 = bX = b2 = bO25 = bGG = 0.0
+            b1 = bX = b2 = bO25 = 0.0
             for m in bookie['markets']:
                 if m['key'] == 'h2h':
                     b1 = next((o['price'] for o in m['outcomes'] if o['name'] == match['home_team']), 0)
@@ -278,44 +318,57 @@ def find_top_value_bets(all_odds, stats_db, L_DATA, volatility, m_type, elo_dict
                     bO25 = next((o['price'] for o in m['outcomes'] if o['name'] == 'Over' and o['point'] == 2.5), 0)
         except: continue
         
-        # 1. Recupero Elo automatico da ClubElo
         h_elo = get_elo_for_team(h_name, elo_dict, 1500.0)
         a_elo = get_elo_for_team(a_name, elo_dict, 1500.0)
         
-        # 2. Calcolo xG attesi Base
-        h_att = h_stats['total']['xg_total'] / h_stats['total']['matches']
-        h_def = h_stats['total']['xga_total'] / h_stats['total']['matches']
-        a_att = a_stats['total']['xg_total'] / a_stats['total']['matches']
-        a_def = a_stats['total']['xga_total'] / a_stats['total']['matches']
+        h_att_tot = h_stats['total']['xg_total'] / max(1, h_stats['total']['matches'])
+        h_att_form = h_stats['form']['xg_total'] / max(1, h_stats['form']['matches'])
+        h_att = (h_att_tot * w_seas) + (h_att_form * (1 - w_seas))
+        
+        h_def_tot = h_stats['total']['xga_total'] / max(1, h_stats['total']['matches'])
+        h_def_form = h_stats['form']['xga_total'] / max(1, h_stats['form']['matches'])
+        h_def = (h_def_tot * w_seas) + (h_def_form * (1 - w_seas))
+        
+        a_att_tot = a_stats['total']['xg_total'] / max(1, a_stats['total']['matches'])
+        a_att_form = a_stats['form']['xg_total'] / max(1, a_stats['form']['matches'])
+        a_att = (a_att_tot * w_seas) + (a_att_form * (1 - w_seas))
+        
+        a_def_tot = a_stats['total']['xga_total'] / max(1, a_stats['total']['matches'])
+        a_def_form = a_stats['form']['xga_total'] / max(1, a_stats['form']['matches'])
+        a_def = (a_def_tot * w_seas) + (a_def_form * (1 - w_seas))
         
         xg_h_base = (h_att * a_def) / L_DATA["avg"]
         xg_a_base = (a_att * h_def) / L_DATA["avg"]
         
-        # 3. Applicazione Differenziale ELO + Fattore Campo
         home_adv = L_DATA["ha"] if m_type == "Standard" else (0.0 if m_type == "Campo Neutro" else L_DATA["ha"]*0.5)
         elo_diff = (h_elo + (100 if m_type=="Standard" else 0)) - a_elo
         
         f_xh = (xg_h_base * (1 + elo_diff/1000.0)) + home_adv
         f_xa = (xg_a_base * (1 - elo_diff/1000.0))
         
-        # 4. Aggiustamento PPDA
-        if h_stats['total']['ppda'] < 10.5: f_xh *= 1.05
-        if a_stats['total']['ppda'] < 10.5: f_xa *= 1.05
+        h_ppda = (h_stats['total']['ppda'] * w_seas) + (h_stats['form']['ppda'] * (1 - w_seas))
+        a_ppda = (a_stats['total']['ppda'] * w_seas) + (a_stats['form']['ppda'] * (1 - w_seas))
+        h_dc = (h_stats['total']['dc'] * w_seas) + (h_stats['form']['dc'] * (1 - w_seas))
+        a_dc = (a_stats['total']['dc'] * w_seas) + (a_stats['form']['dc'] * (1 - w_seas))
         
-        # 5. Aggiustamento Volatilità
+        if h_ppda < 10.5: f_xh *= 1.05
+        if a_ppda < 10.5: f_xa *= 1.05
         f_xh *= volatility
         f_xa *= volatility
         
-        p1, pX, p2, pGG, pO25 = 0,0,0,0,0
+        p1, pX, p2, pO25 = 0,0,0,0
         for h in range(10):
             for a in range(10):
                 p = dixon_coles_probability(h, a, f_xh, f_xa, L_DATA["rho"])
                 if h>a: p1+=p; 
                 elif h==a: pX+=p; 
                 else: p2+=p
-                if h>0 and a>0: pGG+=p
                 if (h+a) > 2.5: pO25+=p
                 
+        # 🟢 L'IA valuta tutti i 13 parametri anche nello Scanner Top 5
+        if ml_model:
+            p1, pX, p2 = apply_ml_boost(ml_model, f_xh, f_xa, p1, pX, p2, h_elo, a_elo, h_ppda, a_ppda, h_dc, a_dc, w_seas, volatility)
+            
         evals = [("1", p1, b1), ("X", pX, bX), ("2", p2, b2), ("Over 2.5", pO25, bO25)]
         for bet_type, prob, odd in evals:
             if odd > 1.0 and prob > 0:
