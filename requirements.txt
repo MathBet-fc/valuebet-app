@@ -6,3 +6,4 @@ matplotlib
 requests
 understatapi
 xlsxwriter
+scikit-learn
