@@ -108,32 +108,61 @@ def fetch_understat_players(league_name):
 
 @st.cache_data(ttl=3600)
 def fetch_league_odds(league_id, api_key):
-    """Scarica tutte le quote del campionato una sola volta all'ora."""
-    if not api_key or api_key == "INSERISCI_QUI_LA_TUA_CHIAVE": return []
+    """Scarica tutte le quote del campionato una sola volta all'ora (con avvisi di errore)."""
+    import streamlit as st
+    if not api_key or api_key == "INSERISCI_QUI_LA_TUA_CHIAVE": 
+        st.warning("⚠️ API Key di The Odds API non valida o non inserita.")
+        return []
+        
     url = f"https://api.the-odds-api.com/v4/sports/{league_id}/odds/"
     params = {"apiKey": api_key, "regions": "eu", "markets": "h2h,totals,btts", "oddsFormat": "decimal"}
+    
     try:
-        res = requests.get(url, params=params).json()
-        return res if isinstance(res, list) else []
-    except Exception:
+        res = requests.get(url, params=params)
+        res.raise_for_status() # Forza l'errore se l'API rifiuta la connessione (es. 401, 429)
+        data = res.json()
+        
+        if not isinstance(data, list):
+            st.error(f"🚨 Formato dati inatteso dalle quote: {data}")
+            return []
+            
+        return data
+    except Exception as e:
+        st.error(f"🚨 ERRORE THE ODDS API ({league_id}): {str(e)}")
         return []
 
 def extract_match_odds(all_odds, home_team, away_team):
-    """Filtra le quote di un singolo match dalla memoria cache."""
-    for match in all_odds:
-        if difflib.get_close_matches(home_team, [match['home_team']], cutoff=0.55):
-            bookie = match['bookmakers'][0] 
-            odds_data = {"h2h": {}, "totals": {}, "btts": {}}
-            for m in bookie['markets']:
-                if m['key'] == 'h2h':
-                    odds_data['h2h'] = {o['name']: o['price'] for o in m['outcomes']}
-                elif m['key'] == 'totals':
-                    o25 = [o['price'] for o in m['outcomes'] if o['name'] == 'Over' and o['point'] == 2.5]
-                    u25 = [o['price'] for o in m['outcomes'] if o['name'] == 'Under' and o['point'] == 2.5]
-                    if o25 and u25: odds_data['totals'] = {"Over 2.5": o25[0], "Under 2.5": u25[0]}
-                elif m['key'] == 'btts':
-                    odds_data['btts'] = {o['name']: o['price'] for o in m['outcomes']}
-            return odds_data
+    """Filtra le quote di un singolo match con tolleranza sui nomi."""
+    if not all_odds: 
+        return None
+        
+    # Estrae tutti i nomi delle squadre in casa dal feed API
+    feed_home_teams = [m['home_team'] for m in all_odds]
+    
+    # Abbassiamo il cutoff a 0.45 per tollerare discrepanze come "Roma" vs "AS Roma"
+    h_match = difflib.get_close_matches(home_team, feed_home_teams, n=1, cutoff=0.45)
+    
+    if h_match:
+        matched_home = h_match[0]
+        for match in all_odds:
+            if match['home_team'] == matched_home:
+                # Se non ci sono bookmaker disponibili per questo match, salta
+                if not match.get('bookmakers'):
+                    return None
+                    
+                bookie = match['bookmakers'][0] 
+                odds_data = {"h2h": {}, "totals": {}, "btts": {}}
+                
+                for m in bookie['markets']:
+                    if m['key'] == 'h2h':
+                        odds_data['h2h'] = {o['name']: o['price'] for o in m['outcomes']}
+                    elif m['key'] == 'totals':
+                        o25 = [o['price'] for o in m['outcomes'] if o['name'] == 'Over' and o['point'] == 2.5]
+                        u25 = [o['price'] for o in m['outcomes'] if o['name'] == 'Under' and o['point'] == 2.5]
+                        if o25 and u25: odds_data['totals'] = {"Over 2.5": o25[0], "Under 2.5": u25[0]}
+                    elif m['key'] == 'btts':
+                        odds_data['btts'] = {o['name']: o['price'] for o in m['outcomes']}
+                return odds_data
     return None
 
 def fuzzy_match_team(api_name, csv_team_list):
