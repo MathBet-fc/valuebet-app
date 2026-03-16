@@ -93,7 +93,6 @@ def fetch_understat_data_auto(league_name):
                 t_name = details['title']
                 team_list.append(t_name)
                 hist = details['history']
-                
                 stats_db[t_name] = {
                     "total": calculate_segment(hist),
                     "form": calculate_segment(hist[-5:]),
@@ -163,52 +162,79 @@ def fuzzy_match_team(api_name, csv_team_list):
     return matches[0] if matches else None
 
 # ==============================================================================
-# 🤖 MACHINE LEARNING (AGGIORNATO CON 13 FEATURES)
+# 🤖 MACHINE LEARNING (MULTI-TARGET: 1X2, U/O, GOAL)
 # ==============================================================================
-def train_ml_model(history_data):
-    X, y = [], []
+def train_ml_models(history_data):
+    X, y_1x2, y_uo25, y_btts = [], [], [], []
+    
     for match in history_data:
-        if match.get("Real_Result") in ["1", "X", "2"] and "f_xh" in match:
-            # 🟢 Estrae tutti i 13 parametri dal database (con fallback sicuri per i vecchi salvataggi)
-            features = [
-                float(match.get("f_xh", 1.0)), float(match.get("f_xa", 1.0)),
-                float(match.get("P1_Stat", 0.33)), float(match.get("PX_Stat", 0.33)), float(match.get("P2_Stat", 0.33)),
-                float(match.get("h_elo", 1500.0)), float(match.get("a_elo", 1500.0)),
-                float(match.get("h_ppda", 10.0)), float(match.get("a_ppda", 10.0)),
-                float(match.get("h_dc", 5.0)), float(match.get("a_dc", 5.0)),
-                float(match.get("w_seas", 0.70)), float(match.get("volatility", 1.0))
-            ]
-            X.append(features)
-            target = {"1": 1, "X": 0, "2": 2}[match["Real_Result"]]
-            y.append(target)
-            
-    # Richiede almeno 15 partite di storico per attivarsi ed evitare over-fitting
+        score = match.get("Real_Score", "-")
+        if score != "-" and "-" in score and "f_xh" in match:
+            try:
+                hg, ag = map(int, score.replace(" ", "").split("-"))
+                
+                # 15 Features d'ingresso (aggiunte anche le probabilità base di Over e GG)
+                features = [
+                    float(match.get("f_xh", 1.0)), float(match.get("f_xa", 1.0)),
+                    float(match.get("P1_Stat", 0.33)), float(match.get("PX_Stat", 0.33)), float(match.get("P2_Stat", 0.33)),
+                    float(match.get("PO25_Stat", 0.50)), float(match.get("PGG_Stat", 0.50)),
+                    float(match.get("h_elo", 1500.0)), float(match.get("a_elo", 1500.0)),
+                    float(match.get("h_ppda", 10.0)), float(match.get("a_ppda", 10.0)),
+                    float(match.get("h_dc", 5.0)), float(match.get("a_dc", 5.0)),
+                    float(match.get("w_seas", 0.70)), float(match.get("volatility", 1.0))
+                ]
+                X.append(features)
+                
+                # Target automatici calcolati dal risultato esatto
+                y_1x2.append(1 if hg > ag else (0 if hg == ag else 2))
+                y_uo25.append(1 if (hg + ag) > 2.5 else 0)
+                y_btts.append(1 if (hg > 0 and ag > 0) else 0)
+            except:
+                continue
+                
     if len(X) < 15: return None 
     
-    # 🟢 Modello più profondo e accurato per gestire i 13 parametri
-    model = RandomForestClassifier(n_estimators=200, max_depth=7, random_state=42)
-    model.fit(X, y)
-    return model
+    # Addestra 3 Intelligenze Artificiali distinte
+    model_1x2 = RandomForestClassifier(n_estimators=200, max_depth=7, random_state=42).fit(X, y_1x2)
+    model_uo25 = RandomForestClassifier(n_estimators=200, max_depth=7, random_state=42).fit(X, y_uo25)
+    model_btts = RandomForestClassifier(n_estimators=200, max_depth=7, random_state=42).fit(X, y_btts)
+    
+    return {"1x2": model_1x2, "uo25": model_uo25, "btts": model_btts}
 
-def apply_ml_boost(model, f_xh, f_xa, p1_stat, px_stat, p2_stat, h_elo, a_elo, h_ppda, a_ppda, h_dc, a_dc, w_seas, volatility):
-    if not model: return p1_stat, px_stat, p2_stat
+def apply_ml_boost(models_dict, f_xh, f_xa, p1_stat, px_stat, p2_stat, po25_stat, pgg_stat, h_elo, a_elo, h_ppda, a_ppda, h_dc, a_dc, w_seas, volatility):
+    if not models_dict: return p1_stat, px_stat, p2_stat, po25_stat, pgg_stat
     
-    # Costruisce l'array esatto per la predizione live
-    features = np.array([[f_xh, f_xa, p1_stat, px_stat, p2_stat, h_elo, a_elo, h_ppda, a_ppda, h_dc, a_dc, w_seas, volatility]])
-    probs = model.predict_proba(features)[0]
+    features = np.array([[f_xh, f_xa, p1_stat, px_stat, p2_stat, po25_stat, pgg_stat, h_elo, a_elo, h_ppda, a_ppda, h_dc, a_dc, w_seas, volatility]])
     
-    classes = list(model.classes_)
-    ml_p1 = probs[classes.index(1)] if 1 in classes else 0.0
-    ml_px = probs[classes.index(0)] if 0 in classes else 0.0
-    ml_p2 = probs[classes.index(2)] if 2 in classes else 0.0
+    # ML su 1X2
+    m_1x2 = models_dict["1x2"]
+    probs_1x2 = m_1x2.predict_proba(features)[0]
+    classes_1x2 = list(m_1x2.classes_)
+    ml_p1 = probs_1x2[classes_1x2.index(1)] if 1 in classes_1x2 else 0.0
+    ml_px = probs_1x2[classes_1x2.index(0)] if 0 in classes_1x2 else 0.0
+    ml_p2 = probs_1x2[classes_1x2.index(2)] if 2 in classes_1x2 else 0.0
     
-    # Mix: 75% Statistica Pura + 25% Machine Learning
+    # ML su Over 2.5
+    m_uo25 = models_dict["uo25"]
+    probs_uo25 = m_uo25.predict_proba(features)[0]
+    classes_uo25 = list(m_uo25.classes_)
+    ml_po25 = probs_uo25[classes_uo25.index(1)] if 1 in classes_uo25 else 0.0
+    
+    # ML su Goal/NoGoal
+    m_btts = models_dict["btts"]
+    probs_btts = m_btts.predict_proba(features)[0]
+    classes_btts = list(m_btts.classes_)
+    ml_pgg = probs_btts[classes_btts.index(1)] if 1 in classes_btts else 0.0
+    
+    # Applicazione del Boost 75% Statistica / 25% AI
     f_p1 = (p1_stat * 0.75) + (ml_p1 * 0.25)
     f_px = (px_stat * 0.75) + (ml_px * 0.25)
     f_p2 = (p2_stat * 0.75) + (ml_p2 * 0.25)
+    f_po25 = (po25_stat * 0.75) + (ml_po25 * 0.25)
+    f_pgg = (pgg_stat * 0.75) + (ml_pgg * 0.25)
     
-    tot = f_p1 + f_px + f_p2
-    return f_p1/tot, f_px/tot, f_p2/tot
+    tot_1x2 = f_p1 + f_px + f_p2
+    return f_p1/tot_1x2, f_px/tot_1x2, f_p2/tot_1x2, f_po25, f_pgg
 
 # ==============================================================================
 # FUNZIONI MATEMATICHE & ML STATISTICO
@@ -293,7 +319,7 @@ def monte_carlo_simulation(f_xh, f_xa, n_sims=5000):
 # ==============================================================================
 # MOTORE TOP 5 VALUE BETS
 # ==============================================================================
-def find_top_value_bets(all_odds, stats_db, L_DATA, volatility, m_type, elo_dict, w_seas, ml_model=None):
+def find_top_value_bets(all_odds, stats_db, L_DATA, volatility, m_type, elo_dict, w_seas, ml_models=None):
     if not all_odds: return []
     team_list = list(stats_db.keys())
     value_bets = []
@@ -356,18 +382,19 @@ def find_top_value_bets(all_odds, stats_db, L_DATA, volatility, m_type, elo_dict
         f_xh *= volatility
         f_xa *= volatility
         
-        p1, pX, p2, pO25 = 0,0,0,0
+        p1, pX, p2, pGG, pO25 = 0,0,0,0,0
         for h in range(10):
             for a in range(10):
                 p = dixon_coles_probability(h, a, f_xh, f_xa, L_DATA["rho"])
                 if h>a: p1+=p; 
                 elif h==a: pX+=p; 
                 else: p2+=p
+                if h>0 and a>0: pGG+=p
                 if (h+a) > 2.5: pO25+=p
                 
-        # 🟢 L'IA valuta tutti i 13 parametri anche nello Scanner Top 5
-        if ml_model:
-            p1, pX, p2 = apply_ml_boost(ml_model, f_xh, f_xa, p1, pX, p2, h_elo, a_elo, h_ppda, a_ppda, h_dc, a_dc, w_seas, volatility)
+        # 🟢 Applica i modelli ML su tutti i target
+        if ml_models:
+            p1, pX, p2, pO25, pGG = apply_ml_boost(ml_models, f_xh, f_xa, p1, pX, p2, pO25, pGG, h_elo, a_elo, h_ppda, a_ppda, h_dc, a_dc, w_seas, volatility)
             
         evals = [("1", p1, b1), ("X", pX, bX), ("2", p2, b2), ("Over 2.5", pO25, bO25)]
         for bet_type, prob, odd in evals:
