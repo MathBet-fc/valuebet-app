@@ -10,8 +10,9 @@ import engine
 # ==============================================================================
 # CONFIGURAZIONE API & PAGINA
 # ==============================================================================
-# 🔴 INSERISCI LA TUA CHIAVE API QUI SOTTO
+# 🔴 INSERISCI LE TUE CHIAVI API QUI SOTTO
 ODDS_API_KEY = "1b31f14ebbc80b505c8412a5dc4d6791"
+GEMINI_API_KEY = "AIzaSyBnoYaDfX50O3ycgz51URtDjV0y9m0-2mw"
 
 st.set_page_config(page_title="Mathbet fc", page_icon="⚽", layout="wide")
 
@@ -271,7 +272,7 @@ if st.button("🚀 ANALIZZA", type="primary", use_container_width=True):
         })
 
 # ==============================================================================
-# 📊 VISUALIZZAZIONE RISULTATI (PANNELLO COMPLETO 7 TABS)
+# 📊 VISUALIZZAZIONE RISULTATI (PANNELLO COMPLETO 8 TABS)
 # ==============================================================================
 if st.session_state.analyzed:
     st.markdown("---")
@@ -283,7 +284,7 @@ if st.session_state.analyzed:
     c1.metric("xG Previsti (Adjusted)", f"{st.session_state.f_xh:.2f} - {st.session_state.f_xa:.2f}")
     c2.metric("Affidabilità Previsione", f"{st.session_state.stability:.1f}%")
 
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["🏆 Esito & Handicap", "⚽ Under / Over", "🎯 Multigol", "👤 Player", "⛳ Extra", "📝 Storico & ML", "🧮 Utility & Combo"])
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs(["🏆 Esito & Handicap", "⚽ Under / Over", "🎯 Multigol", "👤 Player & Assist", "⛳ Extra & Corners", "📝 Storico & ML", "🧮 Utility & Combo", "✍️ Giornalista AI"])
     
     # ---------------- TAB 1: ESITO E HANDICAP ----------------
     with tab1:
@@ -390,7 +391,7 @@ if st.session_state.analyzed:
                 mga_res.append({"Range": f"{r[0]}-{r[1]}", "Prob %": f"{pm:.1%}", "Quota": f"{1/pm:.2f}" if pm>0 else "-"})
             st.dataframe(pd.DataFrame(mga_res), hide_index=True)
 
-# ---------------- TAB 4: PLAYER ----------------
+    # ---------------- TAB 4: PLAYER E ASSIST ----------------
     with tab4:
         st.subheader("Analisi Marcatore, Assist e Combo 1X2")
         if PLAYERS_DF is not None and not PLAYERS_DF.empty:
@@ -427,7 +428,6 @@ if st.session_state.analyzed:
                 pprob_assist = engine.calculate_player_probability(p_xa_val, pmin, txg, t_avg_xg_seas)
                 col_prob2.info(f"👟 **Probabilità ASSIST {pl_n}:** {pprob_assist:.1%} (@{1/pprob_assist:.2f})")
                 
-            # 🟢 SEZIONE COMBO RIPRISTINATA
             st.markdown("### ⚡ Combo Player + 1X2")
             c_c1, c_c2 = st.columns(2)
             sel_res_p = c_c1.selectbox("Scegli Esito Match per la Combo", ["1", "X", "2", "1X", "X2", "12"])
@@ -566,7 +566,69 @@ if st.session_state.analyzed:
                 q = 1 - p
                 f = (b * p - q) / b 
                 if f > 0: 
-                    # Usa il quarto di Kelly (Fractional Kelly) per ridurre il rischio
                     st.info(f"Puntata consigliata (1/4 Kelly): **€ {(f * 0.25) * k_bank:.2f}** ({f*0.25*100:.2f}% del bankroll)")
                 else:
                     st.warning("Non puntare su questo evento (Valore Negativo).")
+
+    # ---------------- TAB 8: GIORNALISTA AI (GEMINI + WEB SEARCH) ----------------
+    with tab8:
+        st.subheader("✍️ Giornalista AI (Math + Real-Time News)")
+        st.markdown("L'IA cercherà le ultime notizie (probabili formazioni, infortuni) su siti come Goal.com e le unirà alle tue percentuali matematiche per scrivere un pronostico perfetto.")
+        
+        if st.button("📝 Cerca News e Genera Articolo", type="primary"):
+            if not GEMINI_API_KEY or GEMINI_API_KEY == "INSERISCI_QUI_LA_TUA_CHIAVE_GEMINI":
+                st.warning("⚠️ Inserisci la tua vera API Key di Gemini all'inizio del codice (riga 15) per continuare.")
+            else:
+                with st.spinner("🔍 Ricerca probabili formazioni e infortuni in corso sul web..."):
+                    try:
+                        from duckduckgo_search import DDGS
+                        import google.generativeai as genai
+                        
+                        # 1. IL BOT CERCA LE NOTIZIE IN TEMPO REALE
+                        search_query = f"{st.session_state.h_name} {st.session_state.a_name} probabili formazioni infortuni site:goal.com/it"
+                        try:
+                            search_results = DDGS().text(search_query, max_results=3)
+                            news_context = "\n".join([f"- {res['body']}" for res in search_results])
+                        except Exception as e:
+                            news_context = "Nessuna notizia recente trovata. Basati solo sui dati matematici."
+
+                        # 2. CONFIGURA GEMINI CON LA CHIAVE GLOBALE
+                        genai.configure(api_key=GEMINI_API_KEY)
+                        model = genai.GenerativeModel('gemini-1.5-flash')
+                        
+                        # 3. IL SUPER-PROMPT (MATEMATICA + GIORNALISMO)
+                        prompt = f"""
+                        Agisci come un esperto analista di calcio e tipster professionista.
+                        Stiamo analizzando la partita: {st.session_state.h_name} contro {st.session_state.a_name}.
+                        
+                        📊 DATI MATEMATICI DEL NOSTRO ALGORITMO:
+                        - Expected Goals (xG) Calcolati: {st.session_state.h_name} {st.session_state.f_xh:.2f} - {st.session_state.a_name} {st.session_state.f_xa:.2f}
+                        - Rating Forza (Elo): Casa {st.session_state.h_elo} vs Ospite {st.session_state.a_elo}
+                        - Intensità Pressing (PPDA): Casa {st.session_state.h_ppda:.1f} vs Ospite {st.session_state.a_ppda:.1f}
+                        
+                        Probabilità Matematiche:
+                        - 1: {st.session_state.p1:.1%} | X: {st.session_state.pX:.1%} | 2: {st.session_state.p2:.1%}
+                        - Over 2.5: {st.session_state.pO25:.1%} | Goal (BTTS): {st.session_state.pGG:.1%}
+                        
+                        📰 ULTIME NOTIZIE E PROBABILI FORMAZIONI (Trovate sul web in questo istante):
+                        {news_context}
+                        
+                        Compito:
+                        Scrivi un'analisi discorsiva (circa 200-250 parole) pronta per essere pubblicata su un canale Telegram o blog di scommesse.
+                        1. Inizia valutando il contesto reale del match basandoti sulle ULTIME NOTIZIE fornite (cita assenze pesanti, ballottaggi o scelte degli allenatori se presenti nelle news).
+                        2. Unisci questo contesto giornalistico ai DATI MATEMATICI (es. se manca il bomber titolare secondo le news, fai notare come la squadra potrebbe faticare a raggiungere gli xG previsti).
+                        3. Concludi con un "Pronostico Consigliato" molto chiaro, scegliendo il mercato con più valore tra 1X2, Under/Over o Goal/NoGoal incrociando i numeri con le news.
+                        Usa un tono persuasivo, professionale e accattivante. Non inventare infortuni se non sono citati nelle notizie.
+                        """
+                        
+                        # 4. GENERA E MOSTRA L'ARTICOLO
+                        with st.spinner("✍️ L'IA sta studiando le news e i numeri per scrivere l'articolo..."):
+                            response = model.generate_content(prompt)
+                            st.success("✅ Analisi giornalistica generata con successo!")
+                            st.markdown("---")
+                            st.markdown(response.text)
+                        
+                    except ImportError:
+                        st.error("🚨 Mancano le librerie. Aggiungi 'google-generativeai' e 'duckduckgo-search' a requirements.txt e fai un Reboot dell'app da Streamlit.")
+                    except Exception as e:
+                        st.error(f"Errore nella generazione dell'analisi: {e}")
