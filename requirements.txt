@@ -7,3 +7,5 @@ requests
 understatapi
 xlsxwriter
 scikit-learn
+google-generativeai
+duckduckgo-search
