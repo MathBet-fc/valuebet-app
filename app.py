@@ -592,9 +592,24 @@ if st.session_state.analyzed:
                         except Exception as e:
                             news_context = "Nessuna notizia recente trovata. Basati solo sui dati matematici."
 
-                        # 2. CONFIGURA GEMINI CON LA CHIAVE GLOBALE
+                       # 2. CONFIGURA GEMINI E TROVA IL MODELLO IN AUTOMATICO
                         genai.configure(api_key=GEMINI_API_KEY)
-                        model = genai.GenerativeModel('gemini-pro')
+                        
+                        # Il codice chiede a Google quali modelli sono attivi oggi per la tua API
+                        modello_valido = None
+                        for m in genai.list_models():
+                            if 'generateContent' in m.supported_generation_methods:
+                                modello_valido = m.name
+                                # Preferiamo la versione 'flash' se disponibile perché è più veloce
+                                if 'flash' in m.name:
+                                    break
+                                    
+                        if non modello_valido:
+                            st.error("❌ Nessun modello compatibile trovato con questa API Key.")
+                            st.stop()
+                            
+                        # Carica il modello esatto trovato sui server di Google
+                        model = genai.GenerativeModel(modello_valido)
                         
                         # 3. IL SUPER-PROMPT (MATEMATICA + GIORNALISMO)
                         prompt = f"""
