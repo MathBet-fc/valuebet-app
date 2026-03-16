@@ -61,7 +61,7 @@ with st.sidebar:
         c_foul_h = st.number_input("Falli Casa", 0.0, 30.0, 11.5, 0.5)
         c_foul_a = st.number_input("Falli Ospite", 0.0, 30.0, 12.5, 0.5)
 
-st.title("Mathbet fc - ML Ultimate Pro 🚀")
+st.title("Mathbet fc ⚽")
 
 ml_models = None
 if use_ml_boost:
@@ -390,9 +390,9 @@ if st.session_state.analyzed:
                 mga_res.append({"Range": f"{r[0]}-{r[1]}", "Prob %": f"{pm:.1%}", "Quota": f"{1/pm:.2f}" if pm>0 else "-"})
             st.dataframe(pd.DataFrame(mga_res), hide_index=True)
 
-    # ---------------- TAB 4: PLAYER ----------------
+# ---------------- TAB 4: PLAYER ----------------
     with tab4:
-        st.subheader("Analisi Marcatore, Assist")
+        st.subheader("Analisi Marcatore, Assist e Combo 1X2")
         if PLAYERS_DF is not None and not PLAYERS_DF.empty:
             team_sel = st.radio("Scegli Squadra", [f"Casa: {st.session_state.h_name}", f"Ospite: {st.session_state.a_name}"])
             is_home = "Casa" in team_sel
@@ -412,6 +412,7 @@ if st.session_state.analyzed:
                 p_xa_val = c2.number_input("xA/90 (Assist)", 0.0, 2.0, 0.2)
             
             txg = st.session_state.f_xh if is_home else st.session_state.f_xa
+            t_type = "Casa" if is_home else "Ospite"
             t_avg_xg_seas = h_stats["total"]["xg_total"]/max(1, h_stats["total"]["matches"]) if is_home else a_stats["total"]["xg_total"]/max(1, a_stats["total"]["matches"])
             pmin = st.number_input("Minuti Previsti", 1, 100, 90)
 
@@ -425,6 +426,22 @@ if st.session_state.analyzed:
             if p_xa_val > 0:
                 pprob_assist = engine.calculate_player_probability(p_xa_val, pmin, txg, t_avg_xg_seas)
                 col_prob2.info(f"👟 **Probabilità ASSIST {pl_n}:** {pprob_assist:.1%} (@{1/pprob_assist:.2f})")
+                
+            # 🟢 SEZIONE COMBO RIPRISTINATA
+            st.markdown("### ⚡ Combo Player + 1X2")
+            c_c1, c_c2 = st.columns(2)
+            sel_res_p = c_c1.selectbox("Scegli Esito Match per la Combo", ["1", "X", "2", "1X", "X2", "12"])
+            
+            c_btn1, c_btn2 = st.columns(2)
+            if c_btn1.button("Calcola Combo GOL + Esito"):
+                share_g = min(0.99, (p_xg_val / 90 * pmin) / max(0.1, txg))
+                p_combo_g = engine.calculate_combo_player(st.session_state.matrix, sel_res_p, t_type, share_g)
+                st.success(f"Combo **{sel_res_p} + Gol {pl_n}**: {p_combo_g:.1%} (@{1/p_combo_g:.2f})")
+
+            if c_btn2.button("Calcola Combo ASSIST + Esito"):
+                share_a = min(0.99, (p_xa_val / 90 * pmin) / max(0.1, txg))
+                p_combo_a = engine.calculate_combo_player(st.session_state.matrix, sel_res_p, t_type, share_a)
+                st.info(f"Combo **{sel_res_p} + Assist {pl_n}**: {p_combo_a:.1%} (@{1/p_combo_a:.2f})")
 
     # ---------------- TAB 5: EXTRA ----------------
     with tab5:
