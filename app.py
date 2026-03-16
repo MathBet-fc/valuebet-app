@@ -604,7 +604,7 @@ if st.session_state.analyzed:
                                 if 'flash' in m.name:
                                     break
                                     
-                        if non modello_valido:
+                        if not modello_valido:
                             st.error("❌ Nessun modello compatibile trovato con questa API Key.")
                             st.stop()
                             
