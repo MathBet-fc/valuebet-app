@@ -200,8 +200,10 @@ if st.button("🚀 ANALIZZA", type="primary", use_container_width=True):
         if h_rest <= 3: f_xh*=0.95; f_xa*=1.05
         if a_rest <= 3: f_xa*=0.95; f_xh*=1.05
         if is_big_match: f_xh*=0.9; f_xa*=0.9
-        if h_m_a: f_xh *= 0.85; h_m_d: f_xa *= 1.20
-        if a_m_a: f_xa *= 0.85; a_m_d: f_xh *= 1.20
+        if h_m_a: f_xh *= 0.85 
+        if h_m_d: f_xa *= 1.20
+        if a_m_a: f_xa *= 0.85 
+        if a_m_d: f_xh *= 1.20
 
         matrix = np.zeros((10,10)); scores = []
         p1, pX, p2, pGG, pO25 = 0,0,0,0,0
