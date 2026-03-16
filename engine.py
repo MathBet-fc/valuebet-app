@@ -336,13 +336,34 @@ def monte_carlo_simulation(f_xh, f_xa, n_sims=5000):
     return sim
 
 # ==============================================================================
-# MOTORE TOP 5 VALUE BETS (ALLINEATO AL 100% SU TUTTI I MERCATI)
+# MOTORE TOP 5 VALUE BETS (ALLINEAMENTO TOTALE DATI IBRIDI E MATRICE)
 # ==============================================================================
-def find_top_value_bets(all_odds, stats_db, L_DATA, volatility, m_type, elo_dict, w_seas, ml_models=None):
+def find_top_value_bets(all_odds, stats_db, L_DATA, volatility, m_type, elo_dict, w_seas, data_mode, ml_models=None):
     if not all_odds: 
         return []
     team_list = list(stats_db.keys())
     value_bets = []
+    
+    # 🟢 Funzione interna per estrarre Gol, xG o Ibrido (identica a quella in app.py)
+    def get_team_metric(team_stats, segment, metric):
+        raw = team_stats.get(segment, {})
+        matches = raw.get('matches', 0)
+        if matches <= 0: return 0.0
+        
+        if metric == 'gf':
+            v_goals, v_xg, v_npxg = raw.get('goals_total', 0), raw.get('xg_total', 0), raw.get('npxg_total', 0)
+        else:
+            v_goals, v_xg, v_npxg = raw.get('ga_total', 0), raw.get('xga_total', 0), raw.get('npxga_total', 0)
+            
+        if data_mode == "Solo Gol Reali": return v_goals / matches
+        elif data_mode == "Solo xG (NPxG Mode)": return v_npxg / matches
+        else: return ((v_npxg * 0.40) + (v_xg * 0.30) + (v_goals * 0.30)) / matches
+
+    # 🟢 Mix tra Stagione e Trend Forma
+    def get_blended(team_stats, metric):
+        val_tot = get_team_metric(team_stats, 'total', metric)
+        val_form = get_team_metric(team_stats, 'form', metric)
+        return (val_tot * w_seas) + (val_form * (1 - w_seas))
     
     for match in all_odds:
         h_match = difflib.get_close_matches(match['home_team'], team_list, cutoff=0.55)
@@ -369,15 +390,16 @@ def find_top_value_bets(all_odds, stats_db, L_DATA, volatility, m_type, elo_dict
         h_elo = get_elo_for_team(h_name, elo_dict, 1500.0)
         a_elo = get_elo_for_team(a_name, elo_dict, 1500.0)
         
-        h_att_base = (h_stats['total']['xg_total'] / max(1, h_stats['total']['matches']) * w_seas) + (h_stats['form']['xg_total'] / max(1, h_stats['form']['matches']) * (1 - w_seas))
-        h_def_base = (h_stats['total']['xga_total'] / max(1, h_stats['total']['matches']) * w_seas) + (h_stats['form']['xga_total'] / max(1, h_stats['form']['matches']) * (1 - w_seas))
-        a_att_base = (a_stats['total']['xg_total'] / max(1, a_stats['total']['matches']) * w_seas) + (a_stats['form']['xg_total'] / max(1, a_stats['form']['matches']) * (1 - w_seas))
-        a_def_base = (a_stats['total']['xga_total'] / max(1, a_stats['total']['matches']) * w_seas) + (a_stats['form']['xga_total'] / max(1, a_stats['form']['matches']) * (1 - w_seas))
+        # 🟢 Estrazione dati allineata alla UI principale
+        h_att_base = get_blended(h_stats, 'gf')
+        h_def_base = get_blended(h_stats, 'gs')
+        a_att_base = get_blended(a_stats, 'gf')
+        a_def_base = get_blended(a_stats, 'gs')
         
-        h_att_home = h_stats['home']['xg_total'] / max(1, h_stats['home']['matches']) if h_stats['home']['matches'] > 0 else h_att_base
-        h_def_home = h_stats['home']['xga_total'] / max(1, h_stats['home']['matches']) if h_stats['home']['matches'] > 0 else h_def_base
-        a_att_away = a_stats['away']['xg_total'] / max(1, a_stats['away']['matches']) if a_stats['away']['matches'] > 0 else a_att_base
-        a_def_away = a_stats['away']['xga_total'] / max(1, a_stats['away']['matches']) if a_stats['away']['matches'] > 0 else a_def_base
+        h_att_home = get_team_metric(h_stats, 'home', 'gf') if h_stats['home']['matches'] > 0 else h_att_base
+        h_def_home = get_team_metric(h_stats, 'home', 'gs') if h_stats['home']['matches'] > 0 else h_def_base
+        a_att_away = get_team_metric(a_stats, 'away', 'gf') if a_stats['away']['matches'] > 0 else a_att_base
+        a_def_away = get_team_metric(a_stats, 'away', 'gs') if a_stats['away']['matches'] > 0 else a_def_base
         
         w_split = 0.60
         h_fin_att = (h_att_base * (1-w_split)) + (h_att_home * w_split)
@@ -422,7 +444,6 @@ def find_top_value_bets(all_odds, stats_db, L_DATA, volatility, m_type, elo_dict
         f_xh *= volatility
         f_xa *= volatility
         
-        # 🟢 CORREZIONE: Ora la matrice viene creata e normalizzata perfettamente
         matrix = np.zeros((10,10))
         p1 = pX = p2 = pGG = pO25 = 0.0
         
@@ -436,20 +457,13 @@ def find_top_value_bets(all_odds, stats_db, L_DATA, volatility, m_type, elo_dict
                 if h > 0 and a > 0: pGG += p
                 if (h + a) > 2.5: pO25 += p
                 
-        # 🟢 NORMALIZZAZIONE ESATTA (Identica all'Analisi Singola)
         tot = np.sum(matrix)
         if tot > 0:
-            p1 /= tot
-            pX /= tot
-            p2 /= tot
-            pGG /= tot
-            pO25 /= tot
+            p1 /= tot; pX /= tot; p2 /= tot; pGG /= tot; pO25 /= tot
                 
         if ml_models:
             p1, pX, p2, pO25, pGG = apply_ml_boost(ml_models, f_xh, f_xa, p1, pX, p2, pO25, pGG, h_elo, a_elo, h_ppda, a_ppda, h_dc, a_dc, w_seas, volatility)
             
-        # Nota: La valutazione del Goal/No Goal (pGG) avviene per l'IA, 
-        # ma non viene mostrata tra le Value Bets perché manca la quota 'bGG' del bookmaker
         evals = [("1", p1, b1), ("X", pX, bX), ("2", p2, b2), ("Over 2.5", pO25, bO25)]
         for bet_type, prob, odd in evals:
             if odd > 1.0 and prob > 0:
