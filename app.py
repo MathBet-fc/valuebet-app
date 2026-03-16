@@ -594,7 +594,7 @@ if st.session_state.analyzed:
 
                         # 2. CONFIGURA GEMINI CON LA CHIAVE GLOBALE
                         genai.configure(api_key=GEMINI_API_KEY)
-                        model = genai.GenerativeModel('gemini-1.5-flash-latest')
+                        model = genai.GenerativeModel('gemini-pro')
                         
                         # 3. IL SUPER-PROMPT (MATEMATICA + GIORNALISMO)
                         prompt = f"""
