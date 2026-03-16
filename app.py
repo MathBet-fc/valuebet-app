@@ -13,14 +13,11 @@ import engine
 # 🔴 INSERISCI LA TUA CHIAVE API QUI SOTTO
 ODDS_API_KEY = "1b31f14ebbc80b505c8412a5dc4d6791"
 
-st.set_page_config(page_title="Mathbet fc - ML Ultimate Pro", page_icon="🧠", layout="wide")
+st.set_page_config(page_title="Mathbet fc", page_icon="⚽", layout="wide")
 
-if 'history' not in st.session_state: 
-    st.session_state.history = engine.carica_storico_json()
-if 'analyzed' not in st.session_state: 
-    st.session_state.analyzed = False
-if 'ml_active' not in st.session_state: 
-    st.session_state.ml_active = False
+if 'history' not in st.session_state: st.session_state.history = engine.carica_storico_json()
+if 'analyzed' not in st.session_state: st.session_state.analyzed = False
+if 'ml_active' not in st.session_state: st.session_state.ml_active = False
 
 # ==============================================================================
 # 🎛️ UI SIDEBAR
@@ -75,7 +72,7 @@ with st.expander("🔥 SCANNER GIORNALIERO: TOP 5 VALUE BETS", expanded=False):
     st.markdown("Cerca le migliori occasioni matematiche sul palinsesto.")
     if st.button("🔍 Cerca Top 5 Value Bets Ora", type="primary"):
         with st.spinner("Elaborazione in corso..."):
-            top_5 = engine.find_top_value_bets(ALL_LEAGUE_ODDS, STATS_DB, L_DATA, volatility, m_type, ELO_DICT, w_seas, ml_models)
+            top_5 = engine.find_top_value_bets(ALL_LEAGUE_ODDS, STATS_DB, L_DATA, volatility, m_type, ELO_DICT, w_seas, data_mode, ml_models)
             if top_5:
                 st.table(pd.DataFrame(top_5).style.format({"Prob %": "{:.1%}", "Fair Odd": "{:.2f}", "Valore %": "{:.1%}"}).applymap(lambda x: 'background-color: #d4edda; font-weight: bold;', subset=['Valore %']))
             else: 
@@ -87,7 +84,6 @@ st.divider()
 # ==============================================================================
 st.subheader("🗓️ Selezione Partita")
 
-# LA TENDINA DEI MATCH COMPARE SOLO SE LA CHIAVE API È INSERITA CORRETTAMENTE
 if ALL_LEAGUE_ODDS:
     match_options = [f"{m['home_team']} - {m['away_team']}" for m in ALL_LEAGUE_ODDS]
     selected_match = st.selectbox("Scegli il Match in programma", match_options)
@@ -98,9 +94,8 @@ else:
     if ODDS_API_KEY == "INSERISCI_QUI_LA_TUA_CHIAVE":
         st.error("⚠️ La tendina dei Prossimi Match è nascosta. Inserisci la tua vera ODDS_API_KEY nel codice per sbloccarla!")
     else:
-        st.warning("⚠️ Nessun match in programma nei prossimi giorni per questo campionato o limite chiamate API esaurito.")
-    bookie_h_name = ""
-    bookie_a_name = ""
+        st.warning("⚠️ Nessun match in programma nei prossimi giorni o limite chiamate API esaurito.")
+    bookie_h_name, bookie_a_name = "", ""
     auto_h_name = TEAM_LIST[0] if TEAM_LIST else None
     auto_a_name = TEAM_LIST[1] if len(TEAM_LIST)>1 else None
 
@@ -111,15 +106,11 @@ def get_blended_val(stats_dict, metric, mode, w_seas):
     def extract_val(raw_segment):
         matches = raw_segment.get('matches', 0)
         if matches <= 0: return 0.0
-        if metric == 'gf': 
-            v_goals, v_xg, v_npxg = raw_segment.get('goals_total', 0), raw_segment.get('xg_total', 0), raw_segment.get('npxg_total', 0)
-        else: 
-            v_goals, v_xg, v_npxg = raw_segment.get('ga_total', 0), raw_segment.get('xga_total', 0), raw_segment.get('npxga_total', 0)
-            
+        if metric == 'gf': v_goals, v_xg, v_npxg = raw_segment.get('goals_total', 0), raw_segment.get('xg_total', 0), raw_segment.get('npxg_total', 0)
+        else: v_goals, v_xg, v_npxg = raw_segment.get('ga_total', 0), raw_segment.get('xga_total', 0), raw_segment.get('npxga_total', 0)
         if mode == "Solo Gol Reali": return v_goals / matches
         elif mode == "Solo xG (NPxG Mode)": return v_npxg / matches
         else: return ((v_npxg * 0.40) + (v_xg * 0.30) + (v_goals * 0.30)) / matches
-        
     return (extract_val(stats_dict.get("total", {})) * w_seas) + (extract_val(stats_dict.get("form", {})) * (1 - w_seas))
 
 with col_h:
@@ -128,7 +119,6 @@ with col_h:
     h_name = st.selectbox("Dati Understat Casa", TEAM_LIST, index=h_idx) if TEAM_LIST else st.text_input("Nome Casa", "Inter")
     h_stats = STATS_DB.get(h_name) if STATS_DB else None
     h_elo = st.number_input("Rating Elo Casa", 1000.0, 2500.0, float(engine.get_elo_for_team(h_name, ELO_DICT, 1600.0) if h_name else 1600.0), step=10.0)
-    
     with st.expander("📊 Dati (Mix Stagione/Trend)", expanded=True):
         def_att_s = get_blended_val(h_stats, 'gf', data_mode, w_seas) if h_stats else 1.85
         def_def_s = get_blended_val(h_stats, 'gs', data_mode, w_seas) if h_stats else 0.95
@@ -138,10 +128,8 @@ with col_h:
         c3, c4 = st.columns(2)
         h_att_home = c3.number_input("Attacco Casa", 0.0, 5.0, float(get_blended_val({"total": h_stats["home"], "form": h_stats["home"]}, 'gf', data_mode, 1.0) if h_stats else def_att_s*1.15), 0.01)
         h_def_home = c4.number_input("Difesa Casa", 0.0, 5.0, float(get_blended_val({"total": h_stats["home"], "form": h_stats["home"]}, 'gs', data_mode, 1.0) if h_stats else def_def_s*0.85), 0.01)
-        
     with st.expander("Over Trend"):
-        for l in [0.5, 1.5, 2.5, 3.5, 4.5]: 
-            h_uo_input[l] = st.slider(f"Over {l} % H", 0, 100, 50, key=f"ho{l}")
+        for l in [0.5, 1.5, 2.5, 3.5, 4.5]: h_uo_input[l] = st.slider(f"Over {l} % H", 0, 100, 50, key=f"ho{l}")
 
 with col_a:
     st.subheader("✈️ Squadra Ospite")
@@ -149,7 +137,6 @@ with col_a:
     a_name = st.selectbox("Dati Understat Ospite", TEAM_LIST, index=a_idx) if TEAM_LIST else st.text_input("Nome Ospite", "Juve")
     a_stats = STATS_DB.get(a_name) if STATS_DB else None
     a_elo = st.number_input("Rating Elo Ospite", 1000.0, 2500.0, float(engine.get_elo_for_team(a_name, ELO_DICT, 1550.0) if a_name else 1550.0), step=10.0)
-    
     with st.expander("📊 Dati (Mix Stagione/Trend)", expanded=True):
         def_att_s_a = get_blended_val(a_stats, 'gf', data_mode, w_seas) if a_stats else 1.45
         def_def_s_a = get_blended_val(a_stats, 'gs', data_mode, w_seas) if a_stats else 0.85
@@ -159,10 +146,8 @@ with col_a:
         c7, c8 = st.columns(2)
         a_att_away = c7.number_input("Attacco Fuori", 0.0, 5.0, float(get_blended_val({"total": a_stats["away"], "form": a_stats["away"]}, 'gf', data_mode, 1.0) if a_stats else def_att_s_a*0.85), 0.01)
         a_def_away = c8.number_input("Difesa Fuori", 0.0, 5.0, float(get_blended_val({"total": a_stats["away"], "form": a_stats["away"]}, 'gs', data_mode, 1.0) if a_stats else def_def_s_a*1.15), 0.01)
-        
     with st.expander("Over Trend"):
-        for l in [0.5, 1.5, 2.5, 3.5, 4.5]: 
-            a_uo_input[l] = st.slider(f"Over {l} % A", 0, 100, 50, key=f"ao{l}")
+        for l in [0.5, 1.5, 2.5, 3.5, 4.5]: a_uo_input[l] = st.slider(f"Over {l} % A", 0, 100, 50, key=f"ao{l}")
 
 live_match_odds = engine.extract_match_odds(ALL_LEAGUE_ODDS, bookie_h_name, bookie_a_name)
 
@@ -177,29 +162,22 @@ b2 = q2.number_input("Q2", 1.01, 100.0, float(val_2))
 
 with st.expander("⚙️ Fine Tuning"):
     c1, c2 = st.columns(2)
-    h_str = c1.slider("Titolari % Casa", 50, 100, 100)
-    a_str = c2.slider("Titolari % Ospite", 50, 100, 100)
-    h_rest = c1.slider("Riposo Casa", 2, 10, 7)
-    a_rest = c2.slider("Riposo Ospite", 2, 10, 7)
-    h_m_a = c1.checkbox("No Bomber Casa")
-    a_m_a = c2.checkbox("No Bomber Ospite")
-    h_m_d = c1.checkbox("No Difensore Casa")
-    a_m_d = c2.checkbox("No Difensore Ospite")
+    h_str = c1.slider("Titolari % Casa", 50, 100, 100); a_str = c2.slider("Titolari % Ospite", 50, 100, 100)
+    h_rest = c1.slider("Riposo Casa", 2, 10, 7); a_rest = c2.slider("Riposo Ospite", 2, 10, 7)
+    h_m_a = c1.checkbox("No Bomber Casa"); a_m_a = c2.checkbox("No Bomber Ospite")
+    h_m_d = c1.checkbox("No Difensore Casa"); a_m_d = c2.checkbox("No Difensore Ospite")
 
 # ==============================================================================
 # 🚀 TRIGGER ANALISI
 # ==============================================================================
 if st.button("🚀 ANALIZZA", type="primary", use_container_width=True):
-    with st.spinner("Calcolo Algoritmo ML..."):
+    with st.spinner("Calcolo Algoritmo ML Multi-Target..."):
         home_adv = L_DATA["ha"] if m_type == "Standard" else (0.0 if m_type == "Campo Neutro" else L_DATA["ha"]*0.5)
         w_split = 0.60
-        h_fin_att = (h_att*(1-w_split)) + (h_att_home*w_split)
-        h_fin_def = (h_def*(1-w_split)) + (h_def_home*w_split)
-        a_fin_att = (a_att*(1-w_split)) + (a_att_away*w_split)
-        a_fin_def = (a_def*(1-w_split)) + (a_def_away*w_split)
+        h_fin_att = (h_att*(1-w_split)) + (h_att_home*w_split); h_fin_def = (h_def*(1-w_split)) + (h_def_home*w_split)
+        a_fin_att = (a_att*(1-w_split)) + (a_att_away*w_split); a_fin_def = (a_def*(1-w_split)) + (a_def_away*w_split)
         
-        xg_h = (h_fin_att * a_fin_def) / L_DATA["avg"]
-        xg_a = (a_fin_att * h_fin_def) / L_DATA["avg"]
+        xg_h = (h_fin_att * a_fin_def) / L_DATA["avg"]; xg_a = (a_fin_att * h_fin_def) / L_DATA["avg"]
         elo_diff = (h_elo + (100 if m_type=="Standard" else 0)) - a_elo
         f_xh = (xg_h * (1 + elo_diff/1000.0)) + home_adv
         f_xa = (xg_a * (1 - elo_diff/1000.0))
@@ -211,65 +189,38 @@ if st.button("🚀 ANALIZZA", type="primary", use_container_width=True):
             h_oppda = (h_stats['total']['oppda'] * w_seas) + (h_stats['form']['oppda'] * (1 - w_seas))
             a_oppda = (a_stats['total']['oppda'] * w_seas) + (a_stats['form']['oppda'] * (1 - w_seas))
 
-            if h_ppda < 10.5 and a_oppda > 10.5: 
-                f_xh *= 1.07 
-            if a_ppda < 10.5 and h_oppda > 10.5: 
-                f_xa *= 1.07
+            if h_ppda < 10.5 and a_oppda > 10.5: f_xh *= 1.07 
+            if a_ppda < 10.5 and h_oppda > 10.5: f_xa *= 1.07
 
             h_dc = (h_stats['total']['dc'] * w_seas) + (h_stats['form']['dc'] * (1 - w_seas))
             a_dc = (a_stats['total']['dc'] * w_seas) + (a_stats['form']['dc'] * (1 - w_seas))
             if (h_dc + a_dc) > 0:
                 h_tilt = h_dc / (h_dc + a_dc)
-                if h_tilt > 0.60: 
-                    f_xh *= 1.05
-                    f_xa *= 0.95 
-                elif h_tilt < 0.40: 
-                    f_xh *= 0.95
-                    f_xa *= 1.05 
+                if h_tilt > 0.60: f_xh *= 1.05; f_xa *= 0.95 
+                elif h_tilt < 0.40: f_xh *= 0.95; f_xa *= 1.05 
 
-            h_pts = h_stats['total']['pts']
-            h_xpts = h_stats['total']['xpts']
-            a_pts = a_stats['total']['pts']
-            a_xpts = a_stats['total']['xpts']
-            
+            h_pts, h_xpts = h_stats['total']['pts'], h_stats['total']['xpts']
+            a_pts, a_xpts = a_stats['total']['pts'], a_stats['total']['xpts']
             if h_pts > (h_xpts * 1.2): f_xh *= 0.97 
             elif h_pts < (h_xpts * 0.8): f_xh *= 1.03 
             if a_pts > (a_xpts * 1.2): f_xa *= 0.97
             elif a_pts < (a_xpts * 0.8): f_xa *= 1.03
 
         expected_goal_diff = f_xh - f_xa
-        if expected_goal_diff > 0.45: 
-            f_xh *= 0.96
-            f_xa *= 1.04
-        elif expected_goal_diff < -0.45: 
-            f_xa *= 0.96
-            f_xh *= 1.04
+        if expected_goal_diff > 0.45: f_xh *= 0.96; f_xa *= 1.04
+        elif expected_goal_diff < -0.45: f_xa *= 0.96; f_xh *= 1.04
 
         f_xh *= volatility * (h_str/100.0)
         f_xa *= volatility * (a_str/100.0)
-        
-        # Correzione sicura di sintassi
-        if h_rest <= 3: 
-            f_xh *= 0.95
-            f_xa *= 1.05
-        if a_rest <= 3: 
-            f_xa *= 0.95
-            f_xh *= 1.05
-        if is_big_match: 
-            f_xh *= 0.9
-            f_xa *= 0.9
-            
-        if h_m_a: 
-            f_xh *= 0.85
-        if h_m_d: 
-            f_xa *= 1.20
-        if a_m_a: 
-            f_xa *= 0.85
-        if a_m_d: 
-            f_xh *= 1.20
+        if h_rest <= 3: f_xh *= 0.95; f_xa *= 1.05
+        if a_rest <= 3: f_xa *= 0.95; f_xh *= 1.05
+        if is_big_match: f_xh *= 0.9; f_xa *= 0.9
+        if h_m_a: f_xh *= 0.85
+        if h_m_d: f_xa *= 1.20
+        if a_m_a: f_xa *= 0.85
+        if a_m_d: f_xh *= 1.20
 
-        matrix = np.zeros((10,10))
-        scores = []
+        matrix = np.zeros((10,10)); scores = []
         p1 = pX = p2 = pGG = pO25 = 0.0
         
         for h in range(10):
@@ -279,18 +230,13 @@ if st.button("🚀 ANALIZZA", type="primary", use_container_width=True):
                 if h > a: p1 += p
                 elif h == a: pX += p
                 else: p2 += p
-                
                 if h > 0 and a > 0: pGG += p
                 if (h + a) > 2.5: pO25 += p
                 if h < 6 and a < 6: scores.append({"Risultato": f"{h}-{a}", "Prob": p})
                 
         tot = np.sum(matrix)
-        matrix /= tot
-        p1 /= tot
-        pX /= tot
-        p2 /= tot
-        pGG /= tot
-        pO25 /= tot
+        if tot > 0:
+            matrix /= tot; p1 /= tot; pX /= tot; p2 /= tot; pGG /= tot; pO25 /= tot
         
         if ml_models and use_ml_boost:
             p1, pX, p2, pO25, pGG = engine.apply_ml_boost(ml_models, f_xh, f_xa, p1, pX, p2, pO25, pGG, h_elo, a_elo, h_ppda, a_ppda, h_dc, a_dc, w_seas, volatility)
@@ -325,20 +271,21 @@ if st.button("🚀 ANALIZZA", type="primary", use_container_width=True):
         })
 
 # ==============================================================================
-# 📊 VISUALIZZAZIONE RISULTATI
+# 📊 VISUALIZZAZIONE RISULTATI (PANNELLO COMPLETO 7 TABS)
 # ==============================================================================
 if st.session_state.analyzed:
     st.markdown("---")
     if st.session_state.ml_active: 
-        st.success("🤖 Multi-Target AI Attiva! Percentuali corrette automaticamente.")
+        st.success("🤖 Multi-Target AI Attiva! Percentuali corrette automaticamente dal Machine Learning.")
         
     st.header(f"📊 {st.session_state.h_name} vs {st.session_state.a_name}")
     c1, c2 = st.columns(2)
     c1.metric("xG Previsti (Adjusted)", f"{st.session_state.f_xh:.2f} - {st.session_state.f_xa:.2f}")
-    c2.metric("Affidabilità", f"{st.session_state.stability:.1f}%")
+    c2.metric("Affidabilità Previsione", f"{st.session_state.stability:.1f}%")
 
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["🏆 Esito", "⚽ Goal", "👤 Player & Assist", "⛳ Extra & Corners", "📝 Storico & ML", "⚡ Combo"])
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["🏆 Esito & Handicap", "⚽ Under / Over", "🎯 Multigol", "👤 Player", "⛳ Extra", "📝 Storico & ML", "🧮 Utility & Combo"])
     
+    # ---------------- TAB 1: ESITO E HANDICAP ----------------
     with tab1:
         c_1, c_2 = st.columns(2)
         with c_1:
@@ -351,26 +298,101 @@ if st.session_state.analyzed:
                 "Valore": [f"{(st.session_state.b1*st.session_state.p1-1):.1%}", f"{(st.session_state.bX*st.session_state.pX-1):.1%}", f"{(st.session_state.b2*st.session_state.p2-1):.1%}"]
             })
             st.dataframe(val_df.style.applymap(lambda x: "background-color: #d4edda" if "%" in str(x) and "-" not in str(x) and str(x) != "0.0%" else "", subset=["Valore"]), hide_index=True)
+            
+            st.subheader("Doppia Chance & Draw No Bet")
+            p1X, pX2, p12 = (st.session_state.p1 + st.session_state.pX), (st.session_state.pX + st.session_state.p2), (st.session_state.p1 + st.session_state.p2)
+            p1_dnb = st.session_state.p1 / (1 - st.session_state.pX) if st.session_state.pX < 1 else 0
+            p2_dnb = st.session_state.p2 / (1 - st.session_state.pX) if st.session_state.pX < 1 else 0
+            
+            dc_df = pd.DataFrame({
+                "Esito": ["1X", "X2", "12", "1 DNB", "2 DNB"],
+                "Prob %": [f"{p1X:.1%}", f"{pX2:.1%}", f"{p12:.1%}", f"{p1_dnb:.1%}", f"{p2_dnb:.1%}"],
+                "Quota Fair": [f"{1/p1X:.2f}", f"{1/pX2:.2f}", f"{1/p12:.2f}", f"{1/p1_dnb:.2f}" if p1_dnb>0 else "-", f"{1/p2_dnb:.2f}" if p2_dnb>0 else "-"]
+            })
+            st.dataframe(dc_df, hide_index=True)
+
         with c_2:
             st.subheader("Risultati Esatti")
             scores = sorted(st.session_state.scores, key=lambda x: x["Prob"], reverse=True)
             st.dataframe(pd.DataFrame([{"Risultato": s["Risultato"], "Prob": f"{s['Prob']:.1%}"} for s in scores[:6]]), hide_index=True)
 
-    with tab2:
-        st.subheader("Under / Over & Goal")
-        uo_list = []
-        for l in [0.5, 1.5, 2.5, 3.5, 4.5]:
-            if l == 2.5: 
-                pf = st.session_state.pO25
-            else:
-                p_pure = np.sum(st.session_state.matrix[np.indices((10,10))[0] + np.indices((10,10))[1] > l])
-                pf = (p_pure*0.7) + (((h_uo_input.get(l,50) + a_uo_input.get(l,50))/200.0)*0.3)
-            uo_list.append({"Linea": f"Over {l}", "Prob %": f"{pf:.1%}", "Quota": f"{1/pf:.2f}"})
-        st.dataframe(pd.DataFrame(uo_list), hide_index=True)
-        st.write(f"**Goal / Goal:** {st.session_state.pGG:.1%} (@{1/st.session_state.pGG:.2f})")
+            st.subheader("Handicap Asiatico (-1.5 / +1.5)")
+            matrix = st.session_state.matrix
+            ph_minus_15 = np.sum(matrix[np.indices((10,10))[0] - np.indices((10,10))[1] >= 2])
+            pa_plus_15 = 1 - ph_minus_15
+            pa_minus_15 = np.sum(matrix[np.indices((10,10))[1] - np.indices((10,10))[0] >= 2])
+            ph_plus_15 = 1 - pa_minus_15
+            
+            hc_df = pd.DataFrame({
+                "Mercato": ["Casa -1.5", "Ospite +1.5", "Ospite -1.5", "Casa +1.5"],
+                "Prob %": [f"{ph_minus_15:.1%}", f"{pa_plus_15:.1%}", f"{pa_minus_15:.1%}", f"{ph_plus_15:.1%}"],
+                "Quota": [f"{1/ph_minus_15:.2f}" if ph_minus_15>0 else "-", f"{1/pa_plus_15:.2f}" if pa_plus_15>0 else "-", f"{1/pa_minus_15:.2f}" if pa_minus_15>0 else "-", f"{1/ph_plus_15:.2f}" if ph_plus_15>0 else "-"]
+            })
+            st.dataframe(hc_df, hide_index=True)
 
+    # ---------------- TAB 2: UNDER / OVER ----------------
+    with tab2:
+        c1, c2 = st.columns(2)
+        with c1:
+            st.subheader("Mercato Under / Over")
+            uo_list = []
+            for l in [0.5, 1.5, 2.5, 3.5, 4.5]:
+                if l == 2.5: 
+                    p_over = st.session_state.pO25
+                else:
+                    p_pure = np.sum(st.session_state.matrix[np.indices((10,10))[0] + np.indices((10,10))[1] > l])
+                    p_over = (p_pure*0.7) + (((h_uo_input.get(l,50) + a_uo_input.get(l,50))/200.0)*0.3)
+                p_under = 1.0 - p_over
+                
+                uo_list.append({
+                    "Linea": l,
+                    "Over %": f"{p_over:.1%}", "Quota O.": f"{1/p_over:.2f}" if p_over>0 else "-",
+                    "Under %": f"{p_under:.1%}", "Quota U.": f"{1/p_under:.2f}" if p_under>0 else "-"
+                })
+            st.dataframe(pd.DataFrame(uo_list), hide_index=True)
+            
+        with c2:
+            st.subheader("Mercato Goal / No Goal")
+            pGG = st.session_state.pGG
+            pNG = 1.0 - pGG
+            gg_df = pd.DataFrame({
+                "Esito": ["Goal (BTTS)", "No Goal"],
+                "Prob %": [f"{pGG:.1%}", f"{pNG:.1%}"],
+                "Quota": [f"{1/pGG:.2f}" if pGG>0 else "-", f"{1/pNG:.2f}" if pNG>0 else "-"]
+            })
+            st.dataframe(gg_df, hide_index=True)
+
+    # ---------------- TAB 3: MULTIGOL ----------------
     with tab3:
-        st.subheader("Analisi Marcatore, Assist e Combo")
+        cm1, cm2, cm3 = st.columns(3)
+        
+        with cm1:
+            st.subheader("Multigol Totale")
+            mg_res = []
+            for r in [(1,2), (1,3), (2,3), (2,4), (3,4), (3,5)]:
+                pm = np.sum(st.session_state.matrix[(np.indices((10,10))[0] + np.indices((10,10))[1] >= r[0]) & (np.indices((10,10))[0] + np.indices((10,10))[1] <= r[1])])
+                mg_res.append({"Range": f"{r[0]}-{r[1]}", "Prob %": f"{pm:.1%}", "Quota": f"{1/pm:.2f}" if pm>0 else "-"})
+            st.dataframe(pd.DataFrame(mg_res), hide_index=True)
+            
+        with cm2:
+            st.subheader("Multigol Casa")
+            mgh_res = []
+            for r in [(1,2), (1,3), (2,3), (2,4)]:
+                pm = np.sum(st.session_state.matrix[(np.indices((10,10))[0] >= r[0]) & (np.indices((10,10))[0] <= r[1])])
+                mgh_res.append({"Range": f"{r[0]}-{r[1]}", "Prob %": f"{pm:.1%}", "Quota": f"{1/pm:.2f}" if pm>0 else "-"})
+            st.dataframe(pd.DataFrame(mgh_res), hide_index=True)
+            
+        with cm3:
+            st.subheader("Multigol Ospite")
+            mga_res = []
+            for r in [(1,2), (1,3), (2,3), (2,4)]:
+                pm = np.sum(st.session_state.matrix[(np.indices((10,10))[1] >= r[0]) & (np.indices((10,10))[1] <= r[1])])
+                mga_res.append({"Range": f"{r[0]}-{r[1]}", "Prob %": f"{pm:.1%}", "Quota": f"{1/pm:.2f}" if pm>0 else "-"})
+            st.dataframe(pd.DataFrame(mga_res), hide_index=True)
+
+    # ---------------- TAB 4: PLAYER ----------------
+    with tab4:
+        st.subheader("Analisi Marcatore, Assist")
         if PLAYERS_DF is not None and not PLAYERS_DF.empty:
             team_sel = st.radio("Scegli Squadra", [f"Casa: {st.session_state.h_name}", f"Ospite: {st.session_state.a_name}"])
             is_home = "Casa" in team_sel
@@ -390,7 +412,6 @@ if st.session_state.analyzed:
                 p_xa_val = c2.number_input("xA/90 (Assist)", 0.0, 2.0, 0.2)
             
             txg = st.session_state.f_xh if is_home else st.session_state.f_xa
-            t_type = "Casa" if is_home else "Ospite"
             t_avg_xg_seas = h_stats["total"]["xg_total"]/max(1, h_stats["total"]["matches"]) if is_home else a_stats["total"]["xg_total"]/max(1, a_stats["total"]["matches"])
             pmin = st.number_input("Minuti Previsti", 1, 100, 90)
 
@@ -404,44 +425,31 @@ if st.session_state.analyzed:
             if p_xa_val > 0:
                 pprob_assist = engine.calculate_player_probability(p_xa_val, pmin, txg, t_avg_xg_seas)
                 col_prob2.info(f"👟 **Probabilità ASSIST {pl_n}:** {pprob_assist:.1%} (@{1/pprob_assist:.2f})")
-                
-            st.markdown("### ⚡ Combo Player")
-            c_c1, c_c2 = st.columns(2)
-            sel_res_p = c_c1.selectbox("Scegli Esito Match per la Combo", ["1", "X", "2", "1X", "X2", "12"])
-            
-            c_btn1, c_btn2 = st.columns(2)
-            if c_btn1.button("Calcola Combo GOL"):
-                share_g = min(0.99, (p_xg_val / 90 * pmin) / max(0.1, txg))
-                p_combo_g = engine.calculate_combo_player(st.session_state.matrix, sel_res_p, t_type, share_g)
-                st.success(f"Combo **{sel_res_p} + Gol {pl_n}**: {p_combo_g:.1%} (@{1/p_combo_g:.2f})")
 
-            if c_btn2.button("Calcola Combo ASSIST"):
-                share_a = min(0.99, (p_xa_val / 90 * pmin) / max(0.1, txg))
-                p_combo_a = engine.calculate_combo_player(st.session_state.matrix, sel_res_p, t_type, share_a)
-                st.info(f"Combo **{sel_res_p} + Assist {pl_n}**: {p_combo_a:.1%} (@{1/p_combo_a:.2f})")
-
-    with tab4:
+    # ---------------- TAB 5: EXTRA ----------------
+    with tab5:
         c_s1, c_s2 = st.columns(2)
         with c_s1:
             st.markdown("### 🚩 Angoli")
             corn = st.session_state.stats["corners"]
             st.caption(f"xCorners -> Casa: {corn['xH']:.1f} | Ospite: {corn['xA']:.1f}")
-            st.dataframe(pd.DataFrame([{"Linea": k, "Over %": f"{v['prob']:.1%}", "Quota": f"{1/v['prob']:.2f}" if v['prob']>0.001 else "N/A"} for k,v in corn["lines"].items()]), hide_index=True)
+            st.dataframe(pd.DataFrame([{"Linea": k, "Over %": f"{v['prob']:.1%}", "Quota": f"{1/v['prob']:.2f}" if v['prob']>0.001 else "-"} for k,v in corn["lines"].items()]), hide_index=True)
 
             st.markdown("### 🟨 Cartellini")
             card = st.session_state.stats["cards"]
-            st.dataframe(pd.DataFrame([{"Linea": k, "Over %": f"{v['prob']:.1%}", "Quota": f"{1/v['prob']:.2f}" if v['prob']>0.001 else "N/A"} for k,v in card["lines"].items()]), hide_index=True)
+            st.dataframe(pd.DataFrame([{"Linea": k, "Over %": f"{v['prob']:.1%}", "Quota": f"{1/v['prob']:.2f}" if v['prob']>0.001 else "-"} for k,v in card["lines"].items()]), hide_index=True)
 
         with c_s2:
             st.markdown("### 🥅 Tiri Totali")
             shot = st.session_state.stats["shots"]
-            st.dataframe(pd.DataFrame([{"Linea": k, "Over %": f"{v['prob']:.1%}", "Quota": f"{1/v['prob']:.2f}" if v['prob']>0.001 else "N/A"} for k,v in shot["lines"].items()]), hide_index=True)
+            st.dataframe(pd.DataFrame([{"Linea": k, "Over %": f"{v['prob']:.1%}", "Quota": f"{1/v['prob']:.2f}" if v['prob']>0.001 else "-"} for k,v in shot["lines"].items()]), hide_index=True)
 
             st.markdown("### 🎯 Tiri in Porta")
             sot = st.session_state.stats["sot"]
-            st.dataframe(pd.DataFrame([{"Linea": k, "Over %": f"{v['prob']:.1%}", "Quota": f"{1/v['prob']:.2f}" if v['prob']>0.001 else "N/A"} for k,v in sot["lines"].items()]), hide_index=True)
+            st.dataframe(pd.DataFrame([{"Linea": k, "Over %": f"{v['prob']:.1%}", "Quota": f"{1/v['prob']:.2f}" if v['prob']>0.001 else "-"} for k,v in sot["lines"].items()]), hide_index=True)
 
-    with tab5:
+    # ---------------- TAB 6: ML & STORICO ----------------
+    with tab6:
         st.subheader("📝 Storico, Backup & Addestramento ML")
         
         c1, c2 = st.columns(2)
@@ -466,7 +474,6 @@ if st.session_state.analyzed:
 
         st.divider()
         st.markdown("#### 🔄 Salvataggio di Sicurezza (Backup JSON)")
-        st.warning("⚠️ Streamlit cancella i dati quando il server si addormenta. Scarica il file JSON a fine giornata e ricaricalo qui la volta successiva.")
         
         col_dl, col_ul = st.columns(2)
         json_string = json.dumps(st.session_state.history, indent=2)
@@ -496,28 +503,53 @@ if st.session_state.analyzed:
                 if new_score and new_score != curr_score and "-" in new_score:
                     st.session_state.history[true_idx]["Real_Score"] = new_score.replace(" ", "")
                     engine.salva_storico_json(st.session_state.history)
-                    st.toast(f"Risultato {new_score} acquisito! L'IA ringrazia.")
+                    st.toast(f"Risultato {new_score} acquisito!")
 
-    with tab6:
-        st.subheader("⚡ Combo Maker")
-        c1, c2, c3 = st.columns(3)
-        sel_res = c1.selectbox("Esito 1X2", ["-", "1", "X", "2", "1X", "X2", "12"])
-        sel_uo = c2.selectbox("Under/Over", ["-", "Over 1.5", "Under 1.5", "Over 2.5", "Under 2.5", "Over 3.5", "Under 3.5", "Over 4.5", "Under 4.5"])
-        sel_gg = c3.selectbox("Goal/NoGoal", ["-", "Goal", "No Goal"])
-        
-        if st.button("Calcola Combo", type="primary"):
-            prob_combo = 0.0
-            for h in range(10):
-                for a in range(10):
-                    p = st.session_state.matrix[h, a]
-                    if p == 0: continue
-                    if sel_res != "-" and not eval(f"h {'>' if sel_res=='1' else '==' if sel_res=='X' else '<' if sel_res=='2' else '>=' if sel_res=='1X' else '<=' if sel_res=='X2' else '!='} a"): continue
-                    if sel_uo != "-":
-                        lim = float(sel_uo.split()[1])
-                        if ("Over" in sel_uo and (h+a) <= lim) or ("Under" in sel_uo and (h+a) > lim): continue
-                    if sel_gg != "-" and (("Goal" in sel_gg and (h==0 or a==0)) or ("No Goal" in sel_gg and (h>0 and a>0))): continue
-                    prob_combo += p
-            if prob_combo > 0: 
-                st.success(f"Probabilità Combo: **{prob_combo:.1%}** (@{1/prob_combo:.2f})")
-            else: 
-                st.warning("Evento impossibile (0%)")
+    # ---------------- TAB 7: UTILITY E COMBO ----------------
+    with tab7:
+        cu1, cu2 = st.columns(2)
+        with cu1:
+            st.subheader("⚡ Combo Maker")
+            sel_res = st.selectbox("Esito 1X2", ["-", "1", "X", "2", "1X", "X2", "12"])
+            sel_uo = st.selectbox("Under/Over", ["-", "Over 1.5", "Under 1.5", "Over 2.5", "Under 2.5", "Over 3.5", "Under 3.5"])
+            sel_gg = st.selectbox("Goal/NoGoal", ["-", "Goal", "No Goal"])
+            
+            if st.button("Calcola Combo", type="primary"):
+                prob_combo = 0.0
+                for h in range(10):
+                    for a in range(10):
+                        p = st.session_state.matrix[h, a]
+                        if p == 0: continue
+                        if sel_res != "-" and not eval(f"h {'>' if sel_res=='1' else '==' if sel_res=='X' else '<' if sel_res=='2' else '>=' if sel_res=='1X' else '<=' if sel_res=='X2' else '!='} a"): continue
+                        if sel_uo != "-":
+                            lim = float(sel_uo.split()[1])
+                            if ("Over" in sel_uo and (h+a) <= lim) or ("Under" in sel_uo and (h+a) > lim): continue
+                        if sel_gg != "-" and (("Goal" in sel_gg and (h==0 or a==0)) or ("No Goal" in sel_gg and (h>0 and a>0))): continue
+                        prob_combo += p
+                if prob_combo > 0: 
+                    st.success(f"Probabilità Combo: **{prob_combo:.1%}** (@{1/prob_combo:.2f})")
+                else: 
+                    st.warning("Evento impossibile (0%)")
+
+        with cu2:
+            st.subheader("💰 Gestione Bankroll (Kelly)")
+            k_bank = st.number_input("Bankroll Totale (€)", 10.0, 100000.0, 1000.0, step=50.0)
+            k_prob = st.number_input("Probabilità di Vittoria (%)", 0.1, 100.0, 55.0, step=1.0)
+            k_odd = st.number_input("Quota Offerta dal Bookmaker", 1.01, 100.0, 2.00, step=0.05)
+            
+            val_perc = ((k_prob / 100) * k_odd) - 1
+            if val_perc > 0: 
+                st.success(f"✅ VALORE MATEMATICO TROVATO: **+{val_perc:.1%}**")
+            else:
+                st.error(f"❌ NESSUN VALORE. Ritorno atteso: **{val_perc:.1%}**")
+                
+            if k_odd > 1:
+                b = k_odd - 1
+                p = k_prob / 100
+                q = 1 - p
+                f = (b * p - q) / b 
+                if f > 0: 
+                    # Usa il quarto di Kelly (Fractional Kelly) per ridurre il rischio
+                    st.info(f"Puntata consigliata (1/4 Kelly): **€ {(f * 0.25) * k_bank:.2f}** ({f*0.25*100:.2f}% del bankroll)")
+                else:
+                    st.warning("Non puntare su questo evento (Valore Negativo).")
