@@ -338,6 +338,9 @@ def monte_carlo_simulation(f_xh, f_xa, n_sims=5000):
 # ==============================================================================
 # MOTORE TOP 5 VALUE BETS
 # ==============================================================================
+# ==============================================================================
+# MOTORE TOP 5 VALUE BETS (ORA ALLINEATO AL 100% ALL'ANALISI DETTAGLIATA)
+# ==============================================================================
 def find_top_value_bets(all_odds, stats_db, L_DATA, volatility, m_type, elo_dict, w_seas, ml_models=None):
     if not all_odds: 
         return []
@@ -369,38 +372,62 @@ def find_top_value_bets(all_odds, stats_db, L_DATA, volatility, m_type, elo_dict
         h_elo = get_elo_for_team(h_name, elo_dict, 1500.0)
         a_elo = get_elo_for_team(a_name, elo_dict, 1500.0)
         
-        h_att_tot = h_stats['total']['xg_total'] / max(1, h_stats['total']['matches'])
-        h_att_form = h_stats['form']['xg_total'] / max(1, h_stats['form']['matches'])
-        h_att = (h_att_tot * w_seas) + (h_att_form * (1 - w_seas))
+        # 1. Calcolo Base (Mix Stagione/Forma)
+        h_att_base = (h_stats['total']['xg_total'] / max(1, h_stats['total']['matches']) * w_seas) + (h_stats['form']['xg_total'] / max(1, h_stats['form']['matches']) * (1 - w_seas))
+        h_def_base = (h_stats['total']['xga_total'] / max(1, h_stats['total']['matches']) * w_seas) + (h_stats['form']['xga_total'] / max(1, h_stats['form']['matches']) * (1 - w_seas))
+        a_att_base = (a_stats['total']['xg_total'] / max(1, a_stats['total']['matches']) * w_seas) + (a_stats['form']['xg_total'] / max(1, a_stats['form']['matches']) * (1 - w_seas))
+        a_def_base = (a_stats['total']['xga_total'] / max(1, a_stats['total']['matches']) * w_seas) + (a_stats['form']['xga_total'] / max(1, a_stats['form']['matches']) * (1 - w_seas))
         
-        h_def_tot = h_stats['total']['xga_total'] / max(1, h_stats['total']['matches'])
-        h_def_form = h_stats['form']['xga_total'] / max(1, h_stats['form']['matches'])
-        h_def = (h_def_tot * w_seas) + (h_def_form * (1 - w_seas))
+        # 2. Calcolo Specifico Casa/Trasferta
+        h_att_home = h_stats['home']['xg_total'] / max(1, h_stats['home']['matches']) if h_stats['home']['matches'] > 0 else h_att_base
+        h_def_home = h_stats['home']['xga_total'] / max(1, h_stats['home']['matches']) if h_stats['home']['matches'] > 0 else h_def_base
+        a_att_away = a_stats['away']['xg_total'] / max(1, a_stats['away']['matches']) if a_stats['away']['matches'] > 0 else a_att_base
+        a_def_away = a_stats['away']['xga_total'] / max(1, a_stats['away']['matches']) if a_stats['away']['matches'] > 0 else a_def_base
         
-        a_att_tot = a_stats['total']['xg_total'] / max(1, a_stats['total']['matches'])
-        a_att_form = a_stats['form']['xg_total'] / max(1, a_stats['form']['matches'])
-        a_att = (a_att_tot * w_seas) + (a_att_form * (1 - w_seas))
+        # 3. Mix Definitivo (Splitting Casa/Trasferta 60%)
+        w_split = 0.60
+        h_fin_att = (h_att_base * (1-w_split)) + (h_att_home * w_split)
+        h_fin_def = (h_def_base * (1-w_split)) + (h_def_home * w_split)
+        a_fin_att = (a_att_base * (1-w_split)) + (a_att_away * w_split)
+        a_fin_def = (a_def_base * (1-w_split)) + (a_def_away * w_split)
         
-        a_def_tot = a_stats['total']['xga_total'] / max(1, a_stats['total']['matches'])
-        a_def_form = a_stats['form']['xga_total'] / max(1, a_stats['form']['matches'])
-        a_def = (a_def_tot * w_seas) + (a_def_form * (1 - w_seas))
+        xg_h_base = (h_fin_att * a_fin_def) / L_DATA["avg"]
+        xg_a_base = (a_fin_att * h_fin_def) / L_DATA["avg"]
         
-        xg_h_base = (h_att * a_def) / L_DATA["avg"]
-        xg_a_base = (a_att * h_def) / L_DATA["avg"]
         home_adv = L_DATA["ha"] if m_type == "Standard" else (0.0 if m_type == "Campo Neutro" else L_DATA["ha"]*0.5)
         elo_diff = (h_elo + (100 if m_type=="Standard" else 0)) - a_elo
         f_xh = (xg_h_base * (1 + elo_diff/1000.0)) + home_adv
         f_xa = (xg_a_base * (1 - elo_diff/1000.0))
         
+        # 4. PPDA e Modificatori Difensivi
         h_ppda = (h_stats['total']['ppda'] * w_seas) + (h_stats['form']['ppda'] * (1 - w_seas))
         a_ppda = (a_stats['total']['ppda'] * w_seas) + (a_stats['form']['ppda'] * (1 - w_seas))
+        h_oppda = (h_stats['total']['oppda'] * w_seas) + (h_stats['form']['oppda'] * (1 - w_seas))
+        a_oppda = (a_stats['total']['oppda'] * w_seas) + (a_stats['form']['oppda'] * (1 - w_seas))
+        
+        if h_ppda < 10.5 and a_oppda > 10.5: f_xh *= 1.07 
+        if a_ppda < 10.5 and h_oppda > 10.5: f_xa *= 1.07
+            
+        # 5. Deep Completions
         h_dc = (h_stats['total']['dc'] * w_seas) + (h_stats['form']['dc'] * (1 - w_seas))
         a_dc = (a_stats['total']['dc'] * w_seas) + (a_stats['form']['dc'] * (1 - w_seas))
-        
-        if h_ppda < 10.5: 
-            f_xh *= 1.05
-        if a_ppda < 10.5: 
-            f_xa *= 1.05
+        if (h_dc + a_dc) > 0:
+            h_tilt = h_dc / (h_dc + a_dc)
+            if h_tilt > 0.60: f_xh *= 1.05; f_xa *= 0.95 
+            elif h_tilt < 0.40: f_xh *= 0.95; f_xa *= 1.05 
+                
+        # 6. Correzione Punti Reali vs Punti Attesi (Nuovo per lo Scanner)
+        h_pts, h_xpts = h_stats['total']['pts'], h_stats['total']['xpts']
+        a_pts, a_xpts = a_stats['total']['pts'], a_stats['total']['xpts']
+        if h_pts > (h_xpts * 1.2): f_xh *= 0.97 
+        elif h_pts < (h_xpts * 0.8): f_xh *= 1.03 
+        if a_pts > (a_xpts * 1.2): f_xa *= 0.97
+        elif a_pts < (a_xpts * 0.8): f_xa *= 1.03
+
+        # 7. Bilanciamento Differenza Reti
+        expected_goal_diff = f_xh - f_xa
+        if expected_goal_diff > 0.45: f_xh *= 0.96; f_xa *= 1.04
+        elif expected_goal_diff < -0.45: f_xa *= 0.96; f_xh *= 1.04
             
         f_xh *= volatility
         f_xa *= volatility
@@ -415,6 +442,7 @@ def find_top_value_bets(all_odds, stats_db, L_DATA, volatility, m_type, elo_dict
                 if h > 0 and a > 0: pGG += p
                 if (h + a) > 2.5: pO25 += p
                 
+        # Applica il Machine Learning se è attivo
         if ml_models:
             p1, pX, p2, pO25, pGG = apply_ml_boost(ml_models, f_xh, f_xa, p1, pX, p2, pO25, pGG, h_elo, a_elo, h_ppda, a_ppda, h_dc, a_dc, w_seas, volatility)
             
