@@ -75,16 +75,17 @@ with st.sidebar:
 
 st.title("Mathbet fc - ML Ultimate Pro 🚀")
 
-ml_model = None
+# 🟢 Addestramento delle 3 IA
+ml_models = None
 if use_ml_boost:
-    ml_model = engine.train_ml_model(st.session_state.history)
+    ml_models = engine.train_ml_models(st.session_state.history)
 
 # --- SCANNER AUTOMATICO TOP 5 ---
 with st.expander("🔥 SCANNER GIORNALIERO: TOP 5 VALUE BETS", expanded=False):
     st.markdown("Cerca le migliori occasioni matematiche sul palinsesto.")
     if st.button("🔍 Cerca Top 5 Value Bets Ora", type="primary"):
         with st.spinner(f"Elaborazione in corso..."):
-            top_5 = engine.find_top_value_bets(ALL_LEAGUE_ODDS, STATS_DB, L_DATA, volatility, m_type, ELO_DICT, w_seas, ml_model)
+            top_5 = engine.find_top_value_bets(ALL_LEAGUE_ODDS, STATS_DB, L_DATA, volatility, m_type, ELO_DICT, w_seas, ml_models)
             if top_5:
                 df_top5 = pd.DataFrame(top_5)
                 st.table(df_top5.style.format({"Prob %": "{:.1%}", "Fair Odd": "{:.2f}", "Valore %": "{:.1%}"}).applymap(lambda x: 'background-color: #d4edda; font-weight: bold;', subset=['Valore %']))
@@ -254,7 +255,7 @@ if st.button("🚀 ANALIZZA", type="primary", use_container_width=True):
         if a_m_d: f_xh *= 1.20
 
         matrix = np.zeros((10,10)); scores = []
-        p1, pX, p2, pGG = 0,0,0,0
+        p1, pX, p2, pGG, pO25 = 0,0,0,0,0
         for h in range(10):
             for a in range(10):
                 p = engine.dixon_coles_probability(h, a, f_xh, f_xa, L_DATA["rho"])
@@ -263,12 +264,13 @@ if st.button("🚀 ANALIZZA", type="primary", use_container_width=True):
                 elif h==a: pX+=p
                 else: p2+=p
                 if h>0 and a>0: pGG+=p
+                if (h+a) > 2.5: pO25+=p
                 if h<6 and a<6: scores.append({"Risultato": f"{h}-{a}", "Prob": p})
-        tot = np.sum(matrix); matrix/=tot; p1/=tot; pX/=tot; p2/=tot; pGG/=tot
+        tot = np.sum(matrix); matrix/=tot; p1/=tot; pX/=tot; p2/=tot; pGG/=tot; pO25/=tot
         
-        # 🟢 APPLICAZIONE MACHINE LEARNING CON TUTTE E 13 LE FEATURES
-        if ml_model and use_ml_boost:
-            p1, pX, p2 = engine.apply_ml_boost(ml_model, f_xh, f_xa, p1, pX, p2, h_elo, a_elo, h_ppda, a_ppda, h_dc, a_dc, w_seas, volatility)
+        # 🟢 APPLICAZIONE DELLE 3 INTELLIGENZE ARTIFICIALI (1X2, UO, BTTS)
+        if ml_models and use_ml_boost:
+            p1, pX, p2, pO25, pGG = engine.apply_ml_boost(ml_models, f_xh, f_xa, p1, pX, p2, pO25, pGG, h_elo, a_elo, h_ppda, a_ppda, h_dc, a_dc, w_seas, volatility)
             st.session_state.ml_active = True
         else:
             st.session_state.ml_active = False
@@ -283,11 +285,10 @@ if st.button("🚀 ANALIZZA", type="primary", use_container_width=True):
         sot_1, sot_X, sot_2, sot_lines = engine.calculate_stats_probs(c_sot_h, c_sot_a)
         foul_1, foul_X, foul_2, foul_lines = engine.calculate_stats_probs(c_foul_h, c_foul_a)
 
-        # 🟢 SALVATAGGIO DEI PARAMETRI NELLA SESSIONE (Perché il tasto 'Salva' possa leggerli)
         st.session_state.analyzed = True
         st.session_state.update({
             "f_xh": f_xh, "f_xa": f_xa, "h_name": h_name, "a_name": a_name, "league_name": league_name,
-            "p1": p1, "pX": pX, "p2": p2, "pGG": pGG, "stability": stability,
+            "p1": p1, "pX": pX, "p2": p2, "pGG": pGG, "pO25": pO25, "stability": stability,
             "h_elo": h_elo, "a_elo": a_elo, "h_ppda": h_ppda, "a_ppda": a_ppda, "h_dc": h_dc, "a_dc": a_dc,
             "w_seas": w_seas, "volatility": volatility,
             "matrix": matrix, "scores": scores, "b1": b1, "bX": bX, "b2": b2, "history": st.session_state.history,
@@ -306,9 +307,9 @@ if st.button("🚀 ANALIZZA", type="primary", use_container_width=True):
 if st.session_state.analyzed:
     st.markdown("---")
     if st.session_state.ml_active:
-        st.success("🤖 L'Intelligenza Artificiale ha applicato correzioni in base alla tua esperienza passata!")
-    elif use_ml_boost and not ml_model:
-        st.warning("🤖 Il Machine Learning necessita di almeno 15 partite salvate con esito reale nel Tab Storico per attivarsi.")
+        st.success("🤖 Multi-Target AI Attiva: Analisi corrette per 1X2, U/O e BTTS in base allo storico!")
+    elif use_ml_boost and not ml_models:
+        st.warning("🤖 L'IA richiede almeno 15 partite salvate con 'Risultato Esatto' per attivarsi a pieno regime.")
         
     st.header(f"📊 {st.session_state.h_name} vs {st.session_state.a_name}")
     c1, c2 = st.columns(2)
@@ -353,8 +354,11 @@ if st.session_state.analyzed:
             st.subheader("Under / Over")
             uo_list = []
             for l in [0.5, 1.5, 2.5, 3.5, 4.5]:
-                p_pure = np.sum(st.session_state.matrix[np.indices((10,10))[0] + np.indices((10,10))[1] > l])
-                pf = (p_pure*0.7) + (((h_uo_input.get(l,50) + a_uo_input.get(l,50))/200.0)*0.3)
+                # Utilizziamo pO25 che ora è potenziato dall'IA se abilitato!
+                if l == 2.5: pf = st.session_state.pO25
+                else:
+                    p_pure = np.sum(st.session_state.matrix[np.indices((10,10))[0] + np.indices((10,10))[1] > l])
+                    pf = (p_pure*0.7) + (((h_uo_input.get(l,50) + a_uo_input.get(l,50))/200.0)*0.3)
                 uo_list.append({"Linea": f"Over {l}", "Prob %": f"{pf:.1%}", "Quota": f"{1/pf:.2f}"})
             st.dataframe(pd.DataFrame(uo_list), hide_index=True)
             st.write(f"**Goal / Goal:** {st.session_state.pGG:.1%} (@{1/st.session_state.pGG:.2f})")
@@ -442,45 +446,46 @@ if st.session_state.analyzed:
             st.dataframe(pd.DataFrame([{"Linea": k, "Over %": f"{v['prob']:.1%}", "Quota": safe_odd(v['prob'])} for k,v in sot["lines"].items()]), hide_index=True)
 
     with tab5:
-        st.subheader("📝 Storico & Addestramento ML")
-        st.markdown("Inserisci qui sotto i risultati reali delle partite una volta concluse. L'Intelligenza Artificiale ora impara da **13 parametri tattici** incrociati.")
+        st.subheader("📝 Storico & Addestramento ML Multi-Target")
+        st.markdown("L'Intelligenza Artificiale ora impara analizzando il **Risultato Esatto**. Inserendolo a fine partita (es. `2-1`), il sistema comprenderà contemporaneamente chi ha vinto, quanti gol ci sono stati (U/O) e se entrambe hanno segnato (BTTS).")
         
         c1, c2 = st.columns(2)
         if c1.button("💾 Salva Match Corrente"):
-            # 🟢 CATTURA TUTTE E 13 LE FEATURES DA PASSARE AL ML
             st.session_state.history.append({
                 "Match": f"{st.session_state.h_name} - {st.session_state.a_name}",
                 "Data": str(datetime.now().strftime("%Y-%m-%d")),
                 "f_xh": st.session_state.f_xh, "f_xa": st.session_state.f_xa,
                 "P1_Stat": st.session_state.p1, "PX_Stat": st.session_state.pX, "P2_Stat": st.session_state.p2,
+                "PO25_Stat": st.session_state.pO25, "PGG_Stat": st.session_state.pGG,
                 "h_elo": st.session_state.h_elo, "a_elo": st.session_state.a_elo,
                 "h_ppda": st.session_state.h_ppda, "a_ppda": st.session_state.a_ppda,
                 "h_dc": st.session_state.h_dc, "a_dc": st.session_state.a_dc,
                 "w_seas": st.session_state.w_seas, "volatility": st.session_state.volatility,
-                "Real_Result": "-"
+                "Real_Score": "-"
             })
             engine.salva_storico_json(st.session_state.history)
-            st.success("Tutti i 13 parametri sono stati aggiunti al Database di Addestramento!")
+            st.success("Dati tattici salvati nel database. Ricordati di tornare a inserire il Risultato Esatto!")
             
         excel_data = engine.generate_excel_report(st.session_state)
         c2.download_button("📥 Scarica Report Excel", excel_data, f"Mathbet_{datetime.now().strftime('%H%M')}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
         st.divider()
-        st.markdown("#### I tuoi ultimi Match da Insegnare all'IA")
+        st.markdown("#### Le tue ultime Analisi")
         if st.session_state.history:
-            for i, match in enumerate(reversed(st.session_state.history[-10:])):
+            for i, match in enumerate(reversed(st.session_state.history[-15:])):
                 true_idx = len(st.session_state.history) - 1 - i
-                
                 col1, col2 = st.columns([3, 1])
+                
                 col1.write(f"**{match['Match']}** (xG: {match.get('f_xh',0):.2f} - {match.get('f_xa',0):.2f})")
                 
-                curr_res = match.get("Real_Result", "-")
-                new_res = col2.selectbox("Risultato", ["-", "1", "X", "2"], index=["-", "1", "X", "2"].index(curr_res), key=f"res_{true_idx}")
+                curr_score = match.get("Real_Score", "-")
+                # Casella di testo rapida e pulita per l'input (es. "3-1")
+                new_score = col2.text_input("Risultato Esatto", value="" if curr_score=="-" else curr_score, placeholder="es. 2-1", key=f"res_{true_idx}")
                 
-                if new_res != curr_res:
-                    st.session_state.history[true_idx]["Real_Result"] = new_res
+                if new_score and new_score != curr_score and "-" in new_score:
+                    st.session_state.history[true_idx]["Real_Score"] = new_score.replace(" ", "")
                     engine.salva_storico_json(st.session_state.history)
-                    st.toast(f"Hai Insegnato all'IA il risultato di {match['Match']}!")
+                    st.toast(f"Risultato {new_score} acquisito! L'IA imparerà per i mercati 1X2, U/O e GG.")
 
     with tab6:
         st.subheader("⚡ Combo Maker")
