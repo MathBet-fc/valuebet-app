@@ -11,7 +11,7 @@ import engine
 # CONFIGURAZIONE API & PAGINA
 # ==============================================================================
 # 🔴 INSERISCI LA TUA CHIAVE API QUI SOTTO
-ODDS_API_KEY = "INSERISCI_QUI_LA_TUA_CHIAVE"
+ODDS_API_KEY = "1b31f14ebbc80b505c8412a5dc4d6791"
 
 st.set_page_config(page_title="Mathbet fc - ML Ultimate Pro", page_icon="🧠", layout="wide")
 
