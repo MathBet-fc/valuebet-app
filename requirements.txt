@@ -9,3 +9,4 @@ xlsxwriter
 scikit-learn
 google-generativeai
 duckduckgo-search
+beautifulsoup4
