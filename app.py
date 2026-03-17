@@ -579,31 +579,29 @@ if st.session_state.analyzed:
             if not GEMINI_API_KEY or GEMINI_API_KEY == "INSERISCI_QUI_LA_TUA_CHIAVE_GEMINI":
                 st.warning("⚠️ Inserisci la tua vera API Key di Gemini all'inizio del codice (riga 15).")
             else:
-                with st.spinner("🔍 Ricerca notizie, formazioni e calcolo dei mercati complessi in corso..."):
+                with st.spinner("🔍 Ricerca testate giornalistiche sportive e calcolo mercati in corso..."):
                     try:
                         from duckduckgo_search import DDGS
                         import google.generativeai as genai
                         
-                        # 1. RICERCA WEB OTTIMIZZATA E INTELLIGENTE
-                        # Stringa più pulita per non confondere il motore di ricerca
-                        search_query = f"probabili formazioni {st.session_state.h_name} {st.session_state.a_name}"
+                        # 1. RICERCA WEB OTTIMIZZATA (SOLO SCHEDA "NEWS" DEI GIORNALI)
+                        search_query = f"{st.session_state.h_name} {st.session_state.a_name} formazioni infortuni"
                         news_context = ""
                         try:
-                            # Cerca solo in Italia (it-it) e solo notizie dell'ultima settimana (w)
-                            search_results = DDGS().text(search_query, region='it-it', timelimit='w', max_results=5)
-                            # Includiamo anche il "titolo" dell'articolo per dare più contesto all'IA
+                            # Usiamo .news() invece di .text() per prendere SOLO articoli di veri giornali e zero pubblicità
+                            search_results = DDGS().news(search_query, max_results=5)
                             news_context = "\n".join([f"- Titolo: {res.get('title', '')} | Riassunto: {res.get('body', '')}" for res in search_results])
                             
-                            # PIANO B: Se non trova nulla, cerca nello specifico gli infortuni
+                            # PIANO B: Se non trova la parola "formazioni", cerca solo i nomi delle squadre nelle news di oggi
                             if not news_context.strip():
-                                search_query_2 = f"infortuni squalificati {st.session_state.h_name} {st.session_state.a_name}"
-                                search_results_2 = DDGS().text(search_query_2, region='it-it', timelimit='w', max_results=3)
+                                search_query_2 = f"{st.session_state.h_name} {st.session_state.a_name} calcio"
+                                search_results_2 = DDGS().news(search_query_2, max_results=4)
                                 news_context = "\n".join([f"- Titolo: {res.get('title', '')} | Riassunto: {res.get('body', '')}" for res in search_results_2])
                                 
                             if not news_context.strip():
-                                news_context = "Nessuna notizia testuale trovata sul web per questa partita. Basati sulle tue conoscenze delle rose."
+                                news_context = "Nessun articolo giornalistico recente trovato. Usa le tue conoscenze sulle squadre."
                         except Exception as e:
-                            news_context = f"Ricerca web fallita (Errore rete). Basati solo sui dati matematici e sulle tue conoscenze delle squadre."
+                            news_context = "Ricerca web fallita. Basati solo sui dati matematici forniti."
 
                         # 2. ESTRAZIONE DI TUTTI I DATI E MERCATI PER IL PROMPT
                         p1, pX, p2 = st.session_state.p1, st.session_state.pX, st.session_state.p2
@@ -639,7 +637,7 @@ if st.session_state.analyzed:
                             
                         model = genai.GenerativeModel(modello_valido)
                         
-                        # 4. IL SUPER-PROMPT SEVERO E COMPLETO
+                        # 4. IL SUPER-PROMPT (ANTI-PIGRIZIA E ANTI-SPAM)
                         prompt = f"""
                         Agisci come un Data Analyst calcistico Senior e Tipster Professionista. Non essere pigro, fornisci un'analisi lunga, dettagliata e precisa.
                         Partita: {st.session_state.h_name} vs {st.session_state.a_name}.
@@ -664,23 +662,24 @@ if st.session_state.analyzed:
                         - Multigol Partita: 1-3 Gol ({mg_1_3:.1%}) | 2-4 Gol ({mg_2_4:.1%})
                         - Multigol Squadre: Casa segna 1-2 gol ({mgh_1_2:.1%}) | Ospite segna 1-2 gol ({mga_1_2:.1%})
                         
-                        📰 4. ULTIME NOTIZIE WEB (Infortuni, probabili formazioni, contesto reale):
+                        📰 4. ULTIME NOTIZIE WEB (Articoli Giornalistici in tempo reale):
                         {news_context}
+                        (ATTENZIONE: Se le notizie fornite qui sopra non c'entrano col calcio o parlano di cose assurde tipo abbonamenti Spotify/Amazon, IGNORALE e basati sulle tue conoscenze pregresse sulle squadre).
                         
-                        🔴 IL TUO COMPITO (RISPETTA QUESTA STRUTTURA ESATTA, SII DETTAGLIATO):
+                        🔴 IL TUO COMPITO (RISPETTA QUESTA STRUTTURA ESATTA E NON ESSERE PIGRO):
                         
-                        1. **📋 Situazione Squadre e Formazioni:** Basandoti ESCLUSIVAMENTE sulle notizie web fornite (sezione 4), riassumi il contesto reale. Chi è infortunato? Quali sono le probabili scelte degli allenatori e le formazioni? Come impatta questo sul match? Se le notizie sono scarse, dillo chiaramente.
+                        1. **📋 Situazione Squadre e Formazioni:** Basandoti sulle notizie web fornite (sezione 4) o sulle tue conoscenze base, riassumi il contesto reale. Chi è infortunato? Quali sono le probabili scelte degli allenatori? 
                         
-                        2. **🧠 Analisi Tattica Quantitativa:** Unisci i dati matematici (sezione 1) con il contesto reale (sezione 4). Analizza il divario degli xG, chi dominerà il pressing (PPDA), l'ingresso in area (Deep Completions) e la stabilità dell'algoritmo. Sii estremamente analitico e non generico.
+                        2. **🧠 Analisi Tattica Quantitativa:** Unisci i dati matematici (sezione 1) con il contesto reale. Analizza il divario degli xG, chi dominerà il pressing (PPDA), l'ingresso in area (Deep Completions) e la stabilità dell'algoritmo. Sii estremamente analitico e argomenta i decimali.
                         
-                        3. **📊 Analisi del Mercato e del Valore:** Controlla le quote del bookmaker (sezione 2). C'è una Value Bet matematica da sfruttare? Il mercato sta sottovalutando una delle due squadre in base alle probabilità?
+                        3. **📊 Analisi del Mercato e del Valore:** Controlla le quote del bookmaker (sezione 2). C'è una Value Bet matematica da sfruttare? Il mercato sta sottovalutando una delle due squadre?
                         
-                        4. **💎 Pronostici Ufficiali Consigliati:** Basandoti sulla griglia di TUTTI i mercati (sezione 3), fornisci 3 pronostici accurati e motiva matematicamente la scelta, esplorando mercati avanzati (Handicap, Multigol, Doppia Chance) oltre al banale 1X2.
-                           - 🟢 **Safe Pick (Basso Rischio):** Scegli la giocata con probabilità assoluta più alta e coperta (es. Doppia chance, Over 1.5, Under 3.5).
-                           - 🟡 **Value Pick (Rapporto Qualità/Prezzo):** Scegli il mercato con l'equilibrio migliore tra alta probabilità e quota/valore nascosto.
-                           - 🔴 **Special Pick (Alta Resa):** Scegli un mercato avanzato (es. Multigol Casa, Handicap Asiatico) supportato fortemente dai numeri della matrice.
+                        4. **💎 Pronostici Ufficiali Consigliati:** Basandoti sulla griglia di TUTTI i mercati (sezione 3), fornisci 3 pronostici accurati e motiva la scelta.
+                           - 🟢 **Safe Pick (Basso Rischio):** La giocata con probabilità assoluta più alta.
+                           - 🟡 **Value Pick (Rapporto Qualità/Prezzo):** Il mercato con l'equilibrio migliore tra alta probabilità e quota/valore.
+                           - 🔴 **Special Pick (Alta Resa):** Scegli un mercato avanzato (Multigol, Handicap) fortemente supportato dai dati.
                            
-                        ATTENZIONE: NON menzionare MAI angoli, tiri o cartellini nella tua analisi. Sii esaustivo, preciso nei dati decimali e scrivi come un analista professionista.
+                        ATTENZIONE: NON menzionare MAI angoli, tiri o cartellini nella tua analisi. Sii esaustivo e scrivi come un analista professionista.
                         """
                         
                         # 5. GENERA E MOSTRA
