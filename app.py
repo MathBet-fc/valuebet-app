@@ -573,7 +573,7 @@ if st.session_state.analyzed:
 # ---------------- TAB 8: GIORNALISTA AI (GEMINI + FULL WEB SCRAPING) ----------------
     with tab8:
         st.subheader("✍️ Giornalista AI (Scraping Articoli Completi)")
-        st.markdown("L'IA ora 'clicca' sui link delle notizie, legge gli articoli per intero e incrocia le informazioni con tutti i dati matematici della matrice.")
+        st.markdown("L'IA legge gli articoli per intero e incrocia le formazioni con tutti i dati matematici, fornendo le **Quote Fair (Quote Reali)** per scovare le Value Bet.")
         
         if st.button("📝 Leggi Articoli e Genera Pronostico", type="primary"):
             if not GEMINI_API_KEY or GEMINI_API_KEY == "INSERISCI_QUI_LA_TUA_CHIAVE_GEMINI":
@@ -592,34 +592,27 @@ if st.session_state.analyzed:
                         # 1. RICERCA WEB E SCRAPING DEGLI ARTICOLI COMPLETI
                         search_query = f"{st.session_state.h_name} {st.session_state.a_name} probabili formazioni infortuni"
                         full_articles = []
-                        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'} # Finge di essere un browser reale
+                        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'} 
                         
                         try:
-                            # Cerca le prime 3 notizie italiane dell'ultima settimana
                             search_results = DDGS().news(search_query, region='it-it', timelimit='w', max_results=3)
                             
-                            # Se non trova niente, prova con i tabellini dell'ultimo mese
                             if not search_results:
                                 search_query_2 = f"{st.session_state.h_name} infortunati squalificati out"
                                 search_results = DDGS().text(search_query_2, region='it-it', timelimit='m', max_results=2)
                                 search_query_3 = f"{st.session_state.a_name} infortunati squalificati out"
                                 search_results += DDGS().text(search_query_3, region='it-it', timelimit='m', max_results=2)
                                 
-                            # Entra nei siti e legge gli articoli interi
                             for res in search_results:
                                 url = res.get('url', '')
                                 if url:
                                     try:
                                         page = requests.get(url, headers=headers, timeout=5)
                                         soup = BeautifulSoup(page.content, 'html.parser')
-                                        # Estrae tutto il testo dentro i tag <p> (paragrafi dell'articolo)
                                         paragraphs = soup.find_all('p')
                                         article_text = " ".join([p.get_text() for p in paragraphs])
-                                        
-                                        # Passiamo fino a 5000 caratteri per articolo all'IA
                                         full_articles.append(f"--- ARTICOLO DA: {res.get('source', 'Sito Web')} ---\nTitolo: {res.get('title', '')}\nTesto: {article_text[:5000]}\n")
                                     except Exception:
-                                        # Se il sito blocca l'accesso, usa il riassunto come piano di riserva
                                         full_articles.append(f"--- ARTICOLO DA: {res.get('source', 'Sito Web')} ---\nTitolo: {res.get('title', '')}\nRiassunto: {res.get('body', '')}\n")
                             
                             if full_articles:
@@ -630,7 +623,7 @@ if st.session_state.analyzed:
                         except Exception as e:
                             news_context = "Ricerca web fallita. Basati solo sui dati matematici forniti e sulle tue conoscenze base."
 
-                        # 2. ESTRAZIONE DI TUTTI I DATI E MERCATI PER IL PROMPT
+                        # 2. ESTRAZIONE DATI, MERCATI E CALCOLO DELLE QUOTE FAIR (1 / Probabilità)
                         p1, pX, p2 = st.session_state.p1, st.session_state.pX, st.session_state.p2
                         p1X, pX2, p12 = p1+pX, pX+p2, p1+p2
                         b1, bX, b2 = st.session_state.b1, st.session_state.bX, st.session_state.b2
@@ -646,6 +639,8 @@ if st.session_state.analyzed:
                         ph_minus_15 = np.sum(mat[np.indices((10,10))[0] - np.indices((10,10))[1] >= 2])
                         pa_minus_15 = np.sum(mat[np.indices((10,10))[1] - np.indices((10,10))[0] >= 2])
 
+                        def qf(prob): return f"{1/prob:.2f}" if prob > 0.01 else "N/A"
+
                         # 3. CONFIGURA GEMINI IN MODO DINAMICO
                         genai.configure(api_key=GEMINI_API_KEY)
                         modello_valido = None
@@ -660,7 +655,7 @@ if st.session_state.analyzed:
                             
                         model = genai.GenerativeModel(modello_valido)
                         
-                        # 4. IL SUPER-PROMPT (Legge articoli completi)
+                        # 4. IL SUPER-PROMPT (Aggiunta istruzione sulle Quote Fair)
                         prompt = f"""
                         Agisci come un Data Analyst calcistico Senior e Tipster Professionista. Non essere pigro, fornisci un'analisi lunga, dettagliata e precisa.
                         Oggi è il {oggi_str}. Stiamo analizzando la PROSSIMA partita imminente: {st.session_state.h_name} vs {st.session_state.a_name}.
@@ -670,41 +665,40 @@ if st.session_state.analyzed:
                         - xG Aggiustati: {st.session_state.h_name} {st.session_state.f_xh:.2f} | {st.session_state.a_name} {st.session_state.f_xa:.2f}
                         - Forza Team (Elo Rating): Casa {st.session_state.h_elo} | Ospite {st.session_state.a_elo}
                         - Pressione (PPDA): Casa {st.session_state.h_ppda:.1f} | Ospite {st.session_state.a_ppda:.1f}
-                        - Pericolosità in Area (Deep Completions): Casa {st.session_state.h_dc:.1f} | Ospite {st.session_state.a_dc:.1f}
                         
-                        💰 2. CONFRONTO QUOTE E VALORE MATEMATICO:
-                        - Esito 1: Probabilità {p1:.1%} | Quota: {b1} | Valore: {val_1:.1%}
-                        - Esito X: Probabilità {pX:.1%} | Quota: {bX} | Valore: {val_X:.1%}
-                        - Esito 2: Probabilità {p2:.1%} | Quota: {b2} | Valore: {val_2:.1%}
+                        💰 2. MERCATO 1X2 E VALUE BET RILEVATA SUL BOOKMAKER:
+                        - Esito 1: Probabilità {p1:.1%} | Quota Bookie: {b1} | Valore Matematico: {val_1:.1%}
+                        - Esito X: Probabilità {pX:.1%} | Quota Bookie: {bX} | Valore Matematico: {val_X:.1%}
+                        - Esito 2: Probabilità {p2:.1%} | Quota Bookie: {b2} | Valore Matematico: {val_2:.1%}
                         
-                        🎯 3. MATRICE PROBABILITÀ MERCATI COMPLETA:
-                        - Doppia Chance: 1X ({p1X:.1%}) | X2 ({pX2:.1%}) | 12 ({p12:.1%})
-                        - Handicap Asiatico (-1.5): Casa (-1.5) ({ph_minus_15:.1%}) | Ospite (-1.5) ({pa_minus_15:.1%})
-                        - Under/Over: Over 1.5 ({pO15:.1%}) | Over 2.5 ({st.session_state.pO25:.1%}) | Under 3.5 ({pU35:.1%})
-                        - Goal/NoGoal: Goal ({st.session_state.pGG:.1%}) | NoGoal ({1-st.session_state.pGG:.1%})
-                        - Multigol: Partita 1-3 ({mg_1_3:.1%}) | Partita 2-4 ({mg_2_4:.1%})
+                        🎯 3. MATRICE PROBABILITÀ E "QUOTE FAIR" (QUOTE REALI):
+                        - Doppia Chance: 1X ({p1X:.1%}, Quota Fair: {qf(p1X)}) | X2 ({pX2:.1%}, Quota Fair: {qf(pX2)}) | 12 ({p12:.1%}, Quota Fair: {qf(p12)})
+                        - Handicap Asiatico (-1.5): Casa ({ph_minus_15:.1%}, Quota Fair: {qf(ph_minus_15)}) | Ospite ({pa_minus_15:.1%}, Quota Fair: {qf(pa_minus_15)})
+                        - Under/Over: Over 1.5 ({pO15:.1%}, Quota Fair: {qf(pO15)}) | Over 2.5 ({st.session_state.pO25:.1%}, Quota Fair: {qf(st.session_state.pO25)}) | Under 3.5 ({pU35:.1%}, Quota Fair: {qf(pU35)})
+                        - Goal/NoGoal: Goal ({st.session_state.pGG:.1%}, Quota Fair: {qf(st.session_state.pGG)}) | NoGoal ({1-st.session_state.pGG:.1%}, Quota Fair: {qf(1-st.session_state.pGG)})
+                        - Multigol Partita: 1-3 ({mg_1_3:.1%}, Quota Fair: {qf(mg_1_3)}) | 2-4 ({mg_2_4:.1%}, Quota Fair: {qf(mg_2_4)})
                         
                         📰 4. TESTO COMPLETO DEGLI ARTICOLI SPORTIVI:
                         {news_context}
                         
                         🔴 IL TUO COMPITO (RISPETTA QUESTA STRUTTURA ESATTA E NON ESSERE PIGRO):
                         
-                        1. **📋 Formazioni e Assenze:** DEVI SEMPRE scrivere una stima delle formazioni in campo (modulo e nomi). Avendo letto il testo completo degli articoli giornalistici qui sopra, estrai con precisione assoluta chi giocherà, chi è infortunato e chi è squalificato. Se le notizie sono carenti, usa la tua conoscenza storica per riempire i buchi, ma avvisa il lettore.
+                        1. **📋 Formazioni e Assenze:** DEVI SEMPRE scrivere una stima delle formazioni in campo. Estrai con precisione chi giocherà e chi è infortunato/squalificato dagli articoli. Se mancano notizie, usa la tua conoscenza storica e avvisa il lettore.
                         
-                        2. **🧠 Analisi Tattica Quantitativa:** Unisci i dati matematici (sezione 1) col contesto reale che hai appena letto negli articoli. Analizza il divario degli xG, il pressing (PPDA), l'ingresso in area e la stabilità. Sii analitico e argomenta i decimali.
+                        2. **🧠 Analisi Tattica Quantitativa:** Unisci i dati matematici (sezione 1) col contesto reale che hai appena letto negli articoli. Analizza il divario degli xG, il pressing (PPDA) e la stabilità. Sii analitico e argomenta i decimali.
                         
-                        3. **📊 Analisi del Mercato e del Valore:** Controlla le quote (sezione 2). C'è una Value Bet matematica da sfruttare? 
+                        3. **📊 Analisi del Mercato 1X2:** Controlla le quote del bookmaker (sezione 2). C'è una Value Bet matematica da sfruttare sull'Esito Finale? 
                         
-                        4. **💎 Pronostici Ufficiali Consigliati:** Fornisci 3 pronostici accurati motivando la scelta in base alla griglia di TUTTI i mercati (sezione 3).
+                        4. **💎 Pronostici Ufficiali e "Quote Minime da Giocare":** Fornisci 3 pronostici accurati motivando la scelta in base alla griglia di TUTTI i mercati (sezione 3). Per ogni pronostico devi indicare la sua "Quota Fair" e spiegare al lettore questa regola d'oro: "La nostra Quota Fair è [INSERISCI QUOTA FAIR]. Vi consigliamo di giocare questo pronostico SOLO se il vostro bookmaker vi offre una quota uguale o superiore a questa. In caso contrario, non c'è valore".
                            - 🟢 **Safe Pick (Basso Rischio):** Probabilità assoluta più alta.
-                           - 🟡 **Value Pick (Qualità/Prezzo):** Miglior equilibrio probabilità/valore.
-                           - 🔴 **Special Pick (Alta Resa):** Mercato avanzato fortemente supportato dai dati.
+                           - 🟡 **Value Pick (Qualità/Prezzo):** Miglior mercato incrociando i dati e le probabilità.
+                           - 🔴 **Special Pick (Alta Resa):** Mercato avanzato (Handicap, Multigol) supportato dai dati.
                            
                         ATTENZIONE: NON menzionare MAI angoli, tiri o cartellini per il pronostico finale. Scrivi da esperto assoluto di betting.
                         """
                         
                         # 5. GENERA E MOSTRA
-                        with st.spinner("✍️ L'IA ha letto gli articoli e sta incrociando i dati con la matrice matematica..."):
+                        with st.spinner("✍️ L'IA ha letto gli articoli e sta calcolando le Quote Fair di tutti i mercati..."):
                             response = model.generate_content(prompt)
                             st.success("✅ Analisi giornalistica avanzata generata con successo!")
                             st.markdown("---")
