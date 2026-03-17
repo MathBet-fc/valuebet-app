@@ -579,27 +579,30 @@ if st.session_state.analyzed:
             if not GEMINI_API_KEY or GEMINI_API_KEY == "INSERISCI_QUI_LA_TUA_CHIAVE_GEMINI":
                 st.warning("⚠️ Inserisci la tua vera API Key di Gemini all'inizio del codice (riga 15).")
             else:
-                with st.spinner("🔍 Ricerca testate giornalistiche sportive e calcolo mercati in corso..."):
+                with st.spinner("🔍 Ricerca notizie strettamente recenti (ultimi 7 giorni) in corso..."):
                     try:
                         from duckduckgo_search import DDGS
                         import google.generativeai as genai
+                        from datetime import datetime
                         
-                        # 1. RICERCA WEB OTTIMIZZATA (SOLO SCHEDA "NEWS" DEI GIORNALI)
-                        search_query = f"{st.session_state.h_name} {st.session_state.a_name} formazioni infortuni"
+                        oggi_str = datetime.now().strftime("%Y-%m-%d")
+                        
+                        # 1. RICERCA WEB BLINDATA (SOLO ULTIMI 7 GIORNI: timelimit='w')
+                        search_query = f"probabili formazioni {st.session_state.h_name} {st.session_state.a_name} calcio"
                         news_context = ""
                         try:
-                            # Usiamo .news() invece di .text() per prendere SOLO articoli di veri giornali e zero pubblicità
-                            search_results = DDGS().news(search_query, max_results=5)
-                            news_context = "\n".join([f"- Titolo: {res.get('title', '')} | Riassunto: {res.get('body', '')}" for res in search_results])
+                            # region='it-it' per l'Italia, timelimit='w' per l'ultima settimana
+                            search_results = DDGS().news(search_query, region='it-it', timelimit='w', max_results=5)
+                            news_context = "\n".join([f"- Data Pubblicazione: {res.get('date', '')[:10]} | Titolo: {res.get('title', '')} | Riassunto: {res.get('body', '')}" for res in search_results])
                             
-                            # PIANO B: Se non trova la parola "formazioni", cerca solo i nomi delle squadre nelle news di oggi
+                            # PIANO B se non trova "formazioni"
                             if not news_context.strip():
-                                search_query_2 = f"{st.session_state.h_name} {st.session_state.a_name} calcio"
-                                search_results_2 = DDGS().news(search_query_2, max_results=4)
-                                news_context = "\n".join([f"- Titolo: {res.get('title', '')} | Riassunto: {res.get('body', '')}" for res in search_results_2])
+                                search_query_2 = f"{st.session_state.h_name} {st.session_state.a_name} infortuni ultime notizie"
+                                search_results_2 = DDGS().news(search_query_2, region='it-it', timelimit='w', max_results=4)
+                                news_context = "\n".join([f"- Data Pubblicazione: {res.get('date', '')[:10]} | Titolo: {res.get('title', '')} | Riassunto: {res.get('body', '')}" for res in search_results_2])
                                 
                             if not news_context.strip():
-                                news_context = "Nessun articolo giornalistico recente trovato. Usa le tue conoscenze sulle squadre."
+                                news_context = "Nessun articolo giornalistico degli ultimi 7 giorni trovato. Basati sulle tue conoscenze aggiornate delle squadre."
                         except Exception as e:
                             news_context = "Ricerca web fallita. Basati solo sui dati matematici forniti."
 
@@ -637,10 +640,10 @@ if st.session_state.analyzed:
                             
                         model = genai.GenerativeModel(modello_valido)
                         
-                        # 4. IL SUPER-PROMPT (ANTI-PIGRIZIA E ANTI-SPAM)
+                        # 4. IL SUPER-PROMPT CON BLOCCO TEMPORALE
                         prompt = f"""
                         Agisci come un Data Analyst calcistico Senior e Tipster Professionista. Non essere pigro, fornisci un'analisi lunga, dettagliata e precisa.
-                        Partita: {st.session_state.h_name} vs {st.session_state.a_name}.
+                        Oggi è il {oggi_str}. Stiamo analizzando la PROSSIMA partita imminente: {st.session_state.h_name} vs {st.session_state.a_name}.
                         
                         📊 1. METRICHE AVANZATE DEL SOFTWARE:
                         - Affidabilità Algoritmo (Stabilità): {st.session_state.stability:.1f}%
@@ -662,28 +665,27 @@ if st.session_state.analyzed:
                         - Multigol Partita: 1-3 Gol ({mg_1_3:.1%}) | 2-4 Gol ({mg_2_4:.1%})
                         - Multigol Squadre: Casa segna 1-2 gol ({mgh_1_2:.1%}) | Ospite segna 1-2 gol ({mga_1_2:.1%})
                         
-                        📰 4. ULTIME NOTIZIE WEB (Articoli Giornalistici in tempo reale):
+                        📰 4. ULTIME NOTIZIE WEB (Pubblicate negli ultimissimi giorni, attenzione alle date):
                         {news_context}
-                        (ATTENZIONE: Se le notizie fornite qui sopra non c'entrano col calcio o parlano di cose assurde tipo abbonamenti Spotify/Amazon, IGNORALE e basati sulle tue conoscenze pregresse sulle squadre).
                         
                         🔴 IL TUO COMPITO (RISPETTA QUESTA STRUTTURA ESATTA E NON ESSERE PIGRO):
                         
-                        1. **📋 Situazione Squadre e Formazioni:** Basandoti sulle notizie web fornite (sezione 4) o sulle tue conoscenze base, riassumi il contesto reale. Chi è infortunato? Quali sono le probabili scelte degli allenatori? 
+                        1. **📋 Situazione Squadre e Formazioni:** Basandoti ESCLUSIVAMENTE sulle notizie web recentissime fornite (sezione 4), riassumi il contesto reale del match imminente. Chi è infortunato oggi? Quali sono le scelte degli allenatori?
                         
-                        2. **🧠 Analisi Tattica Quantitativa:** Unisci i dati matematici (sezione 1) con il contesto reale. Analizza il divario degli xG, chi dominerà il pressing (PPDA), l'ingresso in area (Deep Completions) e la stabilità dell'algoritmo. Sii estremamente analitico e argomenta i decimali.
+                        2. **🧠 Analisi Tattica Quantitativa:** Unisci i dati matematici (sezione 1) con il contesto reale (sezione 4). Analizza il divario degli xG, chi dominerà il pressing (PPDA), l'ingresso in area (Deep Completions) e la stabilità dell'algoritmo. Sii estremamente analitico e argomenta i decimali.
                         
                         3. **📊 Analisi del Mercato e del Valore:** Controlla le quote del bookmaker (sezione 2). C'è una Value Bet matematica da sfruttare? Il mercato sta sottovalutando una delle due squadre?
                         
-                        4. **💎 Pronostici Ufficiali Consigliati:** Basandoti sulla griglia di TUTTI i mercati (sezione 3), fornisci 3 pronostici accurati e motiva la scelta.
+                        4. **💎 Pronostici Ufficiali Consigliati:** Basandoti sulla griglia di TUTTI i mercati (sezione 3), fornisci 3 pronostici accurati e motiva matematicamente la scelta.
                            - 🟢 **Safe Pick (Basso Rischio):** La giocata con probabilità assoluta più alta.
                            - 🟡 **Value Pick (Rapporto Qualità/Prezzo):** Il mercato con l'equilibrio migliore tra alta probabilità e quota/valore.
                            - 🔴 **Special Pick (Alta Resa):** Scegli un mercato avanzato (Multigol, Handicap) fortemente supportato dai dati.
                            
-                        ATTENZIONE: NON menzionare MAI angoli, tiri o cartellini nella tua analisi. Sii esaustivo e scrivi come un analista professionista.
+                        ATTENZIONE: NON menzionare MAI angoli, tiri o cartellini nella tua analisi. IGNORA le notizie se sono chiaramente riferite a partite di anni fa. Sii preciso e scrivi come un analista professionista.
                         """
                         
                         # 5. GENERA E MOSTRA
-                        with st.spinner("✍️ L'IA sta incrociando decine di mercati matematici con le probabili formazioni. Richiede qualche secondo..."):
+                        with st.spinner("✍️ L'IA sta verificando le fonti recenti e scrivendo l'analisi..."):
                             response = model.generate_content(prompt)
                             st.success("✅ Analisi giornalistica avanzata generata con successo!")
                             st.markdown("---")
