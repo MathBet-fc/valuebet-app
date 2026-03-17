@@ -573,13 +573,13 @@ if st.session_state.analyzed:
 # ---------------- TAB 8: GIORNALISTA AI (GEMINI + WEB SEARCH) ----------------
     with tab8:
         st.subheader("✍️ Giornalista AI (Math + Real-Time News)")
-        st.markdown("L'IA analizzerà **tutti i dati matematici completi** (escludendo i mercati secondari manuali) e le notizie web per un'analisi iper-dettagliata.")
+        st.markdown("L'IA analizzerà **tutti i dati matematici completi** e le notizie web. Se mancano news sul match, analizzerà l'ultima partita giocata.")
         
         if st.button("📝 Cerca News e Genera Articolo", type="primary"):
             if not GEMINI_API_KEY or GEMINI_API_KEY == "INSERISCI_QUI_LA_TUA_CHIAVE_GEMINI":
                 st.warning("⚠️ Inserisci la tua vera API Key di Gemini all'inizio del codice (riga 15).")
             else:
-                with st.spinner("🔍 Ricerca notizie strettamente recenti (ultimi 7 giorni) in corso..."):
+                with st.spinner("🔍 Ricerca notizie recenti o tabellini dell'ultima partita in corso..."):
                     try:
                         from duckduckgo_search import DDGS
                         import google.generativeai as genai
@@ -587,22 +587,31 @@ if st.session_state.analyzed:
                         
                         oggi_str = datetime.now().strftime("%Y-%m-%d")
                         
-                        # 1. RICERCA WEB BLINDATA (SOLO ULTIMI 7 GIORNI: timelimit='w')
+                        # 1. RICERCA WEB: PIANO A (Match Imminente)
                         search_query = f"probabili formazioni {st.session_state.h_name} {st.session_state.a_name} calcio"
                         news_context = ""
                         try:
-                            # region='it-it' per l'Italia, timelimit='w' per l'ultima settimana
-                            search_results = DDGS().news(search_query, region='it-it', timelimit='w', max_results=5)
-                            news_context = "\n".join([f"- Data Pubblicazione: {res.get('date', '')[:10]} | Titolo: {res.get('title', '')} | Riassunto: {res.get('body', '')}" for res in search_results])
+                            search_results = DDGS().news(search_query, region='it-it', timelimit='w', max_results=4)
+                            news_context = "\n".join([f"- Data: {res.get('date', '')[:10]} | Titolo: {res.get('title', '')} | Riassunto: {res.get('body', '')}" for res in search_results])
                             
-                            # PIANO B se non trova "formazioni"
+                            # PIANO B: Cerca infortuni per il match
                             if not news_context.strip():
-                                search_query_2 = f"{st.session_state.h_name} {st.session_state.a_name} infortuni ultime notizie"
-                                search_results_2 = DDGS().news(search_query_2, region='it-it', timelimit='w', max_results=4)
-                                news_context = "\n".join([f"- Data Pubblicazione: {res.get('date', '')[:10]} | Titolo: {res.get('title', '')} | Riassunto: {res.get('body', '')}" for res in search_results_2])
+                                search_query_2 = f"{st.session_state.h_name} {st.session_state.a_name} infortuni squalificati"
+                                search_results_2 = DDGS().news(search_query_2, region='it-it', timelimit='w', max_results=3)
+                                news_context = "\n".join([f"- Data: {res.get('date', '')[:10]} | Titolo: {res.get('title', '')} | Riassunto: {res.get('body', '')}" for res in search_results_2])
                                 
+                            # PIANO C: Se non c'è NULLA sul match diretto, cerca L'ULTIMA PARTITA di entrambe
                             if not news_context.strip():
-                                news_context = "Nessun articolo giornalistico degli ultimi 7 giorni trovato. Basati sulle tue conoscenze aggiornate delle squadre."
+                                q_h = f"formazione ufficiale tabellino {st.session_state.h_name} ultima partita infortuni ammoniti"
+                                res_h = DDGS().news(q_h, region='it-it', timelimit='w', max_results=3)
+                                ctx_h = "\n".join([f"- Data: {res.get('date', '')[:10]} | Titolo: {res.get('title', '')} | Testo: {res.get('body', '')}" for res in res_h])
+                                
+                                q_a = f"formazione ufficiale tabellino {st.session_state.a_name} ultima partita infortuni ammoniti"
+                                res_a = DDGS().news(q_a, region='it-it', timelimit='w', max_results=3)
+                                ctx_a = "\n".join([f"- Data: {res.get('date', '')[:10]} | Titolo: {res.get('title', '')} | Testo: {res.get('body', '')}" for res in res_a])
+                                
+                                news_context = f"--- INFO ULTIMA PARTITA {st.session_state.h_name} ---\n{ctx_h}\n\n--- INFO ULTIMA PARTITA {st.session_state.a_name} ---\n{ctx_a}\n\n(Nessuna news sul match diretto. Usa queste info passate)."
+                                
                         except Exception as e:
                             news_context = "Ricerca web fallita. Basati solo sui dati matematici forniti."
 
@@ -640,7 +649,7 @@ if st.session_state.analyzed:
                             
                         model = genai.GenerativeModel(modello_valido)
                         
-                        # 4. IL SUPER-PROMPT CON BLOCCO TEMPORALE
+                        # 4. IL SUPER-PROMPT CON ISTRUZIONI PER L'ULTIMA PARTITA
                         prompt = f"""
                         Agisci come un Data Analyst calcistico Senior e Tipster Professionista. Non essere pigro, fornisci un'analisi lunga, dettagliata e precisa.
                         Oggi è il {oggi_str}. Stiamo analizzando la PROSSIMA partita imminente: {st.session_state.h_name} vs {st.session_state.a_name}.
@@ -649,43 +658,42 @@ if st.session_state.analyzed:
                         - Affidabilità Algoritmo (Stabilità): {st.session_state.stability:.1f}%
                         - xG Aggiustati: {st.session_state.h_name} {st.session_state.f_xh:.2f} | {st.session_state.a_name} {st.session_state.f_xa:.2f}
                         - Forza Team (Elo Rating): Casa {st.session_state.h_elo} | Ospite {st.session_state.a_elo}
-                        - Pressione (PPDA - più basso = pressing più feroce): Casa {st.session_state.h_ppda:.1f} | Ospite {st.session_state.a_ppda:.1f}
+                        - Pressione (PPDA): Casa {st.session_state.h_ppda:.1f} | Ospite {st.session_state.a_ppda:.1f}
                         - Pericolosità in Area (Deep Completions): Casa {st.session_state.h_dc:.1f} | Ospite {st.session_state.a_dc:.1f}
                         
-                        💰 2. CONFRONTO QUOTE E VALORE MATEMATICO (Value Bet se > 0%):
-                        - Esito 1: Probabilità {p1:.1%} | Quota Bookmaker: {b1} | Valore: {val_1:.1%}
-                        - Esito X: Probabilità {pX:.1%} | Quota Bookmaker: {bX} | Valore: {val_X:.1%}
-                        - Esito 2: Probabilità {p2:.1%} | Quota Bookmaker: {b2} | Valore: {val_2:.1%}
+                        💰 2. CONFRONTO QUOTE E VALORE MATEMATICO:
+                        - Esito 1: Probabilità {p1:.1%} | Quota: {b1} | Valore: {val_1:.1%}
+                        - Esito X: Probabilità {pX:.1%} | Quota: {bX} | Valore: {val_X:.1%}
+                        - Esito 2: Probabilità {p2:.1%} | Quota: {b2} | Valore: {val_2:.1%}
                         
                         🎯 3. MATRICE PROBABILITÀ MERCATI COMPLETA:
                         - Doppia Chance: 1X ({p1X:.1%}) | X2 ({pX2:.1%}) | 12 ({p12:.1%})
-                        - Handicap Asiatico (-1.5): Vittoria Casa con 2+ gol di scarto ({ph_minus_15:.1%}) | Vittoria Ospite con 2+ gol di scarto ({pa_minus_15:.1%})
+                        - Handicap Asiatico (-1.5): Casa (-1.5) ({ph_minus_15:.1%}) | Ospite (-1.5) ({pa_minus_15:.1%})
                         - Under/Over: Over 1.5 ({pO15:.1%}) | Over 2.5 ({st.session_state.pO25:.1%}) | Under 3.5 ({pU35:.1%})
-                        - Goal/NoGoal: Goal/BTTS ({st.session_state.pGG:.1%}) | NoGoal ({1-st.session_state.pGG:.1%})
-                        - Multigol Partita: 1-3 Gol ({mg_1_3:.1%}) | 2-4 Gol ({mg_2_4:.1%})
-                        - Multigol Squadre: Casa segna 1-2 gol ({mgh_1_2:.1%}) | Ospite segna 1-2 gol ({mga_1_2:.1%})
+                        - Goal/NoGoal: Goal ({st.session_state.pGG:.1%}) | NoGoal ({1-st.session_state.pGG:.1%})
+                        - Multigol: Partita 1-3 ({mg_1_3:.1%}) | Partita 2-4 ({mg_2_4:.1%})
                         
-                        📰 4. ULTIME NOTIZIE WEB (Pubblicate negli ultimissimi giorni, attenzione alle date):
+                        📰 4. ULTIME NOTIZIE WEB (Imminenti o relative all'ultima gara):
                         {news_context}
                         
                         🔴 IL TUO COMPITO (RISPETTA QUESTA STRUTTURA ESATTA E NON ESSERE PIGRO):
                         
-                        1. **📋 Situazione Squadre e Formazioni:** Basandoti ESCLUSIVAMENTE sulle notizie web recentissime fornite (sezione 4), riassumi il contesto reale del match imminente. Chi è infortunato oggi? Quali sono le scelte degli allenatori?
+                        1. **📋 Situazione Squadre e Formazioni:** Basandoti ESCLUSIVAMENTE sulle notizie web recentissime fornite (sezione 4), riassumi il contesto. ATTENZIONE: Se non ci sono notizie per il match diretto ma ci sono quelle dell'ULTIMA partita giocata, dichiaralo apertamente. In questo caso, specifica la data di quell'ultima partita, contro chi hanno giocato, riporta la formazione utilizzata e controlla se i testi menzionano infortuni, ammonizioni o squalifiche (cartellini rossi/diffide) che peseranno sul match che stiamo analizzando.
                         
-                        2. **🧠 Analisi Tattica Quantitativa:** Unisci i dati matematici (sezione 1) con il contesto reale (sezione 4). Analizza il divario degli xG, chi dominerà il pressing (PPDA), l'ingresso in area (Deep Completions) e la stabilità dell'algoritmo. Sii estremamente analitico e argomenta i decimali.
+                        2. **🧠 Analisi Tattica Quantitativa:** Unisci i dati matematici (sezione 1) col contesto reale. Analizza il divario degli xG, il pressing (PPDA), l'ingresso in area (Deep Completions) e la stabilità. Sii analitico e argomenta i decimali.
                         
-                        3. **📊 Analisi del Mercato e del Valore:** Controlla le quote del bookmaker (sezione 2). C'è una Value Bet matematica da sfruttare? Il mercato sta sottovalutando una delle due squadre?
+                        3. **📊 Analisi del Mercato e del Valore:** Controlla le quote (sezione 2). C'è una Value Bet matematica da sfruttare? 
                         
-                        4. **💎 Pronostici Ufficiali Consigliati:** Basandoti sulla griglia di TUTTI i mercati (sezione 3), fornisci 3 pronostici accurati e motiva matematicamente la scelta.
-                           - 🟢 **Safe Pick (Basso Rischio):** La giocata con probabilità assoluta più alta.
-                           - 🟡 **Value Pick (Rapporto Qualità/Prezzo):** Il mercato con l'equilibrio migliore tra alta probabilità e quota/valore.
-                           - 🔴 **Special Pick (Alta Resa):** Scegli un mercato avanzato (Multigol, Handicap) fortemente supportato dai dati.
+                        4. **💎 Pronostici Ufficiali Consigliati:** Fornisci 3 pronostici accurati motivando la scelta in base alla griglia di TUTTI i mercati (sezione 3).
+                           - 🟢 **Safe Pick (Basso Rischio):** Probabilità assoluta più alta (es. Under 3.5, O1.5).
+                           - 🟡 **Value Pick (Qualità/Prezzo):** Miglior equilibrio probabilità/valore.
+                           - 🔴 **Special Pick (Alta Resa):** Mercato avanzato fortemente supportato dai dati (Multigol, Handicap).
                            
-                        ATTENZIONE: NON menzionare MAI angoli, tiri o cartellini nella tua analisi. IGNORA le notizie se sono chiaramente riferite a partite di anni fa. Sii preciso e scrivi come un analista professionista.
+                        ATTENZIONE: NON menzionare MAI angoli, tiri o cartellini per il match da pronosticare. Sii preciso e scrivi come un analista professionista.
                         """
                         
                         # 5. GENERA E MOSTRA
-                        with st.spinner("✍️ L'IA sta verificando le fonti recenti e scrivendo l'analisi..."):
+                        with st.spinner("✍️ L'IA sta verificando le fonti recenti (o i tabellini passati) e scrivendo l'analisi..."):
                             response = model.generate_content(prompt)
                             st.success("✅ Analisi giornalistica avanzata generata con successo!")
                             st.markdown("---")
