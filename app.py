@@ -573,73 +573,109 @@ if st.session_state.analyzed:
     # ---------------- TAB 8: GIORNALISTA AI (GEMINI + WEB SEARCH) ----------------
     with tab8:
         st.subheader("✍️ Giornalista AI (Math + Real-Time News)")
-        st.markdown("L'IA cercherà le ultime notizie (probabili formazioni, infortuni) su siti come Goal.com e le unirà alle tue percentuali matematiche per scrivere un pronostico perfetto.")
+        st.markdown("L'IA analizzerà **tutti i dati matematici completi** (escludendo i mercati secondari manuali) e le notizie web per un'analisi iper-dettagliata.")
         
         if st.button("📝 Cerca News e Genera Articolo", type="primary"):
             if not GEMINI_API_KEY or GEMINI_API_KEY == "INSERISCI_QUI_LA_TUA_CHIAVE_GEMINI":
-                st.warning("⚠️ Inserisci la tua vera API Key di Gemini all'inizio del codice (riga 15) per continuare.")
+                st.warning("⚠️ Inserisci la tua vera API Key di Gemini all'inizio del codice (riga 15).")
             else:
-                with st.spinner("🔍 Ricerca probabili formazioni e infortuni in corso sul web..."):
+                with st.spinner("🔍 Ricerca notizie, formazioni e calcolo dei mercati complessi in corso..."):
                     try:
                         from duckduckgo_search import DDGS
                         import google.generativeai as genai
                         
-                        # 1. IL BOT CERCA LE NOTIZIE IN TEMPO REALE
-                        search_query = f"{st.session_state.h_name} {st.session_state.a_name} probabili formazioni infortuni site:goal.com/it"
+                        # 1. RICERCA WEB
+                        search_query = f"probabili formazioni infortuni {st.session_state.h_name} {st.session_state.a_name} ultime notizie"
                         try:
-                            search_results = DDGS().text(search_query, max_results=3)
+                            search_results = DDGS().text(search_query, max_results=4)
                             news_context = "\n".join([f"- {res['body']}" for res in search_results])
+                            if not news_context.strip():
+                                news_context = "Nessuna notizia testuale trovata sul web per questa partita."
                         except Exception as e:
-                            news_context = "Nessuna notizia recente trovata. Basati solo sui dati matematici."
+                            news_context = "Ricerca web fallita. Basati solo sui dati matematici forniti."
 
-                       # 2. CONFIGURA GEMINI E TROVA IL MODELLO IN AUTOMATICO
-                        genai.configure(api_key=GEMINI_API_KEY)
+                        # 2. ESTRAZIONE DI TUTTI I DATI E MERCATI PER IL PROMPT
+                        p1, pX, p2 = st.session_state.p1, st.session_state.pX, st.session_state.p2
+                        p1X, pX2, p12 = p1+pX, pX+p2, p1+p2
                         
-                        # Il codice chiede a Google quali modelli sono attivi oggi per la tua API
+                        b1, bX, b2 = st.session_state.b1, st.session_state.bX, st.session_state.b2
+                        val_1, val_X, val_2 = (b1*p1)-1, (bX*pX)-1, (b2*p2)-1
+                        
+                        mat = st.session_state.matrix
+                        pO15 = np.sum(mat[np.indices((10,10))[0] + np.indices((10,10))[1] > 1.5])
+                        pU35 = np.sum(mat[np.indices((10,10))[0] + np.indices((10,10))[1] <= 3.5])
+                        
+                        mg_1_3 = np.sum(mat[(np.indices((10,10))[0] + np.indices((10,10))[1] >= 1) & (np.indices((10,10))[0] + np.indices((10,10))[1] <= 3)])
+                        mg_2_4 = np.sum(mat[(np.indices((10,10))[0] + np.indices((10,10))[1] >= 2) & (np.indices((10,10))[0] + np.indices((10,10))[1] <= 4)])
+                        
+                        mgh_1_2 = np.sum(mat[(np.indices((10,10))[0] >= 1) & (np.indices((10,10))[0] <= 2)])
+                        mga_1_2 = np.sum(mat[(np.indices((10,10))[1] >= 1) & (np.indices((10,10))[1] <= 2)])
+                        
+                        ph_minus_15 = np.sum(mat[np.indices((10,10))[0] - np.indices((10,10))[1] >= 2])
+                        pa_minus_15 = np.sum(mat[np.indices((10,10))[1] - np.indices((10,10))[0] >= 2])
+
+                        # 3. CONFIGURA GEMINI IN MODO DINAMICO
+                        genai.configure(api_key=GEMINI_API_KEY)
                         modello_valido = None
                         for m in genai.list_models():
                             if 'generateContent' in m.supported_generation_methods:
                                 modello_valido = m.name
-                                # Preferiamo la versione 'flash' se disponibile perché è più veloce
-                                if 'flash' in m.name:
-                                    break
+                                if 'flash' in m.name: break
                                     
                         if not modello_valido:
                             st.error("❌ Nessun modello compatibile trovato con questa API Key.")
                             st.stop()
                             
-                        # Carica il modello esatto trovato sui server di Google
                         model = genai.GenerativeModel(modello_valido)
                         
-                        # 3. IL SUPER-PROMPT (MATEMATICA + GIORNALISMO)
+                        # 4. IL SUPER-PROMPT SEVERO E COMPLETO
                         prompt = f"""
-                        Agisci come un esperto analista di calcio e tipster professionista.
-                        Stiamo analizzando la partita: {st.session_state.h_name} contro {st.session_state.a_name}.
+                        Agisci come un Data Analyst calcistico Senior e Tipster Professionista. Non essere pigro, fornisci un'analisi lunga, dettagliata e precisa.
+                        Partita: {st.session_state.h_name} vs {st.session_state.a_name}.
                         
-                        📊 DATI MATEMATICI DEL NOSTRO ALGORITMO:
-                        - Expected Goals (xG) Calcolati: {st.session_state.h_name} {st.session_state.f_xh:.2f} - {st.session_state.a_name} {st.session_state.f_xa:.2f}
-                        - Rating Forza (Elo): Casa {st.session_state.h_elo} vs Ospite {st.session_state.a_elo}
-                        - Intensità Pressing (PPDA): Casa {st.session_state.h_ppda:.1f} vs Ospite {st.session_state.a_ppda:.1f}
+                        📊 1. METRICHE AVANZATE DEL SOFTWARE:
+                        - Affidabilità Algoritmo (Stabilità): {st.session_state.stability:.1f}%
+                        - xG Aggiustati: {st.session_state.h_name} {st.session_state.f_xh:.2f} | {st.session_state.a_name} {st.session_state.f_xa:.2f}
+                        - Forza Team (Elo Rating): Casa {st.session_state.h_elo} | Ospite {st.session_state.a_elo}
+                        - Pressione (PPDA - più basso = pressing più feroce): Casa {st.session_state.h_ppda:.1f} | Ospite {st.session_state.a_ppda:.1f}
+                        - Pericolosità in Area (Deep Completions): Casa {st.session_state.h_dc:.1f} | Ospite {st.session_state.a_dc:.1f}
                         
-                        Probabilità Matematiche:
-                        - 1: {st.session_state.p1:.1%} | X: {st.session_state.pX:.1%} | 2: {st.session_state.p2:.1%}
-                        - Over 2.5: {st.session_state.pO25:.1%} | Goal (BTTS): {st.session_state.pGG:.1%}
+                        💰 2. CONFRONTO QUOTE E VALORE MATEMATICO (Value Bet se > 0%):
+                        - Esito 1: Probabilità {p1:.1%} | Quota Bookmaker: {b1} | Valore: {val_1:.1%}
+                        - Esito X: Probabilità {pX:.1%} | Quota Bookmaker: {bX} | Valore: {val_X:.1%}
+                        - Esito 2: Probabilità {p2:.1%} | Quota Bookmaker: {b2} | Valore: {val_2:.1%}
                         
-                        📰 ULTIME NOTIZIE E PROBABILI FORMAZIONI (Trovate sul web in questo istante):
+                        🎯 3. MATRICE PROBABILITÀ MERCATI COMPLETA:
+                        - Doppia Chance: 1X ({p1X:.1%}) | X2 ({pX2:.1%}) | 12 ({p12:.1%})
+                        - Handicap Asiatico (-1.5): Vittoria Casa con 2+ gol di scarto ({ph_minus_15:.1%}) | Vittoria Ospite con 2+ gol di scarto ({pa_minus_15:.1%})
+                        - Under/Over: Over 1.5 ({pO15:.1%}) | Over 2.5 ({st.session_state.pO25:.1%}) | Under 3.5 ({pU35:.1%})
+                        - Goal/NoGoal: Goal/BTTS ({st.session_state.pGG:.1%}) | NoGoal ({1-st.session_state.pGG:.1%})
+                        - Multigol Partita: 1-3 Gol ({mg_1_3:.1%}) | 2-4 Gol ({mg_2_4:.1%})
+                        - Multigol Squadre: Casa segna 1-2 gol ({mgh_1_2:.1%}) | Ospite segna 1-2 gol ({mga_1_2:.1%})
+                        
+                        📰 4. ULTIME NOTIZIE WEB (Infortuni, probabili formazioni, contesto reale):
                         {news_context}
                         
-                        Compito:
-                        Scrivi un'analisi discorsiva (circa 200-250 parole) pronta per essere pubblicata su un canale Telegram o blog di scommesse.
-                        1. Inizia valutando il contesto reale del match basandoti sulle ULTIME NOTIZIE fornite (cita assenze pesanti, ballottaggi o scelte degli allenatori se presenti nelle news).
-                        2. Unisci questo contesto giornalistico ai DATI MATEMATICI (es. se manca il bomber titolare secondo le news, fai notare come la squadra potrebbe faticare a raggiungere gli xG previsti).
-                        3. Concludi con un "Pronostico Consigliato" molto chiaro, scegliendo il mercato con più valore tra 1X2, Under/Over o Goal/NoGoal incrociando i numeri con le news.
-                        Usa un tono persuasivo, professionale e accattivante. Non inventare infortuni se non sono citati nelle notizie.
+                        🔴 IL TUO COMPITO (RISPETTA QUESTA STRUTTURA ESATTA, SII DETTAGLIATO):
+                        
+                        1. **📋 Situazione Squadre e Formazioni:** Basandoti ESCLUSIVAMENTE sulle notizie web fornite (sezione 4), riassumi il contesto reale. Chi è infortunato? Quali sono le probabili scelte degli allenatori e le formazioni? Come impatta questo sul match?
+                        
+                        2. **🧠 Analisi Tattica Quantitativa:** Unisci i dati matematici (sezione 1) con il contesto reale (sezione 4). Analizza il divario degli xG, chi dominerà il pressing (PPDA), l'ingresso in area (Deep Completions) e la stabilità dell'algoritmo. Sii estremamente analitico e non generico.
+                        
+                        3. **📊 Analisi del Mercato e del Valore:** Controlla le quote del bookmaker (sezione 2). C'è una Value Bet matematica da sfruttare? Il mercato sta sottovalutando una delle due squadre in base alle probabilità?
+                        
+                        4. **💎 Pronostici Ufficiali Consigliati:** Basandoti sulla griglia di TUTTI i mercati (sezione 3), fornisci 3 pronostici accurati e motiva matematicamente la scelta, esplorando mercati avanzati (Handicap, Multigol, Doppia Chance) oltre al banale 1X2.
+                           - 🟢 **Safe Pick (Basso Rischio):** Scegli la giocata con probabilità assoluta più alta e coperta (es. Doppia chance, Over 1.5, Under 3.5).
+                           - 🟡 **Value Pick (Rapporto Qualità/Prezzo):** Scegli il mercato con l'equilibrio migliore tra alta probabilità e quota/valore nascosto.
+                           - 🔴 **Special Pick (Alta Resa):** Scegli un mercato avanzato (es. Multigol Casa, Handicap Asiatico) supportato fortemente dai numeri della matrice.
+                           
+                        ATTENZIONE: NON menzionare MAI angoli, tiri o cartellini nella tua analisi. Sii esaustivo, preciso nei dati decimali e scrivi come un analista professionista.
                         """
                         
-                        # 4. GENERA E MOSTRA L'ARTICOLO
-                        with st.spinner("✍️ L'IA sta studiando le news e i numeri per scrivere l'articolo..."):
+                        # 5. GENERA E MOSTRA
+                        with st.spinner("✍️ L'IA sta incrociando decine di mercati matematici con le probabili formazioni. Richiede qualche secondo..."):
                             response = model.generate_content(prompt)
-                            st.success("✅ Analisi giornalistica generata con successo!")
+                            st.success("✅ Analisi giornalistica avanzata generata con successo!")
                             st.markdown("---")
                             st.markdown(response.text)
                         
