@@ -573,13 +573,13 @@ if st.session_state.analyzed:
 # ---------------- TAB 8: GIORNALISTA AI (GEMINI + WEB SEARCH) ----------------
     with tab8:
         st.subheader("✍️ Giornalista AI (Math + Real-Time News)")
-        st.markdown("L'IA analizzerà **tutti i dati matematici completi** e le notizie web. Se mancano news sul match, analizzerà l'ultima partita giocata.")
+        st.markdown("L'IA analizzerà **tutti i dati matematici completi** e le notizie web. Se mancano news sul match, cercherà i tabellini dell'ultima partita giocata.")
         
         if st.button("📝 Cerca News e Genera Articolo", type="primary"):
             if not GEMINI_API_KEY or GEMINI_API_KEY == "INSERISCI_QUI_LA_TUA_CHIAVE_GEMINI":
                 st.warning("⚠️ Inserisci la tua vera API Key di Gemini all'inizio del codice (riga 15).")
             else:
-                with st.spinner("🔍 Ricerca notizie recenti o tabellini dell'ultima partita in corso..."):
+                with st.spinner("🔍 Ricerca notizie recenti o tabellini in corso..."):
                     try:
                         from duckduckgo_search import DDGS
                         import google.generativeai as genai
@@ -587,30 +587,31 @@ if st.session_state.analyzed:
                         
                         oggi_str = datetime.now().strftime("%Y-%m-%d")
                         
-                        # 1. RICERCA WEB: PIANO A (Match Imminente)
+                        # 1. RICERCA WEB: PIANO A (Match Imminente, news ultima settimana)
                         search_query = f"probabili formazioni {st.session_state.h_name} {st.session_state.a_name} calcio"
                         news_context = ""
                         try:
                             search_results = DDGS().news(search_query, region='it-it', timelimit='w', max_results=4)
                             news_context = "\n".join([f"- Data: {res.get('date', '')[:10]} | Titolo: {res.get('title', '')} | Riassunto: {res.get('body', '')}" for res in search_results])
                             
-                            # PIANO B: Cerca infortuni per il match
+                            # PIANO B: Cerca infortuni per il match (news ultima settimana)
                             if not news_context.strip():
                                 search_query_2 = f"{st.session_state.h_name} {st.session_state.a_name} infortuni squalificati"
                                 search_results_2 = DDGS().news(search_query_2, region='it-it', timelimit='w', max_results=3)
                                 news_context = "\n".join([f"- Data: {res.get('date', '')[:10]} | Titolo: {res.get('title', '')} | Riassunto: {res.get('body', '')}" for res in search_results_2])
                                 
-                            # PIANO C: Se non c'è NULLA sul match diretto, cerca L'ULTIMA PARTITA di entrambe
+                            # PIANO C: IL RECUPERO DEI TABELLINI (Ricerca web generica, ultimo mese)
                             if not news_context.strip():
-                                q_h = f"formazione ufficiale tabellino {st.session_state.h_name} ultima partita infortuni ammoniti"
-                                res_h = DDGS().news(q_h, region='it-it', timelimit='w', max_results=3)
-                                ctx_h = "\n".join([f"- Data: {res.get('date', '')[:10]} | Titolo: {res.get('title', '')} | Testo: {res.get('body', '')}" for res in res_h])
+                                # Usiamo .text() e timelimit='m' per trovare i tabellini anche se la gara è di 15-20 giorni fa
+                                q_h = f"{st.session_state.h_name} tabellino formazioni ufficiali pagelle infortunio"
+                                res_h = DDGS().text(q_h, region='it-it', timelimit='m', max_results=3)
+                                ctx_h = "\n".join([f"- Titolo: {res.get('title', '')} | Testo: {res.get('body', '')}" for res in res_h])
                                 
-                                q_a = f"formazione ufficiale tabellino {st.session_state.a_name} ultima partita infortuni ammoniti"
-                                res_a = DDGS().news(q_a, region='it-it', timelimit='w', max_results=3)
-                                ctx_a = "\n".join([f"- Data: {res.get('date', '')[:10]} | Titolo: {res.get('title', '')} | Testo: {res.get('body', '')}" for res in res_a])
+                                q_a = f"{st.session_state.a_name} tabellino formazioni ufficiali pagelle infortunio"
+                                res_a = DDGS().text(q_a, region='it-it', timelimit='m', max_results=3)
+                                ctx_a = "\n".join([f"- Titolo: {res.get('title', '')} | Testo: {res.get('body', '')}" for res in res_a])
                                 
-                                news_context = f"--- INFO ULTIMA PARTITA {st.session_state.h_name} ---\n{ctx_h}\n\n--- INFO ULTIMA PARTITA {st.session_state.a_name} ---\n{ctx_a}\n\n(Nessuna news sul match diretto. Usa queste info passate)."
+                                news_context = f"--- INFO ULTIMA PARTITA {st.session_state.h_name} ---\n{ctx_h}\n\n--- INFO ULTIMA PARTITA {st.session_state.a_name} ---\n{ctx_a}\n\n[ATTENZIONE PER L'IA: Queste informazioni sono del Piano C (tabellini partite scorse). Usale per dedurre formazioni e squalifiche.]"
                                 
                         except Exception as e:
                             news_context = "Ricerca web fallita. Basati solo sui dati matematici forniti."
@@ -673,23 +674,24 @@ if st.session_state.analyzed:
                         - Goal/NoGoal: Goal ({st.session_state.pGG:.1%}) | NoGoal ({1-st.session_state.pGG:.1%})
                         - Multigol: Partita 1-3 ({mg_1_3:.1%}) | Partita 2-4 ({mg_2_4:.1%})
                         
-                        📰 4. ULTIME NOTIZIE WEB (Imminenti o relative all'ultima gara):
+                        📰 4. ULTIME NOTIZIE WEB:
                         {news_context}
                         
                         🔴 IL TUO COMPITO (RISPETTA QUESTA STRUTTURA ESATTA E NON ESSERE PIGRO):
                         
-                        1. **📋 Situazione Squadre e Formazioni:** Basandoti ESCLUSIVAMENTE sulle notizie web recentissime fornite (sezione 4), riassumi il contesto. ATTENZIONE: Se non ci sono notizie per il match diretto ma ci sono quelle dell'ULTIMA partita giocata, dichiaralo apertamente. In questo caso, specifica la data di quell'ultima partita, contro chi hanno giocato, riporta la formazione utilizzata e controlla se i testi menzionano infortuni, ammonizioni o squalifiche (cartellini rossi/diffide) che peseranno sul match che stiamo analizzando.
+                        1. **📋 Situazione Squadre e Formazioni:** Seleziona le info utili dalla sezione 4. 
+                        Se vedi l'avviso "[ATTENZIONE PER L'IA...]" significa che stiamo usando i dati della loro ultima partita passata. In quel caso: dichiaralo esplicitamente, scrivi la probabile formazione basandoti sui nomi citati nei tabellini passati, ed elenca chi si è infortunato o è stato ammonito/espulso nel match scorso, deducendo chi mancherà in questa sfida imminente.
                         
                         2. **🧠 Analisi Tattica Quantitativa:** Unisci i dati matematici (sezione 1) col contesto reale. Analizza il divario degli xG, il pressing (PPDA), l'ingresso in area (Deep Completions) e la stabilità. Sii analitico e argomenta i decimali.
                         
                         3. **📊 Analisi del Mercato e del Valore:** Controlla le quote (sezione 2). C'è una Value Bet matematica da sfruttare? 
                         
                         4. **💎 Pronostici Ufficiali Consigliati:** Fornisci 3 pronostici accurati motivando la scelta in base alla griglia di TUTTI i mercati (sezione 3).
-                           - 🟢 **Safe Pick (Basso Rischio):** Probabilità assoluta più alta (es. Under 3.5, O1.5).
+                           - 🟢 **Safe Pick (Basso Rischio):** Probabilità assoluta più alta.
                            - 🟡 **Value Pick (Qualità/Prezzo):** Miglior equilibrio probabilità/valore.
                            - 🔴 **Special Pick (Alta Resa):** Mercato avanzato fortemente supportato dai dati (Multigol, Handicap).
                            
-                        ATTENZIONE: NON menzionare MAI angoli, tiri o cartellini per il match da pronosticare. Sii preciso e scrivi come un analista professionista.
+                        ATTENZIONE: NON menzionare MAI angoli, tiri o cartellini per il pronostico finale. Scrivi in modo esaustivo.
                         """
                         
                         # 5. GENERA E MOSTRA
