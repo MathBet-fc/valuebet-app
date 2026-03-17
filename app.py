@@ -570,7 +570,7 @@ if st.session_state.analyzed:
                 else:
                     st.warning("Non puntare su questo evento (Valore Negativo).")
 
-    # ---------------- TAB 8: GIORNALISTA AI (GEMINI + WEB SEARCH) ----------------
+# ---------------- TAB 8: GIORNALISTA AI (GEMINI + WEB SEARCH) ----------------
     with tab8:
         st.subheader("✍️ Giornalista AI (Math + Real-Time News)")
         st.markdown("L'IA analizzerà **tutti i dati matematici completi** (escludendo i mercati secondari manuali) e le notizie web per un'analisi iper-dettagliata.")
@@ -584,15 +584,26 @@ if st.session_state.analyzed:
                         from duckduckgo_search import DDGS
                         import google.generativeai as genai
                         
-                        # 1. RICERCA WEB
-                        search_query = f"probabili formazioni infortuni {st.session_state.h_name} {st.session_state.a_name} ultime notizie"
+                        # 1. RICERCA WEB OTTIMIZZATA E INTELLIGENTE
+                        # Stringa più pulita per non confondere il motore di ricerca
+                        search_query = f"probabili formazioni {st.session_state.h_name} {st.session_state.a_name}"
+                        news_context = ""
                         try:
-                            search_results = DDGS().text(search_query, max_results=4)
-                            news_context = "\n".join([f"- {res['body']}" for res in search_results])
+                            # Cerca solo in Italia (it-it) e solo notizie dell'ultima settimana (w)
+                            search_results = DDGS().text(search_query, region='it-it', timelimit='w', max_results=5)
+                            # Includiamo anche il "titolo" dell'articolo per dare più contesto all'IA
+                            news_context = "\n".join([f"- Titolo: {res.get('title', '')} | Riassunto: {res.get('body', '')}" for res in search_results])
+                            
+                            # PIANO B: Se non trova nulla, cerca nello specifico gli infortuni
                             if not news_context.strip():
-                                news_context = "Nessuna notizia testuale trovata sul web per questa partita."
+                                search_query_2 = f"infortuni squalificati {st.session_state.h_name} {st.session_state.a_name}"
+                                search_results_2 = DDGS().text(search_query_2, region='it-it', timelimit='w', max_results=3)
+                                news_context = "\n".join([f"- Titolo: {res.get('title', '')} | Riassunto: {res.get('body', '')}" for res in search_results_2])
+                                
+                            if not news_context.strip():
+                                news_context = "Nessuna notizia testuale trovata sul web per questa partita. Basati sulle tue conoscenze delle rose."
                         except Exception as e:
-                            news_context = "Ricerca web fallita. Basati solo sui dati matematici forniti."
+                            news_context = f"Ricerca web fallita (Errore rete). Basati solo sui dati matematici e sulle tue conoscenze delle squadre."
 
                         # 2. ESTRAZIONE DI TUTTI I DATI E MERCATI PER IL PROMPT
                         p1, pX, p2 = st.session_state.p1, st.session_state.pX, st.session_state.p2
@@ -658,7 +669,7 @@ if st.session_state.analyzed:
                         
                         🔴 IL TUO COMPITO (RISPETTA QUESTA STRUTTURA ESATTA, SII DETTAGLIATO):
                         
-                        1. **📋 Situazione Squadre e Formazioni:** Basandoti ESCLUSIVAMENTE sulle notizie web fornite (sezione 4), riassumi il contesto reale. Chi è infortunato? Quali sono le probabili scelte degli allenatori e le formazioni? Come impatta questo sul match?
+                        1. **📋 Situazione Squadre e Formazioni:** Basandoti ESCLUSIVAMENTE sulle notizie web fornite (sezione 4), riassumi il contesto reale. Chi è infortunato? Quali sono le probabili scelte degli allenatori e le formazioni? Come impatta questo sul match? Se le notizie sono scarse, dillo chiaramente.
                         
                         2. **🧠 Analisi Tattica Quantitativa:** Unisci i dati matematici (sezione 1) con il contesto reale (sezione 4). Analizza il divario degli xG, chi dominerà il pressing (PPDA), l'ingresso in area (Deep Completions) e la stabilità dell'algoritmo. Sii estremamente analitico e non generico.
                         
