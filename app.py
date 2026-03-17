@@ -573,13 +573,13 @@ if st.session_state.analyzed:
 # ---------------- TAB 8: GIORNALISTA AI (GEMINI + FULL WEB SCRAPING) ----------------
     with tab8:
         st.subheader("✍️ Giornalista AI (Scraping Articoli Completi)")
-        st.markdown("L'IA legge gli articoli per intero e incrocia le formazioni con tutti i dati matematici, fornendo le **Quote Fair (Quote Reali)** per scovare le Value Bet.")
+        st.markdown("L'IA (il *Figghiozzo*) legge gli articoli per intero e incrocia le formazioni con tutti i dati matematici, fornendo le Quote Fair per scovare le Value Bet.")
         
         if st.button("📝 Leggi Articoli e Genera Pronostico", type="primary"):
             if not GEMINI_API_KEY or GEMINI_API_KEY == "INSERISCI_QUI_LA_TUA_CHIAVE_GEMINI":
                 st.warning("⚠️ Inserisci la tua vera API Key di Gemini all'inizio del codice (riga 15).")
             else:
-                with st.spinner("🔍 Ricerca notizie, download articoli completi e calcolo mercati in corso (richiede qualche secondo in più)..."):
+                with st.spinner("🔍 Il Figghiozzo sta cercando notizie, scaricando articoli completi e calcolando i mercati..."):
                     try:
                         from duckduckgo_search import DDGS
                         import google.generativeai as genai
@@ -623,7 +623,7 @@ if st.session_state.analyzed:
                         except Exception as e:
                             news_context = "Ricerca web fallita. Basati solo sui dati matematici forniti e sulle tue conoscenze base."
 
-                        # 2. ESTRAZIONE DATI, MERCATI E CALCOLO DELLE QUOTE FAIR (1 / Probabilità)
+                        # 2. ESTRAZIONE DATI E CALCOLO QUOTE FAIR
                         p1, pX, p2 = st.session_state.p1, st.session_state.pX, st.session_state.p2
                         p1X, pX2, p12 = p1+pX, pX+p2, p1+p2
                         b1, bX, b2 = st.session_state.b1, st.session_state.bX, st.session_state.b2
@@ -641,7 +641,7 @@ if st.session_state.analyzed:
 
                         def qf(prob): return f"{1/prob:.2f}" if prob > 0.01 else "N/A"
 
-                        # 3. CONFIGURA GEMINI IN MODO DINAMICO
+                        # 3. CONFIGURA GEMINI
                         genai.configure(api_key=GEMINI_API_KEY)
                         modello_valido = None
                         for m in genai.list_models():
@@ -650,14 +650,16 @@ if st.session_state.analyzed:
                                 if 'flash' in m.name: break
                                     
                         if not modello_valido:
-                            st.error("❌ Nessun modello compatibile trovato con questa API Key.")
+                            st.error("❌ Nessun modello compatibile trovato.")
                             st.stop()
                             
                         model = genai.GenerativeModel(modello_valido)
                         
-                        # 4. IL SUPER-PROMPT (Aggiunta istruzione sulle Quote Fair)
+                        # 4. IL SUPER-PROMPT (Aggiunto il nome Figghiozzo)
                         prompt = f"""
-                        Agisci come un Data Analyst calcistico Senior e Tipster Professionista. Non essere pigro, fornisci un'analisi lunga, dettagliata e precisa.
+                        Agisci come un Data Analyst calcistico Senior e Tipster Professionista. 
+                        IL TUO NOME È "FIGGHIOZZO". Devi TASSATIVAMENTE iniziare la tua risposta presentandoti in modo amichevole e sicuro di te, dicendo una frase del tipo: "Ciao, sono il Figghiozzo e questa è la mia analisi..." oppure "Benvenuti, qui è il Figghiozzo che vi parla. Ecco i dati per il match...".
+                        Dopo esserti presentato, torna ad essere un analista serio, non essere pigro, fornisci un'analisi lunga, dettagliata e precisa.
                         Oggi è il {oggi_str}. Stiamo analizzando la PROSSIMA partita imminente: {st.session_state.h_name} vs {st.session_state.a_name}.
                         
                         📊 1. METRICHE AVANZATE DEL SOFTWARE:
@@ -698,9 +700,9 @@ if st.session_state.analyzed:
                         """
                         
                         # 5. GENERA E MOSTRA
-                        with st.spinner("✍️ L'IA ha letto gli articoli e sta calcolando le Quote Fair di tutti i mercati..."):
+                        with st.spinner("✍️ Il Figghiozzo sta leggendo gli articoli e calcolando le Quote Fair di tutti i mercati..."):
                             response = model.generate_content(prompt)
-                            st.success("✅ Analisi giornalistica avanzata generata con successo!")
+                            st.success("✅ Analisi del Figghiozzo generata con successo!")
                             st.markdown("---")
                             st.markdown(response.text)
                         
