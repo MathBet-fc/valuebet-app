@@ -570,69 +570,79 @@ if st.session_state.analyzed:
                 else:
                     st.warning("Non puntare su questo evento (Valore Negativo).")
 
-# ---------------- TAB 8: GIORNALISTA AI (GEMINI + WEB SEARCH) ----------------
+# ---------------- TAB 8: GIORNALISTA AI (GEMINI + FULL WEB SCRAPING) ----------------
     with tab8:
-        st.subheader("✍️ Giornalista AI (Math + Real-Time News)")
-        st.markdown("L'IA analizzerà **tutti i dati matematici completi** e le notizie web. Se mancano news sul match, cercherà i tabellini dell'ultima partita giocata.")
+        st.subheader("✍️ Giornalista AI (Scraping Articoli Completi)")
+        st.markdown("L'IA ora 'clicca' sui link delle notizie, legge gli articoli per intero e incrocia le informazioni con tutti i dati matematici della matrice.")
         
-        if st.button("📝 Cerca News e Genera Articolo", type="primary"):
+        if st.button("📝 Leggi Articoli e Genera Pronostico", type="primary"):
             if not GEMINI_API_KEY or GEMINI_API_KEY == "INSERISCI_QUI_LA_TUA_CHIAVE_GEMINI":
                 st.warning("⚠️ Inserisci la tua vera API Key di Gemini all'inizio del codice (riga 15).")
             else:
-                with st.spinner("🔍 Ricerca notizie recenti o tabellini in corso..."):
+                with st.spinner("🔍 Ricerca notizie, download articoli completi e calcolo mercati in corso (richiede qualche secondo in più)..."):
                     try:
                         from duckduckgo_search import DDGS
                         import google.generativeai as genai
                         from datetime import datetime
+                        import requests
+                        from bs4 import BeautifulSoup
                         
                         oggi_str = datetime.now().strftime("%Y-%m-%d")
                         
-                        # 1. RICERCA WEB: PIANO A (Match Imminente, news ultima settimana)
-                        search_query = f"probabili formazioni {st.session_state.h_name} {st.session_state.a_name} calcio"
-                        news_context = ""
+                        # 1. RICERCA WEB E SCRAPING DEGLI ARTICOLI COMPLETI
+                        search_query = f"{st.session_state.h_name} {st.session_state.a_name} probabili formazioni infortuni"
+                        full_articles = []
+                        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'} # Finge di essere un browser reale
+                        
                         try:
-                            search_results = DDGS().news(search_query, region='it-it', timelimit='w', max_results=4)
-                            news_context = "\n".join([f"- Data: {res.get('date', '')[:10]} | Titolo: {res.get('title', '')} | Riassunto: {res.get('body', '')}" for res in search_results])
+                            # Cerca le prime 3 notizie italiane dell'ultima settimana
+                            search_results = DDGS().news(search_query, region='it-it', timelimit='w', max_results=3)
                             
-                            # PIANO B: Cerca infortuni per il match (news ultima settimana)
-                            if not news_context.strip():
-                                search_query_2 = f"{st.session_state.h_name} {st.session_state.a_name} infortuni squalificati"
-                                search_results_2 = DDGS().news(search_query_2, region='it-it', timelimit='w', max_results=3)
-                                news_context = "\n".join([f"- Data: {res.get('date', '')[:10]} | Titolo: {res.get('title', '')} | Riassunto: {res.get('body', '')}" for res in search_results_2])
+                            # Se non trova niente, prova con i tabellini dell'ultimo mese
+                            if not search_results:
+                                search_query_2 = f"{st.session_state.h_name} infortunati squalificati out"
+                                search_results = DDGS().text(search_query_2, region='it-it', timelimit='m', max_results=2)
+                                search_query_3 = f"{st.session_state.a_name} infortunati squalificati out"
+                                search_results += DDGS().text(search_query_3, region='it-it', timelimit='m', max_results=2)
                                 
-                            # PIANO C: IL RECUPERO DEI TABELLINI (Ricerca web generica, ultimo mese)
-                            if not news_context.strip():
-                                # Usiamo .text() e timelimit='m' per trovare i tabellini anche se la gara è di 15-20 giorni fa
-                                q_h = f"{st.session_state.h_name} tabellino formazioni ufficiali pagelle infortunio"
-                                res_h = DDGS().text(q_h, region='it-it', timelimit='m', max_results=3)
-                                ctx_h = "\n".join([f"- Titolo: {res.get('title', '')} | Testo: {res.get('body', '')}" for res in res_h])
-                                
-                                q_a = f"{st.session_state.a_name} tabellino formazioni ufficiali pagelle infortunio"
-                                res_a = DDGS().text(q_a, region='it-it', timelimit='m', max_results=3)
-                                ctx_a = "\n".join([f"- Titolo: {res.get('title', '')} | Testo: {res.get('body', '')}" for res in res_a])
-                                
-                                news_context = f"--- INFO ULTIMA PARTITA {st.session_state.h_name} ---\n{ctx_h}\n\n--- INFO ULTIMA PARTITA {st.session_state.a_name} ---\n{ctx_a}\n\n[ATTENZIONE PER L'IA: Queste informazioni sono del Piano C (tabellini partite scorse). Usale per dedurre formazioni e squalifiche.]"
+                            # Entra nei siti e legge gli articoli interi
+                            for res in search_results:
+                                url = res.get('url', '')
+                                if url:
+                                    try:
+                                        page = requests.get(url, headers=headers, timeout=5)
+                                        soup = BeautifulSoup(page.content, 'html.parser')
+                                        # Estrae tutto il testo dentro i tag <p> (paragrafi dell'articolo)
+                                        paragraphs = soup.find_all('p')
+                                        article_text = " ".join([p.get_text() for p in paragraphs])
+                                        
+                                        # Passiamo fino a 5000 caratteri per articolo all'IA
+                                        full_articles.append(f"--- ARTICOLO DA: {res.get('source', 'Sito Web')} ---\nTitolo: {res.get('title', '')}\nTesto: {article_text[:5000]}\n")
+                                    except Exception:
+                                        # Se il sito blocca l'accesso, usa il riassunto come piano di riserva
+                                        full_articles.append(f"--- ARTICOLO DA: {res.get('source', 'Sito Web')} ---\nTitolo: {res.get('title', '')}\nRiassunto: {res.get('body', '')}\n")
+                            
+                            if full_articles:
+                                news_context = "\n".join(full_articles)
+                            else:
+                                news_context = "Nessuna notizia testuale trovata sul web per questa partita. Basati sulle tue conoscenze delle rose."
                                 
                         except Exception as e:
-                            news_context = "Ricerca web fallita. Basati solo sui dati matematici forniti."
+                            news_context = "Ricerca web fallita. Basati solo sui dati matematici forniti e sulle tue conoscenze base."
 
                         # 2. ESTRAZIONE DI TUTTI I DATI E MERCATI PER IL PROMPT
                         p1, pX, p2 = st.session_state.p1, st.session_state.pX, st.session_state.p2
                         p1X, pX2, p12 = p1+pX, pX+p2, p1+p2
-                        
                         b1, bX, b2 = st.session_state.b1, st.session_state.bX, st.session_state.b2
                         val_1, val_X, val_2 = (b1*p1)-1, (bX*pX)-1, (b2*p2)-1
                         
                         mat = st.session_state.matrix
                         pO15 = np.sum(mat[np.indices((10,10))[0] + np.indices((10,10))[1] > 1.5])
                         pU35 = np.sum(mat[np.indices((10,10))[0] + np.indices((10,10))[1] <= 3.5])
-                        
                         mg_1_3 = np.sum(mat[(np.indices((10,10))[0] + np.indices((10,10))[1] >= 1) & (np.indices((10,10))[0] + np.indices((10,10))[1] <= 3)])
                         mg_2_4 = np.sum(mat[(np.indices((10,10))[0] + np.indices((10,10))[1] >= 2) & (np.indices((10,10))[0] + np.indices((10,10))[1] <= 4)])
-                        
                         mgh_1_2 = np.sum(mat[(np.indices((10,10))[0] >= 1) & (np.indices((10,10))[0] <= 2)])
                         mga_1_2 = np.sum(mat[(np.indices((10,10))[1] >= 1) & (np.indices((10,10))[1] <= 2)])
-                        
                         ph_minus_15 = np.sum(mat[np.indices((10,10))[0] - np.indices((10,10))[1] >= 2])
                         pa_minus_15 = np.sum(mat[np.indices((10,10))[1] - np.indices((10,10))[0] >= 2])
 
@@ -650,7 +660,7 @@ if st.session_state.analyzed:
                             
                         model = genai.GenerativeModel(modello_valido)
                         
-                        # 4. IL SUPER-PROMPT CON ISTRUZIONI PER L'ULTIMA PARTITA
+                        # 4. IL SUPER-PROMPT (Legge articoli completi)
                         prompt = f"""
                         Agisci come un Data Analyst calcistico Senior e Tipster Professionista. Non essere pigro, fornisci un'analisi lunga, dettagliata e precisa.
                         Oggi è il {oggi_str}. Stiamo analizzando la PROSSIMA partita imminente: {st.session_state.h_name} vs {st.session_state.a_name}.
@@ -674,34 +684,33 @@ if st.session_state.analyzed:
                         - Goal/NoGoal: Goal ({st.session_state.pGG:.1%}) | NoGoal ({1-st.session_state.pGG:.1%})
                         - Multigol: Partita 1-3 ({mg_1_3:.1%}) | Partita 2-4 ({mg_2_4:.1%})
                         
-                        📰 4. ULTIME NOTIZIE WEB:
+                        📰 4. TESTO COMPLETO DEGLI ARTICOLI SPORTIVI:
                         {news_context}
                         
                         🔴 IL TUO COMPITO (RISPETTA QUESTA STRUTTURA ESATTA E NON ESSERE PIGRO):
                         
-                        1. **📋 Situazione Squadre e Formazioni:** Seleziona le info utili dalla sezione 4. 
-                        Se vedi l'avviso "[ATTENZIONE PER L'IA...]" significa che stiamo usando i dati della loro ultima partita passata. In quel caso: dichiaralo esplicitamente, scrivi la probabile formazione basandoti sui nomi citati nei tabellini passati, ed elenca chi si è infortunato o è stato ammonito/espulso nel match scorso, deducendo chi mancherà in questa sfida imminente.
+                        1. **📋 Formazioni e Assenze:** DEVI SEMPRE scrivere una stima delle formazioni in campo (modulo e nomi). Avendo letto il testo completo degli articoli giornalistici qui sopra, estrai con precisione assoluta chi giocherà, chi è infortunato e chi è squalificato. Se le notizie sono carenti, usa la tua conoscenza storica per riempire i buchi, ma avvisa il lettore.
                         
-                        2. **🧠 Analisi Tattica Quantitativa:** Unisci i dati matematici (sezione 1) col contesto reale. Analizza il divario degli xG, il pressing (PPDA), l'ingresso in area (Deep Completions) e la stabilità. Sii analitico e argomenta i decimali.
+                        2. **🧠 Analisi Tattica Quantitativa:** Unisci i dati matematici (sezione 1) col contesto reale che hai appena letto negli articoli. Analizza il divario degli xG, il pressing (PPDA), l'ingresso in area e la stabilità. Sii analitico e argomenta i decimali.
                         
                         3. **📊 Analisi del Mercato e del Valore:** Controlla le quote (sezione 2). C'è una Value Bet matematica da sfruttare? 
                         
                         4. **💎 Pronostici Ufficiali Consigliati:** Fornisci 3 pronostici accurati motivando la scelta in base alla griglia di TUTTI i mercati (sezione 3).
                            - 🟢 **Safe Pick (Basso Rischio):** Probabilità assoluta più alta.
                            - 🟡 **Value Pick (Qualità/Prezzo):** Miglior equilibrio probabilità/valore.
-                           - 🔴 **Special Pick (Alta Resa):** Mercato avanzato fortemente supportato dai dati (Multigol, Handicap).
+                           - 🔴 **Special Pick (Alta Resa):** Mercato avanzato fortemente supportato dai dati.
                            
-                        ATTENZIONE: NON menzionare MAI angoli, tiri o cartellini per il pronostico finale. Scrivi in modo esaustivo.
+                        ATTENZIONE: NON menzionare MAI angoli, tiri o cartellini per il pronostico finale. Scrivi da esperto assoluto di betting.
                         """
                         
                         # 5. GENERA E MOSTRA
-                        with st.spinner("✍️ L'IA sta verificando le fonti recenti (o i tabellini passati) e scrivendo l'analisi..."):
+                        with st.spinner("✍️ L'IA ha letto gli articoli e sta incrociando i dati con la matrice matematica..."):
                             response = model.generate_content(prompt)
                             st.success("✅ Analisi giornalistica avanzata generata con successo!")
                             st.markdown("---")
                             st.markdown(response.text)
                         
                     except ImportError:
-                        st.error("🚨 Mancano le librerie. Aggiungi 'google-generativeai' e 'duckduckgo-search' a requirements.txt e fai un Reboot dell'app da Streamlit.")
+                        st.error("🚨 Mancano le librerie. Aggiungi 'beautifulsoup4' al file requirements.txt e fai un Reboot dell'app da Streamlit.")
                     except Exception as e:
                         st.error(f"Errore nella generazione dell'analisi: {e}")
