@@ -11,8 +11,8 @@ import engine
 # CONFIGURAZIONE API & PAGINA
 # ==============================================================================
 # 🔴 INSERISCI LE TUE CHIAVI API QUI SOTTO
-ODDS_API_KEY = "1b31f14ebbc80b505c8412a5dc4d6791"
-GEMINI_API_KEY = "AIzaSyBnoYaDfX50O3ycgz51URtDjV0y9m0-2mw"
+ODDS_API_KEY = st.secrets["ODDS_API_KEY"]
+GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
 
 st.set_page_config(page_title="Mathbet fc", page_icon="⚽", layout="wide")
 
