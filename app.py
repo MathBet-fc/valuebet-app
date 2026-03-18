@@ -176,7 +176,7 @@ if st.button("📰 Cerca News e Avvia Pre-Analisi", type="secondary"):
     if not GEMINI_API_KEY or GEMINI_API_KEY == "INSERISCI_QUI_LA_TUA_CHIAVE_GEMINI":
         st.warning("⚠️ Inserisci la tua vera API Key di Gemini all'inizio del codice (riga 15).")
     else:
-        with st.spinner("🔍 Il Figghiozzo sta forzando i sistemi anti-bot per leggere gli articoli completi..."):
+        with st.spinner("🔍 Il Figghiozzo sta forzando i sistemi anti-bot per estrarre le formazioni..."):
             try:
                 from duckduckgo_search import DDGS
                 import google.generativeai as genai
@@ -186,44 +186,45 @@ if st.button("📰 Cerca News e Avvia Pre-Analisi", type="secondary"):
                 
                 oggi_str = datetime.now().strftime("%Y-%m-%d")
                 
-                search_query = f"probabili formazioni {h_name} {a_name}"
+                # 1. RICERCA A CASCATA (News prima, Testo generico poi)
+                query_news = f"probabili formazioni {h_name} {a_name}"
+                query_text = f"probabili formazioni {h_name} {a_name} fantacalcio titolari"
                 full_articles = []
                 
-                # Inizializza lo scraper anti-Cloudflare
-                scraper = cloudscraper.create_scraper(browser={
-                    'browser': 'chrome',
-                    'platform': 'windows',
-                    'desktop': True
-                })
+                scraper = cloudscraper.create_scraper(browser={'browser': 'chrome', 'platform': 'windows', 'desktop': True})
                 
                 try:
-                    search_results = DDGS().text(search_query, region='it-it', timelimit='w', max_results=4)
+                    # TENTATIVO 1: Cerca nelle News ufficiali
+                    search_results = DDGS().news(query_news, region='it-it', timelimit='w', max_results=4)
+                    
+                    # TENTATIVO 2: Se fallisce, cerca nei testi generici (siti fantacalcio/scommesse)
+                    if not search_results:
+                        search_results = DDGS().text(query_text, region='it-it', timelimit='w', max_results=4)
                     
                     piano_c_attivo = False
+                    # TENTATIVO 3: Tabellini passati
                     if not search_results:
                         piano_c_attivo = True
-                        q_h = f"{h_name} tabellino formazioni (gazzetta OR fantacalcio OR tuttomercatoweb)"
-                        search_results = DDGS().text(q_h, region='it-it', timelimit='m', max_results=2)
-                        q_a = f"{a_name} tabellino formazioni (gazzetta OR fantacalcio OR tuttomercatoweb)"
-                        search_results += DDGS().text(q_a, region='it-it', timelimit='m', max_results=2)
+                        search_results = DDGS().text(f"{h_name} tabellino formazioni", region='it-it', timelimit='m', max_results=2)
+                        search_results += DDGS().text(f"{a_name} tabellino formazioni", region='it-it', timelimit='m', max_results=2)
                         
                     for res in search_results:
                         url = res.get('url', '')
+                        snippet = res.get('body', '')  # Salviamo sempre il riassunto, è vitale!
                         if url:
                             try:
-                                # Usa cloudscraper invece di requests!
-                                page = scraper.get(url, timeout=10)
+                                page = scraper.get(url, timeout=7)
                                 soup = BeautifulSoup(page.text, 'html.parser')
                                 article_text = " ".join([p.get_text() for p in soup.find_all('p')])
                                 
                                 text_lower = article_text.lower()
                                 if len(article_text) < 150 or "cookie" in text_lower or "javascript" in text_lower:
-                                    full_articles.append(f"--- ARTICOLO DA: {res.get('source', 'Sito')} ---\nTitolo: {res.get('title', '')}\nRiassunto: {res.get('body', '')}\n")
+                                    # Se il sito blocca, passiamo all'IA lo snippet di DuckDuckGo
+                                    full_articles.append(f"--- ARTICOLO DA: {res.get('source', 'Sito')} ---\nTitolo: {res.get('title', '')}\nRiassunto testuale: {snippet}\n")
                                 else:
-                                    # Vittoria! Articolo completo estratto!
-                                    full_articles.append(f"--- ARTICOLO DA: {res.get('source', 'Sito')} ---\nTitolo: {res.get('title', '')}\nTesto: {article_text[:4000]}\n")
+                                    full_articles.append(f"--- ARTICOLO DA: {res.get('source', 'Sito')} ---\nTitolo: {res.get('title', '')}\nTesto Completo: {article_text[:4000]}\n")
                             except Exception:
-                                full_articles.append(f"--- ARTICOLO DA: {res.get('source', 'Sito')} ---\nTitolo: {res.get('title', '')}\nRiassunto: {res.get('body', '')}\n")
+                                full_articles.append(f"--- ARTICOLO DA: {res.get('source', 'Sito')} ---\nTitolo: {res.get('title', '')}\nRiassunto testuale: {snippet}\n")
                     
                     if full_articles:
                         news_context = "\n".join(full_articles)
@@ -251,15 +252,17 @@ if st.button("📰 Cerca News e Avvia Pre-Analisi", type="secondary"):
                     
                     prompt_pre = f"""
                     IL TUO NOME È "FIGGHIOZZO". Presentati brevemente in modo amichevole e spavaldo.
-                    Oggi è il {oggi_str}. MATCH IMMINENTE: {h_name} vs {a_name}.
+                    Oggi è il {oggi_str}. Stiamo analizzando il PROSSIMO MATCH IMMINENTE: {h_name} vs {a_name}.
                     
-                    📰 TESTO DEGLI ARTICOLI:
+                    [REGOLA TEMPORALE TASSATIVA]: La partita si giocherà nei prossimi giorni. NON DIRE MAI "nella partita di oggi" o "il match di oggi". Usa espressioni come "nel prossimo match", "nella sfida in arrivo" o "nella partita imminente".
+                    
+                    📰 TESTI E RIASSUNTI DEGLI ARTICOLI:
                     {news_context}
                     
                     🔴 IL TUO COMPITO:
-                    1. **Formazioni e Assenze:** Leggi i testi forniti sopra. 
-                       - Se i testi riguardano il MATCH IMMINENTE, elenca formazioni e assenti.
-                       - Se vedi l'avviso dell'ULTIMA PARTITA, dichiaralo e deduci le formazioni e le nuove assenze.
+                    1. **Formazioni e Assenze:** Leggi i testi forniti sopra (anche i "Riassunti testuali" che spesso contengono le formazioni). 
+                       - Se i testi riguardano il MATCH IMMINENTE, elenca formazioni e assenti in base a ciò che leggi.
+                       - Se vedi l'avviso dell'ULTIMA PARTITA, dichiaralo e deduci le nuove assenze.
                        - SE NON CI SONO NOMI NEI TESTI, HAI IL DIVIETO DI INVENTARLI. Ammetti di non avere dati sufficienti.
                     
                     2. **Scheda Fine-Tuning:** Consiglia all'utente come impostare i parametri. Applica la REGOLA D'ORO anti-overfitting:
@@ -296,7 +299,7 @@ if "fig_chat_history" in st.session_state and st.session_state.fig_chat_history:
                     chat = st.session_state.fig_chat_session
                     st.session_state.fig_chat_history.append({"role": "user", "text": user_input})
                     
-                    correction_prompt = f"{user_input}\n\n[ISTRUZIONE PER IL FIGGHIOZZO: Rispondi all'utente in modo colloquiale, ringrazialo per la correzione o l'aggiornamento, e scrivigli DI NUOVO la 'SCHEDA FINE-TUNING' completa e aggiornata tenendo conto di questa nuova informazione e rispettando le solite regole anti-overfitting.]"
+                    correction_prompt = f"{user_input}\n\n[ISTRUZIONE PER IL FIGGHIOZZO: Rispondi all'utente ringraziandolo, NON dire 'nella partita di oggi' e scrivigli DI NUOVO la 'SCHEDA FINE-TUNING' aggiornata tenendo conto di questa nuova info.]"
                     
                     new_response = chat.send_message(correction_prompt)
                     st.session_state.fig_chat_history.append({"role": "model", "text": new_response.text})
