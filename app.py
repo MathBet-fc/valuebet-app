@@ -186,55 +186,58 @@ if st.button("📰 Cerca News e Avvia Pre-Analisi", type="secondary"):
                 
                 oggi_str = datetime.now().strftime("%Y-%m-%d")
                 
-                # 1. RICERCA A CASCATA (News prima, Testo generico poi)
-                query_news = f"probabili formazioni {h_name} {a_name}"
-                query_text = f"probabili formazioni {h_name} {a_name} fantacalcio titolari"
+                # 1. RICERCA MIRATA
+                query_news = f"{h_name} {a_name} probabili formazioni infortuni"
                 full_articles = []
                 
                 scraper = cloudscraper.create_scraper(browser={'browser': 'chrome', 'platform': 'windows', 'desktop': True})
                 
                 try:
-                    # TENTATIVO 1: Cerca nelle News ufficiali
+                    # Cerca prima nelle news, se vuoto cerca nel testo generale
                     search_results = DDGS().news(query_news, region='it-it', timelimit='w', max_results=4)
-                    
-                    # TENTATIVO 2: Se fallisce, cerca nei testi generici (siti fantacalcio/scommesse)
                     if not search_results:
-                        search_results = DDGS().text(query_text, region='it-it', timelimit='w', max_results=4)
+                        search_results = DDGS().text(query_news, region='it-it', timelimit='w', max_results=4)
                     
                     piano_c_attivo = False
-                    # TENTATIVO 3: Tabellini passati
                     if not search_results:
                         piano_c_attivo = True
                         search_results = DDGS().text(f"{h_name} tabellino formazioni", region='it-it', timelimit='m', max_results=2)
                         search_results += DDGS().text(f"{a_name} tabellino formazioni", region='it-it', timelimit='m', max_results=2)
                         
                     for res in search_results:
-                        url = res.get('url', '')
-                        snippet = res.get('body', '')  # Salviamo sempre il riassunto, è vitale!
-                        if url:
+                        # FIX FONDAMENTALE: DuckDuckGo a volte usa 'href', a volte 'url'
+                        link = res.get('href') or res.get('url') or ''
+                        snippet = res.get('body', '')  # Il riassunto è vitale
+                        titolo = res.get('title', '')
+                        
+                        if link:
                             try:
-                                page = scraper.get(url, timeout=7)
+                                page = scraper.get(link, timeout=7)
                                 soup = BeautifulSoup(page.text, 'html.parser')
                                 article_text = " ".join([p.get_text() for p in soup.find_all('p')])
                                 
                                 text_lower = article_text.lower()
+                                # Se veniamo bloccati dai cookie, passiamo ALMENO il titolo e il riassunto
                                 if len(article_text) < 150 or "cookie" in text_lower or "javascript" in text_lower:
-                                    # Se il sito blocca, passiamo all'IA lo snippet di DuckDuckGo
-                                    full_articles.append(f"--- ARTICOLO DA: {res.get('source', 'Sito')} ---\nTitolo: {res.get('title', '')}\nRiassunto testuale: {snippet}\n")
+                                    full_articles.append(f"--- TITOLO: {titolo} ---\nRIASSUNTO: {snippet}\n")
                                 else:
-                                    full_articles.append(f"--- ARTICOLO DA: {res.get('source', 'Sito')} ---\nTitolo: {res.get('title', '')}\nTesto Completo: {article_text[:4000]}\n")
+                                    # Se passiamo, diamo all'IA SIA il riassunto SIA l'articolo intero
+                                    full_articles.append(f"--- TITOLO: {titolo} ---\nRIASSUNTO: {snippet}\nTESTO ARTICOLO: {article_text[:3500]}\n")
                             except Exception:
-                                full_articles.append(f"--- ARTICOLO DA: {res.get('source', 'Sito')} ---\nTitolo: {res.get('title', '')}\nRiassunto testuale: {snippet}\n")
+                                full_articles.append(f"--- TITOLO: {titolo} ---\nRIASSUNTO: {snippet}\n")
+                        else:
+                            # Se non c'è link, usiamo almeno lo snippet
+                            full_articles.append(f"--- TITOLO: {titolo} ---\nRIASSUNTO: {snippet}\n")
                     
                     if full_articles:
                         news_context = "\n".join(full_articles)
                         if piano_c_attivo:
-                            news_context += "\n\n[ATTENZIONE PER L'IA: Queste sono notizie relative all'ULTIMA PARTITA giocata, non al match imminente. Usale per capire chi è squalificato o infortunato.]"
+                            news_context += "\n\n[ATTENZIONE: Queste sono notizie relative all'ULTIMA PARTITA giocata. Usale per dedurre squalificati o infortunati.]"
                     else:
-                        news_context = "[ATTENZIONE PER L'IA: Nessuna news trovata. DIVIETO ASSOLUTO DI INVENTARE NOMI. Dichiara all'utente che non hai dati freschi.]"
+                        news_context = "[Nessuna news trovata. DIVIETO DI INVENTARE NOMI.]"
                         
                 except Exception:
-                    news_context = "[ATTENZIONE PER L'IA: Ricerca web fallita. DIVIETO ASSOLUTO DI INVENTARE NOMI. Dichiara all'utente che non hai dati freschi.]"
+                    news_context = "[Ricerca web fallita. DIVIETO DI INVENTARE NOMI.]"
 
                 genai.configure(api_key=GEMINI_API_KEY)
                 modello_valido = None
@@ -251,25 +254,25 @@ if st.button("📰 Cerca News e Avvia Pre-Analisi", type="secondary"):
                     st.session_state.fig_chat_history = []
                     
                     prompt_pre = f"""
-                    IL TUO NOME È "FIGGHIOZZO". Presentati brevemente in modo amichevole e spavaldo.
+                    IL TUO NOME È "FIGGHIOZZO". Presentati in modo amichevole e spavaldo.
                     Oggi è il {oggi_str}. Stiamo analizzando il PROSSIMO MATCH IMMINENTE: {h_name} vs {a_name}.
                     
-                    [REGOLA TEMPORALE TASSATIVA]: La partita si giocherà nei prossimi giorni. NON DIRE MAI "nella partita di oggi" o "il match di oggi". Usa espressioni come "nel prossimo match", "nella sfida in arrivo" o "nella partita imminente".
+                    [REGOLA TASSATIVA]: Non dire mai "il match di oggi". Usa "il prossimo match" o "la sfida imminente".
                     
-                    📰 TESTI E RIASSUNTI DEGLI ARTICOLI:
+                    📰 TESTI, RIASSUNTI E TITOLI DEGLI ARTICOLI ESTTRATTI ORA:
                     {news_context}
                     
                     🔴 IL TUO COMPITO:
-                    1. **Formazioni e Assenze:** Leggi i testi forniti sopra (anche i "Riassunti testuali" che spesso contengono le formazioni). 
-                       - Se i testi riguardano il MATCH IMMINENTE, elenca formazioni e assenti in base a ciò che leggi.
-                       - Se vedi l'avviso dell'ULTIMA PARTITA, dichiaralo e deduci le nuove assenze.
-                       - SE NON CI SONO NOMI NEI TESTI, HAI IL DIVIETO DI INVENTARLI. Ammetti di non avere dati sufficienti.
+                    1. **Formazioni e Assenze:** Cerca in modo MANIACALE i nomi dei giocatori nei testi, nei titoli e nei riassunti qui sopra. 
+                       - Elenca con precisione le probabili formazioni in base ai dati che ti ho appena fornito. 
+                       - Evidenzia chi è assente, squalificato o infortunato.
+                       - SE NON CI SONO NOMI NEI TESTI, HAI IL DIVIETO ASSOLUTO DI INVENTARLI O RICORDARLI DAL PASSATO. Ammetti che non ci sono dati aggiornati per le rose.
                     
-                    2. **Scheda Fine-Tuning:** Consiglia all'utente come impostare i parametri. Applica la REGOLA D'ORO anti-overfitting:
-                    - CASO A (Assenza Mirata): Se manca solo un top player, consiglia "No Bomber" o "No Difensore", ma imponi "Titolari %" al 100%.
-                    - CASO B (Turnover di Massa): Se c'è ampio turnover, consiglia di abbassare "Titolari %" (es. 80-85%), ma lascia FALSO "No Bomber/Difensore".
+                    2. **Scheda Fine-Tuning:** Consiglia all'utente i parametri. Applica la REGOLA D'ORO anti-overfitting:
+                    - CASO A (Assenza Mirata): Manca un big? Consiglia "No Bomber" o "No Difensore", ma tieni "Titolari %" al 100%.
+                    - CASO B (Turnover/Molte assenze): Consiglia di abbassare "Titolari %" (es. 80-85%), ma lascia FALSO le spunte "No Bomber/Difensore".
                     
-                    Scrivi i valori esatti consigliati:
+                    Formatta in modo chiaro i valori esatti consigliati:
                     - Titolari % Casa: [Valore] | Titolari % Ospite: [Valore]
                     - No Bomber Casa: [VERO/FALSO] | No Bomber Ospite: [VERO/FALSO]
                     - No Difensore Casa: [VERO/FALSO] | No Difensore Ospite: [VERO/FALSO]
@@ -299,7 +302,7 @@ if "fig_chat_history" in st.session_state and st.session_state.fig_chat_history:
                     chat = st.session_state.fig_chat_session
                     st.session_state.fig_chat_history.append({"role": "user", "text": user_input})
                     
-                    correction_prompt = f"{user_input}\n\n[ISTRUZIONE PER IL FIGGHIOZZO: Rispondi all'utente ringraziandolo, NON dire 'nella partita di oggi' e scrivigli DI NUOVO la 'SCHEDA FINE-TUNING' aggiornata tenendo conto di questa nuova info.]"
+                    correction_prompt = f"{user_input}\n\n[ISTRUZIONE: Rispondi all'utente ringraziandolo, NON dire 'nella partita di oggi' e scrivi DI NUOVO la 'SCHEDA FINE-TUNING' aggiornata tenendo conto di questa nuova info.]"
                     
                     new_response = chat.send_message(correction_prompt)
                     st.session_state.fig_chat_history.append({"role": "model", "text": new_response.text})
