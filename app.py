@@ -180,15 +180,16 @@ if st.button("📰 Chiedi al Figghiozzo le Formazioni e i Parametri", type="seco
                 from bs4 import BeautifulSoup
                 
                 oggi_str = datetime.now().strftime("%Y-%m-%d")
-                search_query = f"{st.session_state.h_name} {st.session_state.a_name} probabili formazioni infortuni"
+                # Legge direttamente le variabili locali h_name e a_name dalle tendine
+                search_query = f"{h_name} {a_name} probabili formazioni infortuni"
                 full_articles = []
                 headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'} 
                 
                 try:
                     search_results = DDGS().news(search_query, region='it-it', timelimit='w', max_results=3)
                     if not search_results:
-                        search_results = DDGS().text(f"{st.session_state.h_name} infortunati squalificati out", region='it-it', timelimit='m', max_results=2)
-                        search_results += DDGS().text(f"{st.session_state.a_name} infortunati squalificati out", region='it-it', timelimit='m', max_results=2)
+                        search_results = DDGS().text(f"{h_name} infortunati squalificati out", region='it-it', timelimit='m', max_results=2)
+                        search_results += DDGS().text(f"{a_name} infortunati squalificati out", region='it-it', timelimit='m', max_results=2)
                         
                     for res in search_results:
                         url = res.get('url', '')
@@ -215,7 +216,7 @@ if st.button("📰 Chiedi al Figghiozzo le Formazioni e i Parametri", type="seco
                     model = genai.GenerativeModel(modello_valido)
                     prompt_pre = f"""
                     IL TUO NOME È "FIGGHIOZZO". Presentati brevemente in modo amichevole.
-                    Oggi è il {oggi_str}. MATCH: {st.session_state.h_name} vs {st.session_state.a_name}.
+                    Oggi è il {oggi_str}. MATCH: {h_name} vs {a_name}.
                     
                     📰 TESTO DEGLI ARTICOLI:
                     {news_context}
