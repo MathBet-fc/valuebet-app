@@ -171,7 +171,7 @@ if st.button("📰 Chiedi al Figghiozzo le Formazioni e i Parametri", type="seco
     if not GEMINI_API_KEY or GEMINI_API_KEY == "INSERISCI_QUI_LA_TUA_CHIAVE_GEMINI":
         st.warning("⚠️ Inserisci la tua vera API Key di Gemini all'inizio del codice (riga 15).")
     else:
-        with st.spinner("🔍 Il Figghiozzo sta leggendo le ultime dai campi per consigliarti il Fine Tuning..."):
+        with st.spinner("🔍 Il Figghiozzo sta leggendo gli articoli completi e incrociando i dati storici..."):
             try:
                 from duckduckgo_search import DDGS
                 import google.generativeai as genai
@@ -180,17 +180,24 @@ if st.button("📰 Chiedi al Figghiozzo le Formazioni e i Parametri", type="seco
                 from bs4 import BeautifulSoup
                 
                 oggi_str = datetime.now().strftime("%Y-%m-%d")
-                # Legge direttamente le variabili locali h_name e a_name dalle tendine
+                
+                # 1. RICERCA WEB CORAZZATA (STESSA LOGICA DEL TAB 8)
                 search_query = f"{h_name} {a_name} probabili formazioni infortuni"
                 full_articles = []
                 headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'} 
                 
                 try:
+                    # PIANO A: Cerca news della settimana sul match
                     search_results = DDGS().news(search_query, region='it-it', timelimit='w', max_results=3)
+                    
+                    # PIANO B/C: Se fallisce, cerca tabellini recenti e infortunati per singola squadra
                     if not search_results:
-                        search_results = DDGS().text(f"{h_name} infortunati squalificati out", region='it-it', timelimit='m', max_results=2)
-                        search_results += DDGS().text(f"{a_name} infortunati squalificati out", region='it-it', timelimit='m', max_results=2)
+                        q_h = f"{h_name} infortunati squalificati out ultime notizie"
+                        search_results = DDGS().text(q_h, region='it-it', timelimit='m', max_results=2)
+                        q_a = f"{a_name} infortunati squalificati out ultime notizie"
+                        search_results += DDGS().text(q_a, region='it-it', timelimit='m', max_results=2)
                         
+                    # Scraping profondo col BeautifulSoup
                     for res in search_results:
                         url = res.get('url', '')
                         if url:
@@ -198,12 +205,17 @@ if st.button("📰 Chiedi al Figghiozzo le Formazioni e i Parametri", type="seco
                                 page = requests.get(url, headers=headers, timeout=5)
                                 soup = BeautifulSoup(page.content, 'html.parser')
                                 article_text = " ".join([p.get_text() for p in soup.find_all('p')])
-                                full_articles.append(f"--- ARTICOLO DA: {res.get('source', 'Sito')} ---\nTesto: {article_text[:4000]}\n")
+                                full_articles.append(f"--- ARTICOLO DA: {res.get('source', 'Sito')} ---\nTitolo: {res.get('title', '')}\nTesto: {article_text[:4000]}\n")
                             except Exception:
-                                full_articles.append(f"--- ARTICOLO DA: {res.get('source', 'Sito')} ---\nRiassunto: {res.get('body', '')}\n")
-                    news_context = "\n".join(full_articles) if full_articles else "Nessuna news trovata."
+                                full_articles.append(f"--- ARTICOLO DA: {res.get('source', 'Sito')} ---\nTitolo: {res.get('title', '')}\nRiassunto: {res.get('body', '')}\n")
+                    
+                    if full_articles:
+                        news_context = "\n".join(full_articles)
+                    else:
+                        news_context = "[ATTENZIONE PER L'IA: Nessuna news trovata. Ricostruisci TU la probabile formazione titolare standard usando la tua enorme conoscenza del calcio per queste due squadre.]"
+                        
                 except Exception:
-                    news_context = "Ricerca fallita."
+                    news_context = "[ATTENZIONE PER L'IA: Ricerca web fallita. Ricostruisci TU la probabile formazione titolare standard usando la tua enorme conoscenza del calcio per queste due squadre.]"
 
                 genai.configure(api_key=GEMINI_API_KEY)
                 modello_valido = None
@@ -215,16 +227,15 @@ if st.button("📰 Chiedi al Figghiozzo le Formazioni e i Parametri", type="seco
                 if modello_valido:
                     model = genai.GenerativeModel(modello_valido)
                     prompt_pre = f"""
-                    IL TUO NOME È "FIGGHIOZZO". Presentati brevemente in modo amichevole.
+                    IL TUO NOME È "FIGGHIOZZO". Presentati brevemente in modo amichevole e spavaldo.
                     Oggi è il {oggi_str}. MATCH: {h_name} vs {a_name}.
                     
-                    📰 TESTO DEGLI ARTICOLI:
+                    📰 TESTO DEGLI ARTICOLI SULLE ASSENZE:
                     {news_context}
                     
                     🔴 IL TUO COMPITO:
-                    Basandoti ESCLUSIVAMENTE sugli articoli letti:
-                    1. Elenca velocemente le probabili formazioni e i giocatori indisponibili/infortunati/squalificati per entrambe le squadre.
-                    2. Fornisci la "SCHEDA FINE-TUNING". Consiglia all'utente in modo chiaro come impostare i parametri nel software, ma devi ASSOLUTAMENTE evitare l'over-fitting (la doppia penalizzazione matematica).
+                    1. **Formazioni e Assenze:** DEVI SEMPRE scrivere una stima delle formazioni in campo. Estrai chi giocherà e chi è infortunato/squalificato leggendo i testi sopra. Se le notizie sono carenti o c'è l'avviso di usare la tua conoscenza, RICOSTRUISCI TU la formazione titolare standard usando il tuo database storico e deduci le formazioni ottimali.
+                    2. **Scheda Fine-Tuning:** Consiglia all'utente in modo chiaro come impostare i parametri nel software, ma devi ASSOLUTAMENTE evitare l'over-fitting (la doppia penalizzazione matematica).
                     
                     Applica e spiega all'utente questa REGOLA D'ORO:
                     - CASO A (Assenza Mirata): Se manca solo un top player (es. il bomber o il leader difensivo), consiglia di spuntare "No Bomber" o "No Difensore", ma imponi di mantenere "Titolari %" al 100% (o max 95%).
@@ -238,7 +249,7 @@ if st.button("📰 Chiedi al Figghiozzo le Formazioni e i Parametri", type="seco
                     Aggiungi un avviso finale: "Mi raccomando, non applicare entrambi i malus sulla stessa squadra altrimenti sballiamo l'algoritmo mandandolo in over-fitting!". Sii schematico e professionale.
                     """
                     response = model.generate_content(prompt_pre)
-                    st.info("✅ Pre-Analisi completata!")
+                    st.info("✅ Pre-Analisi del Figghiozzo completata!")
                     st.markdown(response.text)
                     st.divider()
             except Exception as e:
