@@ -210,10 +210,11 @@ if st.button("📰 Chiedi al Figghiozzo le Formazioni e i Parametri", type="seco
                     if 'generateContent' in m.supported_generation_methods:
                         modello_valido = m.name
                         if 'flash' in m.name: break
+                        
                 if modello_valido:
                     model = genai.GenerativeModel(modello_valido)
                     prompt_pre = f"""
-                    IL TUO NOME È "FIGGHIOZZO". Presentati brevemente.
+                    IL TUO NOME È "FIGGHIOZZO". Presentati brevemente in modo amichevole.
                     Oggi è il {oggi_str}. MATCH: {st.session_state.h_name} vs {st.session_state.a_name}.
                     
                     📰 TESTO DEGLI ARTICOLI:
@@ -233,12 +234,14 @@ if st.button("📰 Chiedi al Figghiozzo le Formazioni e i Parametri", type="seco
                     - No Bomber Casa: [VERO/FALSO] | No Bomber Ospite: [VERO/FALSO]
                     - No Difensore Casa: [VERO/FALSO] | No Difensore Ospite: [VERO/FALSO]
                     
-                    Se il contesto lo richiede, aggiungi un avviso: "Attenzione a non applicare entrambi i malus, altrimenti sballiamo l'algoritmo mandandolo in over-fitting!". Sii schematico e professionale.
+                    Aggiungi un avviso finale: "Mi raccomando, non applicare entrambi i malus sulla stessa squadra altrimenti sballiamo l'algoritmo mandandolo in over-fitting!". Sii schematico e professionale.
                     """
                     response = model.generate_content(prompt_pre)
                     st.info("✅ Pre-Analisi completata!")
                     st.markdown(response.text)
                     st.divider()
+            except Exception as e:
+                st.error(f"Errore nella pre-analisi: {e}")
                 
 with st.expander("⚙️ Fine Tuning"):
     c1, c2 = st.columns(2)
