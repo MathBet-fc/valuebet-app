@@ -167,7 +167,6 @@ b2 = q2.number_input("Q2", 1.01, 100.0, float(val_2))
 st.subheader("🕵️‍♂️ Pre-Analisi del Figghiozzo (News & Formazioni)")
 st.markdown("Fatti consigliare dal Figghiozzo i parametri. Se sbaglia o manca una news, **puoi scrivergli per correggerlo!**")
 
-# Inizializza la memoria della chat se non esiste
 if "fig_chat_session" not in st.session_state:
     st.session_state.fig_chat_session = None
 if "fig_chat_history" not in st.session_state:
@@ -177,46 +176,52 @@ if st.button("📰 Cerca News e Avvia Pre-Analisi", type="secondary"):
     if not GEMINI_API_KEY or GEMINI_API_KEY == "INSERISCI_QUI_LA_TUA_CHIAVE_GEMINI":
         st.warning("⚠️ Inserisci la tua vera API Key di Gemini all'inizio del codice (riga 15).")
     else:
-        with st.spinner("🔍 Il Figghiozzo sta cercando le probabili formazioni..."):
+        with st.spinner("🔍 Il Figghiozzo sta forzando i sistemi anti-bot per leggere gli articoli completi..."):
             try:
                 from duckduckgo_search import DDGS
                 import google.generativeai as genai
                 from datetime import datetime
-                import requests
+                import cloudscraper
                 from bs4 import BeautifulSoup
                 
                 oggi_str = datetime.now().strftime("%Y-%m-%d")
                 
-                # 1. RICERCA WEB: Query essenziale e pulita
                 search_query = f"probabili formazioni {h_name} {a_name}"
                 full_articles = []
                 
-                # Headers per ingannare i blocchi anti-bot
-                headers = {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
-                    'Accept-Language': 'it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7'
-                }
+                # Inizializza lo scraper anti-Cloudflare
+                scraper = cloudscraper.create_scraper(browser={
+                    'browser': 'chrome',
+                    'platform': 'windows',
+                    'desktop': True
+                })
                 
                 try:
-                    # Ricerca testo generale (più affidabile della scheda news)
-                    search_results = DDGS().text(search_query, region='it-it', timelimit='w', max_results=3)
+                    search_results = DDGS().text(search_query, region='it-it', timelimit='w', max_results=4)
                     
                     piano_c_attivo = False
                     if not search_results:
                         piano_c_attivo = True
-                        q_h = f"{h_name} tabellino formazioni infortunati squalificati"
+                        q_h = f"{h_name} tabellino formazioni (gazzetta OR fantacalcio OR tuttomercatoweb)"
                         search_results = DDGS().text(q_h, region='it-it', timelimit='m', max_results=2)
-                        q_a = f"{a_name} tabellino formazioni infortunati squalificati"
+                        q_a = f"{a_name} tabellino formazioni (gazzetta OR fantacalcio OR tuttomercatoweb)"
                         search_results += DDGS().text(q_a, region='it-it', timelimit='m', max_results=2)
                         
                     for res in search_results:
                         url = res.get('url', '')
                         if url:
                             try:
-                                page = requests.get(url, headers=headers, timeout=5)
-                                soup = BeautifulSoup(page.content, 'html.parser')
+                                # Usa cloudscraper invece di requests!
+                                page = scraper.get(url, timeout=10)
+                                soup = BeautifulSoup(page.text, 'html.parser')
                                 article_text = " ".join([p.get_text() for p in soup.find_all('p')])
-                                full_articles.append(f"--- ARTICOLO DA: {res.get('source', 'Sito')} ---\nTitolo: {res.get('title', '')}\nTesto: {article_text[:4000]}\n")
+                                
+                                text_lower = article_text.lower()
+                                if len(article_text) < 150 or "cookie" in text_lower or "javascript" in text_lower:
+                                    full_articles.append(f"--- ARTICOLO DA: {res.get('source', 'Sito')} ---\nTitolo: {res.get('title', '')}\nRiassunto: {res.get('body', '')}\n")
+                                else:
+                                    # Vittoria! Articolo completo estratto!
+                                    full_articles.append(f"--- ARTICOLO DA: {res.get('source', 'Sito')} ---\nTitolo: {res.get('title', '')}\nTesto: {article_text[:4000]}\n")
                             except Exception:
                                 full_articles.append(f"--- ARTICOLO DA: {res.get('source', 'Sito')} ---\nTitolo: {res.get('title', '')}\nRiassunto: {res.get('body', '')}\n")
                     
@@ -240,7 +245,6 @@ if st.button("📰 Cerca News e Avvia Pre-Analisi", type="secondary"):
                 if modello_valido:
                     model = genai.GenerativeModel(modello_valido)
                     
-                    # 🚀 INIZIALIZZA LA CHAT INTERATTIVA
                     chat = model.start_chat(history=[])
                     st.session_state.fig_chat_session = chat
                     st.session_state.fig_chat_history = []
@@ -274,7 +278,6 @@ if st.button("📰 Cerca News e Avvia Pre-Analisi", type="secondary"):
             except Exception as e:
                 st.error(f"Errore nella pre-analisi: {e}")
 
-# MOSTRA LA CHAT E L'INPUT DELL'UTENTE
 if "fig_chat_history" in st.session_state and st.session_state.fig_chat_history:
     st.divider()
     for msg in st.session_state.fig_chat_history:
@@ -284,7 +287,6 @@ if "fig_chat_history" in st.session_state and st.session_state.fig_chat_history:
             st.success(f"🤖 **Figghiozzo:**\n{msg['text']}")
     
     st.markdown("---")
-    # SEZIONE PER RISPONDERE AL FIGGHIOZZO
     user_input = st.text_input("💬 Scrivi al Figghiozzo per correggerlo o aggiungere news:", key="fig_input_box")
     
     if st.button("Invia Risposta al Figghiozzo", type="primary"):
