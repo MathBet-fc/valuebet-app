@@ -162,16 +162,22 @@ bX = qx.number_input("QX", 1.01, 100.0, float(val_X))
 b2 = q2.number_input("Q2", 1.01, 100.0, float(val_2))
 
 # ==============================================================================
-# 🕵️‍♂️ PRE-ANALISI DEL FIGGHIOZZO (CONSIGLI FINE-TUNING)
+# 🕵️‍♂️ PRE-ANALISI DEL FIGGHIOZZO (CONSIGLI FINE-TUNING & CHAT)
 # ==============================================================================
 st.subheader("🕵️‍♂️ Pre-Analisi del Figghiozzo (News & Formazioni)")
-st.markdown("Fatti consigliare dal Figghiozzo i giusti parametri di penalizzazione PRIMA di avviare l'algoritmo.")
+st.markdown("Fatti consigliare dal Figghiozzo i parametri. Se sbaglia o manca una news, **puoi scrivergli per correggerlo!**")
 
-if st.button("📰 Chiedi al Figghiozzo le Formazioni e i Parametri", type="secondary"):
+# Inizializza la memoria della chat se non esiste
+if "fig_chat_session" not in st.session_state:
+    st.session_state.fig_chat_session = None
+if "fig_chat_history" not in st.session_state:
+    st.session_state.fig_chat_history = []
+
+if st.button("📰 Cerca News e Avvia Pre-Analisi", type="secondary"):
     if not GEMINI_API_KEY or GEMINI_API_KEY == "INSERISCI_QUI_LA_TUA_CHIAVE_GEMINI":
         st.warning("⚠️ Inserisci la tua vera API Key di Gemini all'inizio del codice (riga 15).")
     else:
-        with st.spinner("🔍 Il Figghiozzo sta cercando news o i tabellini dell'ultima partita giocata..."):
+        with st.spinner("🔍 Il Figghiozzo sta cercando le probabili formazioni..."):
             try:
                 from duckduckgo_search import DDGS
                 import google.generativeai as genai
@@ -181,25 +187,28 @@ if st.button("📰 Chiedi al Figghiozzo le Formazioni e i Parametri", type="seco
                 
                 oggi_str = datetime.now().strftime("%Y-%m-%d")
                 
-                # 1. RICERCA WEB CORAZZATA
-                search_query = f"{h_name} {a_name} probabili formazioni infortuni"
+                # 1. RICERCA WEB: Query essenziale e pulita
+                search_query = f"probabili formazioni {h_name} {a_name}"
                 full_articles = []
-                headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'} 
+                
+                # Headers per ingannare i blocchi anti-bot
+                headers = {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
+                    'Accept-Language': 'it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7'
+                }
                 
                 try:
-                    # PIANO A: Cerca news della settimana sul match
-                    search_results = DDGS().news(search_query, region='it-it', timelimit='w', max_results=3)
+                    # Ricerca testo generale (più affidabile della scheda news)
+                    search_results = DDGS().text(search_query, region='it-it', timelimit='w', max_results=3)
                     
                     piano_c_attivo = False
-                    # PIANO B/C: Se fallisce, cerca tabellini, pagelle e infortuni dell'ULTIMA partita
                     if not search_results:
                         piano_c_attivo = True
-                        q_h = f"{h_name} tabellino formazioni ufficiali pagelle infortunati squalificati"
+                        q_h = f"{h_name} tabellino formazioni infortunati squalificati"
                         search_results = DDGS().text(q_h, region='it-it', timelimit='m', max_results=2)
-                        q_a = f"{a_name} tabellino formazioni ufficiali pagelle infortunati squalificati"
+                        q_a = f"{a_name} tabellino formazioni infortunati squalificati"
                         search_results += DDGS().text(q_a, region='it-it', timelimit='m', max_results=2)
                         
-                    # Scraping profondo col BeautifulSoup
                     for res in search_results:
                         url = res.get('url', '')
                         if url:
@@ -214,7 +223,7 @@ if st.button("📰 Chiedi al Figghiozzo le Formazioni e i Parametri", type="seco
                     if full_articles:
                         news_context = "\n".join(full_articles)
                         if piano_c_attivo:
-                            news_context += "\n\n[ATTENZIONE PER L'IA: Queste sono notizie e tabellini relativi all'ULTIMA PARTITA giocata da queste squadre, non al match imminente. Usale per estrarre la formazione base e capire chi è stato espulso, squalificato o si è infortunato.]"
+                            news_context += "\n\n[ATTENZIONE PER L'IA: Queste sono notizie relative all'ULTIMA PARTITA giocata, non al match imminente. Usale per capire chi è squalificato o infortunato.]"
                     else:
                         news_context = "[ATTENZIONE PER L'IA: Nessuna news trovata. DIVIETO ASSOLUTO DI INVENTARE NOMI. Dichiara all'utente che non hai dati freschi.]"
                         
@@ -230,37 +239,68 @@ if st.button("📰 Chiedi al Figghiozzo le Formazioni e i Parametri", type="seco
                         
                 if modello_valido:
                     model = genai.GenerativeModel(modello_valido)
+                    
+                    # 🚀 INIZIALIZZA LA CHAT INTERATTIVA
+                    chat = model.start_chat(history=[])
+                    st.session_state.fig_chat_session = chat
+                    st.session_state.fig_chat_history = []
+                    
                     prompt_pre = f"""
                     IL TUO NOME È "FIGGHIOZZO". Presentati brevemente in modo amichevole e spavaldo.
                     Oggi è il {oggi_str}. MATCH IMMINENTE: {h_name} vs {a_name}.
                     
-                    📰 TESTO DEGLI ARTICOLI (News recenti o Tabellini passati):
+                    📰 TESTO DEGLI ARTICOLI:
                     {news_context}
                     
                     🔴 IL TUO COMPITO:
                     1. **Formazioni e Assenze:** Leggi i testi forniti sopra. 
-                       - Se i testi riguardano il MATCH IMMINENTE, elenca le probabili formazioni e gli assenti.
-                       - Se vedi l'avviso che i testi riguardano l'ULTIMA PARTITA giocata (tabellini passati), dichiara esplicitamente: "Ragazzi, non ci sono ancora news fresche sul match, quindi ho analizzato i tabellini della partita precedente!". Poi, basandoti SUI TESTI, elenca la formazione usata nell'ultima gara e segnala se qualcuno è stato espulso o si è infortunato (e quindi salterà questo match).
-                       - SE NON CI SONO NOMI NEI TESTI, HAI IL DIVIETO DI INVENTARLI O USARE LA MEMORIA STORICA. Ammetti di non avere dati sufficienti.
+                       - Se i testi riguardano il MATCH IMMINENTE, elenca formazioni e assenti.
+                       - Se vedi l'avviso dell'ULTIMA PARTITA, dichiaralo e deduci le formazioni e le nuove assenze.
+                       - SE NON CI SONO NOMI NEI TESTI, HAI IL DIVIETO DI INVENTARLI. Ammetti di non avere dati sufficienti.
                     
-                    2. **Scheda Fine-Tuning:** Consiglia all'utente come impostare i parametri per il match imminente basandoti sulle assenze trovate nei testi (sia news fresche che squalifiche/infortuni dedotti dall'ultimo match). Applica la REGOLA D'ORO anti-overfitting:
+                    2. **Scheda Fine-Tuning:** Consiglia all'utente come impostare i parametri. Applica la REGOLA D'ORO anti-overfitting:
+                    - CASO A (Assenza Mirata): Se manca solo un top player, consiglia "No Bomber" o "No Difensore", ma imponi "Titolari %" al 100%.
+                    - CASO B (Turnover di Massa): Se c'è ampio turnover, consiglia di abbassare "Titolari %" (es. 80-85%), ma lascia FALSO "No Bomber/Difensore".
                     
-                    - CASO A (Assenza Mirata): Se manca solo un top player (es. il bomber o il leader difensivo infortunato o espulso nell'ultima gara), consiglia di spuntare "No Bomber" o "No Difensore", ma imponi di mantenere "Titolari %" al 100%.
-                    - CASO B (Turnover di Massa): Se c'è ampio turnover, consiglia di abbassare "Titolari %" (es. 80-85%), ma imponi di lasciare FALSO "No Bomber/Difensore" per non drogare i numeri.
-                    
-                    Scrivi i valori esatti consigliati in modo schematico:
+                    Scrivi i valori esatti consigliati:
                     - Titolari % Casa: [Valore] | Titolari % Ospite: [Valore]
                     - No Bomber Casa: [VERO/FALSO] | No Bomber Ospite: [VERO/FALSO]
                     - No Difensore Casa: [VERO/FALSO] | No Difensore Ospite: [VERO/FALSO]
-                    
-                    Sii professionale e diretto.
                     """
-                    response = model.generate_content(prompt_pre)
-                    st.info("✅ Pre-Analisi del Figghiozzo completata!")
-                    st.markdown(response.text)
-                    st.divider()
+                    
+                    response = chat.send_message(prompt_pre)
+                    st.session_state.fig_chat_history.append({"role": "model", "text": response.text})
+                    
             except Exception as e:
                 st.error(f"Errore nella pre-analisi: {e}")
+
+# MOSTRA LA CHAT E L'INPUT DELL'UTENTE
+if "fig_chat_history" in st.session_state and st.session_state.fig_chat_history:
+    st.divider()
+    for msg in st.session_state.fig_chat_history:
+        if msg["role"] == "user":
+            st.info(f"🗣️ **Tu:** {msg['text']}")
+        else:
+            st.success(f"🤖 **Figghiozzo:**\n{msg['text']}")
+    
+    st.markdown("---")
+    # SEZIONE PER RISPONDERE AL FIGGHIOZZO
+    user_input = st.text_input("💬 Scrivi al Figghiozzo per correggerlo o aggiungere news:", key="fig_input_box")
+    
+    if st.button("Invia Risposta al Figghiozzo", type="primary"):
+        if user_input and st.session_state.fig_chat_session:
+            with st.spinner("✍️ Il Figghiozzo sta leggendo la tua nota e ricalcolando la scheda..."):
+                try:
+                    chat = st.session_state.fig_chat_session
+                    st.session_state.fig_chat_history.append({"role": "user", "text": user_input})
+                    
+                    correction_prompt = f"{user_input}\n\n[ISTRUZIONE PER IL FIGGHIOZZO: Rispondi all'utente in modo colloquiale, ringrazialo per la correzione o l'aggiornamento, e scrivigli DI NUOVO la 'SCHEDA FINE-TUNING' completa e aggiornata tenendo conto di questa nuova informazione e rispettando le solite regole anti-overfitting.]"
+                    
+                    new_response = chat.send_message(correction_prompt)
+                    st.session_state.fig_chat_history.append({"role": "model", "text": new_response.text})
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Errore durante la conversazione: {e}")
                 
 with st.expander("⚙️ Fine Tuning"):
     c1, c2 = st.columns(2)
