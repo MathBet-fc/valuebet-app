@@ -570,16 +570,16 @@ if st.session_state.analyzed:
                 else:
                     st.warning("Non puntare su questo evento (Valore Negativo).")
 
-# ---------------- TAB 8: GIORNALISTA AI (GEMINI + FULL WEB SCRAPING) ----------------
+# ---------------- TAB 8: GIORNALISTA AI (GEMINI + WEB SCRAPING + COMBO) ----------------
     with tab8:
-        st.subheader("✍️ Giornalista AI (Scraping Articoli Completi)")
-        st.markdown("L'IA (il *Figghiozzo*) legge gli articoli per intero e incrocia le formazioni con tutti i dati matematici, fornendo le Quote Fair per scovare le Value Bet.")
+        st.subheader("✍️ Giornalista AI (Scraping Articoli Completi e Combo)")
+        st.markdown("L'IA (il *Figghiozzo*) legge le notizie e incrocia i dati matematici per sfornare i migliori pronostici (incluse Combo e Marcatore/Assist).")
         
         if st.button("📝 Leggi Articoli e Genera Pronostico", type="primary"):
             if not GEMINI_API_KEY or GEMINI_API_KEY == "INSERISCI_QUI_LA_TUA_CHIAVE_GEMINI":
                 st.warning("⚠️ Inserisci la tua vera API Key di Gemini all'inizio del codice (riga 15).")
             else:
-                with st.spinner("🔍 Il Figghiozzo sta cercando notizie, scaricando articoli completi e calcolando i mercati..."):
+                with st.spinner("🔍 Il Figghiozzo sta cercando notizie, estraendo le Combo e studiando i giocatori..."):
                     try:
                         from duckduckgo_search import DDGS
                         import google.generativeai as genai
@@ -623,21 +623,32 @@ if st.session_state.analyzed:
                         except Exception as e:
                             news_context = "Ricerca web fallita. Basati solo sui dati matematici forniti e sulle tue conoscenze base."
 
-                        # 2. ESTRAZIONE DATI E CALCOLO QUOTE FAIR
+                        # 2. ESTRAZIONE DATI E CALCOLO DELLE COMBO
                         p1, pX, p2 = st.session_state.p1, st.session_state.pX, st.session_state.p2
                         p1X, pX2, p12 = p1+pX, pX+p2, p1+p2
                         b1, bX, b2 = st.session_state.b1, st.session_state.bX, st.session_state.b2
                         val_1, val_X, val_2 = (b1*p1)-1, (bX*pX)-1, (b2*p2)-1
                         
                         mat = st.session_state.matrix
-                        pO15 = np.sum(mat[np.indices((10,10))[0] + np.indices((10,10))[1] > 1.5])
-                        pU35 = np.sum(mat[np.indices((10,10))[0] + np.indices((10,10))[1] <= 3.5])
-                        mg_1_3 = np.sum(mat[(np.indices((10,10))[0] + np.indices((10,10))[1] >= 1) & (np.indices((10,10))[0] + np.indices((10,10))[1] <= 3)])
-                        mg_2_4 = np.sum(mat[(np.indices((10,10))[0] + np.indices((10,10))[1] >= 2) & (np.indices((10,10))[0] + np.indices((10,10))[1] <= 4)])
-                        mgh_1_2 = np.sum(mat[(np.indices((10,10))[0] >= 1) & (np.indices((10,10))[0] <= 2)])
-                        mga_1_2 = np.sum(mat[(np.indices((10,10))[1] >= 1) & (np.indices((10,10))[1] <= 2)])
-                        ph_minus_15 = np.sum(mat[np.indices((10,10))[0] - np.indices((10,10))[1] >= 2])
-                        pa_minus_15 = np.sum(mat[np.indices((10,10))[1] - np.indices((10,10))[0] >= 2])
+                        idx_h, idx_a = np.indices((10,10))
+                        
+                        pO15 = np.sum(mat[idx_h + idx_a > 1.5])
+                        pU35 = np.sum(mat[idx_h + idx_a <= 3.5])
+                        mg_1_3 = np.sum(mat[(idx_h + idx_a >= 1) & (idx_h + idx_a <= 3)])
+                        mg_2_4 = np.sum(mat[(idx_h + idx_a >= 2) & (idx_h + idx_a <= 4)])
+                        mgh_1_2 = np.sum(mat[(idx_h >= 1) & (idx_h <= 2)])
+                        mga_1_2 = np.sum(mat[(idx_a >= 1) & (idx_a <= 2)])
+                        ph_minus_15 = np.sum(mat[idx_h - idx_a >= 2])
+                        pa_minus_15 = np.sum(mat[idx_a - idx_h >= 2])
+                        
+                        p1_O15 = np.sum(mat[(idx_h > idx_a) & (idx_h + idx_a > 1.5)])
+                        p2_O15 = np.sum(mat[(idx_h < idx_a) & (idx_h + idx_a > 1.5)])
+                        p1X_O15 = np.sum(mat[(idx_h >= idx_a) & (idx_h + idx_a > 1.5)])
+                        p1X_U35 = np.sum(mat[(idx_h >= idx_a) & (idx_h + idx_a <= 3.5)])
+                        pX2_O15 = np.sum(mat[(idx_h <= idx_a) & (idx_h + idx_a > 1.5)])
+                        pX2_U35 = np.sum(mat[(idx_h <= idx_a) & (idx_h + idx_a <= 3.5)])
+                        p1_GG = np.sum(mat[(idx_h > idx_a) & (idx_h > 0) & (idx_a > 0)])
+                        p2_GG = np.sum(mat[(idx_h < idx_a) & (idx_h > 0) & (idx_a > 0)])
 
                         def qf(prob): return f"{1/prob:.2f}" if prob > 0.01 else "N/A"
 
@@ -655,7 +666,7 @@ if st.session_state.analyzed:
                             
                         model = genai.GenerativeModel(modello_valido)
                         
-                        # 4. IL SUPER-PROMPT (Aggiunto il nome Figghiozzo)
+                        # 4. IL SUPER-PROMPT AGGIORNATO (Integrazione diretta con la sezione Player & Assist del software)
                         prompt = f"""
                         Agisci come un Data Analyst calcistico Senior e Tipster Professionista. 
                         IL TUO NOME È "FIGGHIOZZO". Devi TASSATIVAMENTE iniziare la tua risposta presentandoti in modo amichevole e sicuro di te, dicendo una frase del tipo: "Ciao, sono il Figghiozzo e questa è la mia analisi..." oppure "Benvenuti, qui è il Figghiozzo che vi parla. Ecco i dati per il match...".
@@ -665,47 +676,53 @@ if st.session_state.analyzed:
                         📊 1. METRICHE AVANZATE DEL SOFTWARE:
                         - Affidabilità Algoritmo (Stabilità): {st.session_state.stability:.1f}%
                         - xG Aggiustati: {st.session_state.h_name} {st.session_state.f_xh:.2f} | {st.session_state.a_name} {st.session_state.f_xa:.2f}
-                        - Forza Team (Elo Rating): Casa {st.session_state.h_elo} | Ospite {st.session_state.a_elo}
                         - Pressione (PPDA): Casa {st.session_state.h_ppda:.1f} | Ospite {st.session_state.a_ppda:.1f}
                         
-                        💰 2. MERCATO 1X2 E VALUE BET RILEVATA SUL BOOKMAKER:
+                        💰 2. MERCATO 1X2 E VALUE BET RILEVATA:
                         - Esito 1: Probabilità {p1:.1%} | Quota Bookie: {b1} | Valore Matematico: {val_1:.1%}
                         - Esito X: Probabilità {pX:.1%} | Quota Bookie: {bX} | Valore Matematico: {val_X:.1%}
                         - Esito 2: Probabilità {p2:.1%} | Quota Bookie: {b2} | Valore Matematico: {val_2:.1%}
                         
                         🎯 3. MATRICE PROBABILITÀ E "QUOTE FAIR" (QUOTE REALI):
-                        - Doppia Chance: 1X ({p1X:.1%}, Quota Fair: {qf(p1X)}) | X2 ({pX2:.1%}, Quota Fair: {qf(pX2)}) | 12 ({p12:.1%}, Quota Fair: {qf(p12)})
-                        - Handicap Asiatico (-1.5): Casa ({ph_minus_15:.1%}, Quota Fair: {qf(ph_minus_15)}) | Ospite ({pa_minus_15:.1%}, Quota Fair: {qf(pa_minus_15)})
-                        - Under/Over: Over 1.5 ({pO15:.1%}, Quota Fair: {qf(pO15)}) | Over 2.5 ({st.session_state.pO25:.1%}, Quota Fair: {qf(st.session_state.pO25)}) | Under 3.5 ({pU35:.1%}, Quota Fair: {qf(pU35)})
-                        - Goal/NoGoal: Goal ({st.session_state.pGG:.1%}, Quota Fair: {qf(st.session_state.pGG)}) | NoGoal ({1-st.session_state.pGG:.1%}, Quota Fair: {qf(1-st.session_state.pGG)})
-                        - Multigol Partita: 1-3 ({mg_1_3:.1%}, Quota Fair: {qf(mg_1_3)}) | 2-4 ({mg_2_4:.1%}, Quota Fair: {qf(mg_2_4)})
+                        - Doppia Chance: 1X ({p1X:.1%}, Q.Fair: {qf(p1X)}) | X2 ({pX2:.1%}, Q.Fair: {qf(pX2)}) | 12 ({p12:.1%}, Q.Fair: {qf(p12)})
+                        - Handicap (-1.5): Casa ({ph_minus_15:.1%}, Q.Fair: {qf(ph_minus_15)}) | Ospite ({pa_minus_15:.1%}, Q.Fair: {qf(pa_minus_15)})
+                        - Under/Over: Over 1.5 ({pO15:.1%}, Q.Fair: {qf(pO15)}) | Over 2.5 ({st.session_state.pO25:.1%}, Q.Fair: {qf(st.session_state.pO25)}) | Under 3.5 ({pU35:.1%}, Q.Fair: {qf(pU35)})
+                        - Goal/NoGoal: Goal ({st.session_state.pGG:.1%}, Q.Fair: {qf(st.session_state.pGG)})
+                        - Multigol Partita: 1-3 ({mg_1_3:.1%}, Q.Fair: {qf(mg_1_3)}) | 2-4 ({mg_2_4:.1%}, Q.Fair: {qf(mg_2_4)})
                         
-                        📰 4. TESTO COMPLETO DEGLI ARTICOLI SPORTIVI:
+                        ⚡ 4. MERCATI COMBO (CON QUOTA FAIR CALCOLATA):
+                        - 1 + Over 1.5 ({p1_O15:.1%}, Q.Fair: {qf(p1_O15)}) | 1X + Over 1.5 ({p1X_O15:.1%}, Q.Fair: {qf(p1X_O15)}) | 1X + Under 3.5 ({p1X_U35:.1%}, Q.Fair: {qf(p1X_U35)})
+                        - 2 + Over 1.5 ({p2_O15:.1%}, Q.Fair: {qf(p2_O15)}) | X2 + Over 1.5 ({pX2_O15:.1%}, Q.Fair: {qf(pX2_O15)}) | X2 + Under 3.5 ({pX2_U35:.1%}, Q.Fair: {qf(pX2_U35)})
+                        - 1 + Goal/BTTS ({p1_GG:.1%}, Q.Fair: {qf(p1_GG)}) | 2 + Goal/BTTS ({p2_GG:.1%}, Q.Fair: {qf(p2_GG)})
+                        
+                        📰 5. TESTO DEGLI ARTICOLI (Per infortuni e giocatori chiave):
                         {news_context}
                         
                         🔴 IL TUO COMPITO (RISPETTA QUESTA STRUTTURA ESATTA E NON ESSERE PIGRO):
                         
-                        1. **📋 Formazioni e Assenze:** DEVI SEMPRE scrivere una stima delle formazioni in campo. Estrai con precisione chi giocherà e chi è infortunato/squalificato dagli articoli. Se mancano notizie, usa la tua conoscenza storica e avvisa il lettore.
+                        1. **📋 Formazioni e Assenze:** Scrivi una stima delle formazioni in campo estraendo chi giocherà e chi è assente/infortunato in base agli articoli letti.
                         
-                        2. **🧠 Analisi Tattica Quantitativa:** Unisci i dati matematici (sezione 1) col contesto reale che hai appena letto negli articoli. Analizza il divario degli xG, il pressing (PPDA) e la stabilità. Sii analitico e argomenta i decimali.
+                        2. **🧠 Analisi Tattica Quantitativa:** Unisci i dati matematici (xG e PPDA) col contesto reale letto negli articoli. Analizza che tipo di partita ne uscirà. Sii analitico.
                         
-                        3. **📊 Analisi del Mercato 1X2:** Controlla le quote del bookmaker (sezione 2). C'è una Value Bet matematica da sfruttare sull'Esito Finale? 
-                        
-                        4. **💎 Pronostici Ufficiali e "Quote Minime da Giocare":** Fornisci 3 pronostici accurati motivando la scelta in base alla griglia di TUTTI i mercati (sezione 3). Per ogni pronostico devi indicare la sua "Quota Fair" e spiegare al lettore questa regola d'oro: "La nostra Quota Fair è [INSERISCI QUOTA FAIR]. Vi consigliamo di giocare questo pronostico SOLO se il vostro bookmaker vi offre una quota uguale o superiore a questa. In caso contrario, non c'è valore".
-                           - 🟢 **Safe Pick (Basso Rischio):** Probabilità assoluta più alta.
-                           - 🟡 **Value Pick (Qualità/Prezzo):** Miglior mercato incrociando i dati e le probabilità.
-                           - 🔴 **Special Pick (Alta Resa):** Mercato avanzato (Handicap, Multigol) supportato dai dati.
+                        3. **💎 Pronostici Ufficiali Consigliati dal Figghiozzo:** Fornisci 3 pronostici accurati. Spiega ai lettori la regola d'oro: "Giocate questo pronostico SOLO se il bookmaker offre una quota uguale o superiore alla nostra Quota Fair".
+                           - 🟢 **Safe Pick (Basso Rischio):** Scegli una giocata base o Multigol molto coperta. Indica la Quota Fair.
+                           - 🟡 **Combo Pick (Valore Tattico):** Usa obbligatoriamente uno dei mercati Combo (sezione 4). Spiega perché l'andamento del match favorisce questa combo. Indica la sua Quota Fair.
+                           - 🔴 **Player Pick (Marcatore/Assist + 1X2):** Basandoti sulle formazioni lette e sull'andamento tattico, consiglia una giocata speciale (Es. "Lautaro Segna + 1"). Spiega logicamente la scelta. IMPORTANTE: Concludi questo paragrafo dicendo testualmente: *"Per scoprire la Quota Fair matematica esatta di questa giocata speciale, inserite il nome del giocatore nell'apposita sezione 'Player & Assist' del nostro software (Tab 4)!"*
                            
-                        ATTENZIONE: NON menzionare MAI angoli, tiri o cartellini per il pronostico finale. Scrivi da esperto assoluto di betting.
+                        ATTENZIONE: NON menzionare MAI angoli, tiri o cartellini. Scrivi da vero esperto di betting.
                         """
                         
                         # 5. GENERA E MOSTRA
-                        with st.spinner("✍️ Il Figghiozzo sta leggendo gli articoli e calcolando le Quote Fair di tutti i mercati..."):
+                        with st.spinner("✍️ Il Figghiozzo sta studiando le statistiche avanzate, le Combo e i giocatori migliori per la partita..."):
                             response = model.generate_content(prompt)
                             st.success("✅ Analisi del Figghiozzo generata con successo!")
                             st.markdown("---")
                             st.markdown(response.text)
                         
+                    except ImportError:
+                        st.error("🚨 Mancano le librerie. Aggiungi 'beautifulsoup4' al file requirements.txt e fai un Reboot dell'app da Streamlit.")
+                    except Exception as e:
+                        st.error(f"Errore nella generazione dell'analisi: {e}")
                     except ImportError:
                         st.error("🚨 Mancano le librerie. Aggiungi 'beautifulsoup4' al file requirements.txt e fai un Reboot dell'app da Streamlit.")
                     except Exception as e:
