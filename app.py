@@ -161,6 +161,85 @@ b1 = q1.number_input("Q1", 1.01, 100.0, float(val_1))
 bX = qx.number_input("QX", 1.01, 100.0, float(val_X))
 b2 = q2.number_input("Q2", 1.01, 100.0, float(val_2))
 
+# ==============================================================================
+# 🕵️‍♂️ PRE-ANALISI DEL FIGGHIOZZO (CONSIGLI FINE-TUNING)
+# ==============================================================================
+st.subheader("🕵️‍♂️ Pre-Analisi del Figghiozzo (News & Formazioni)")
+st.markdown("Fatti consigliare dal Figghiozzo i giusti parametri di penalizzazione PRIMA di avviare l'algoritmo.")
+
+if st.button("📰 Chiedi al Figghiozzo le Formazioni e i Parametri", type="secondary"):
+    if not GEMINI_API_KEY or GEMINI_API_KEY == "INSERISCI_QUI_LA_TUA_CHIAVE_GEMINI":
+        st.warning("⚠️ Inserisci la tua vera API Key di Gemini all'inizio del codice (riga 15).")
+    else:
+        with st.spinner("🔍 Il Figghiozzo sta leggendo le ultime dai campi per consigliarti il Fine Tuning..."):
+            try:
+                from duckduckgo_search import DDGS
+                import google.generativeai as genai
+                from datetime import datetime
+                import requests
+                from bs4 import BeautifulSoup
+                
+                oggi_str = datetime.now().strftime("%Y-%m-%d")
+                search_query = f"{st.session_state.h_name} {st.session_state.a_name} probabili formazioni infortuni"
+                full_articles = []
+                headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'} 
+                
+                try:
+                    search_results = DDGS().news(search_query, region='it-it', timelimit='w', max_results=3)
+                    if not search_results:
+                        search_results = DDGS().text(f"{st.session_state.h_name} infortunati squalificati out", region='it-it', timelimit='m', max_results=2)
+                        search_results += DDGS().text(f"{st.session_state.a_name} infortunati squalificati out", region='it-it', timelimit='m', max_results=2)
+                        
+                    for res in search_results:
+                        url = res.get('url', '')
+                        if url:
+                            try:
+                                page = requests.get(url, headers=headers, timeout=5)
+                                soup = BeautifulSoup(page.content, 'html.parser')
+                                article_text = " ".join([p.get_text() for p in soup.find_all('p')])
+                                full_articles.append(f"--- ARTICOLO DA: {res.get('source', 'Sito')} ---\nTesto: {article_text[:4000]}\n")
+                            except Exception:
+                                full_articles.append(f"--- ARTICOLO DA: {res.get('source', 'Sito')} ---\nRiassunto: {res.get('body', '')}\n")
+                    news_context = "\n".join(full_articles) if full_articles else "Nessuna news trovata."
+                except Exception:
+                    news_context = "Ricerca fallita."
+
+                genai.configure(api_key=GEMINI_API_KEY)
+                modello_valido = None
+                for m in genai.list_models():
+                    if 'generateContent' in m.supported_generation_methods:
+                        modello_valido = m.name
+                        if 'flash' in m.name: break
+                if modello_valido:
+                    model = genai.GenerativeModel(modello_valido)
+                    prompt_pre = f"""
+                    IL TUO NOME È "FIGGHIOZZO". Presentati brevemente.
+                    Oggi è il {oggi_str}. MATCH: {st.session_state.h_name} vs {st.session_state.a_name}.
+                    
+                    📰 TESTO DEGLI ARTICOLI:
+                    {news_context}
+                    
+                    🔴 IL TUO COMPITO:
+                    Basandoti ESCLUSIVAMENTE sugli articoli letti:
+                    1. Elenca velocemente le probabili formazioni e i giocatori indisponibili/infortunati/squalificati per entrambe le squadre.
+                    2. Fornisci la "SCHEDA FINE-TUNING". Consiglia all'utente in modo chiaro come impostare i parametri nel software, ma devi ASSOLUTAMENTE evitare l'over-fitting (la doppia penalizzazione matematica).
+                    
+                    Applica e spiega all'utente questa REGOLA D'ORO:
+                    - CASO A (Assenza Mirata): Se manca solo un top player (es. il bomber o il leader difensivo), consiglia di spuntare "No Bomber" o "No Difensore", ma imponi di mantenere "Titolari %" al 100% (o max 95%).
+                    - CASO B (Turnover di Massa): Se c'è ampio turnover, consiglia di abbassare "Titolari %" (es. 80-85%), ma imponi di lasciare FALSO "No Bomber/Difensore" per non drogare i numeri.
+                    
+                    Scrivi i valori esatti consigliati:
+                    - Titolari % Casa: [Valore] | Titolari % Ospite: [Valore]
+                    - No Bomber Casa: [VERO/FALSO] | No Bomber Ospite: [VERO/FALSO]
+                    - No Difensore Casa: [VERO/FALSO] | No Difensore Ospite: [VERO/FALSO]
+                    
+                    Se il contesto lo richiede, aggiungi un avviso: "Attenzione a non applicare entrambi i malus, altrimenti sballiamo l'algoritmo mandandolo in over-fitting!". Sii schematico e professionale.
+                    """
+                    response = model.generate_content(prompt_pre)
+                    st.info("✅ Pre-Analisi completata!")
+                    st.markdown(response.text)
+                    st.divider()
+                
 with st.expander("⚙️ Fine Tuning"):
     c1, c2 = st.columns(2)
     h_str = c1.slider("Titolari % Casa", 50, 100, 100); a_str = c2.slider("Titolari % Ospite", 50, 100, 100)
