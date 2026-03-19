@@ -724,6 +724,10 @@ if st.session_state.analyzed:
         st.subheader("✍️ Giornalista AI (Scraping Articoli Completi e Combo)")
         st.markdown("L'IA (il *Figghiozzo*) legge le notizie e incrocia i dati matematici per sfornare i migliori pronostici (incluse Combo e Marcatore/Assist).")
         
+        # Inizializza la cronologia della chat se non esiste
+        if "figghiozzo_chat" not in st.session_state:
+            st.session_state.figghiozzo_chat = []
+            
         if st.button("📝 Leggi Articoli e Genera Pronostico", type="primary"):
             if not GEMINI_API_KEY or GEMINI_API_KEY == "INSERISCI_QUI_LA_TUA_CHIAVE_GEMINI":
                 st.warning("⚠️ Inserisci la tua vera API Key di Gemini all'inizio del codice (riga 15).")
@@ -735,6 +739,7 @@ if st.session_state.analyzed:
                         from datetime import datetime
                         import requests
                         from bs4 import BeautifulSoup
+                        import numpy as np # Assicurati di avere numpy importato in alto nel file
                         
                         oggi_str = datetime.now().strftime("%Y-%m-%d")
                         
@@ -815,7 +820,7 @@ if st.session_state.analyzed:
                             
                         model = genai.GenerativeModel(modello_valido)
                         
-                        # 4. IL SUPER-PROMPT AGGIORNATO (Integrazione diretta con la sezione Player & Assist del software)
+                        # 4. IL SUPER-PROMPT AGGIORNATO
                         prompt = f"""
                         Agisci come un Data Analyst calcistico Senior e Tipster Professionista. 
                         IL TUO NOME È "FIGGHIOZZO". Devi TASSATIVAMENTE iniziare la tua risposta presentandoti in modo amichevole e sicuro di te, dicendo una frase del tipo: "Ciao, sono il Figghiozzo e questa è la mia analisi..." oppure "Benvenuti, qui è il Figghiozzo che vi parla. Ecco i dati per il match...".
@@ -848,31 +853,77 @@ if st.session_state.analyzed:
                         {news_context}
                         
                         🔴 IL TUO COMPITO (RISPETTA QUESTA STRUTTURA ESATTA E NON ESSERE PIGRO):
-                        
                         1. **📋 Formazioni e Assenze:** Scrivi una stima delle formazioni in campo estraendo chi giocherà e chi è assente/infortunato in base agli articoli letti.
-                        
                         2. **🧠 Analisi Tattica Quantitativa:** Unisci i dati matematici (xG e PPDA) col contesto reale letto negli articoli. Analizza che tipo di partita ne uscirà. Sii analitico.
-                        
                         3. **💎 Pronostici Ufficiali Consigliati dal Figghiozzo:** Fornisci 3 pronostici accurati. Spiega ai lettori la regola d'oro: "Giocate questo pronostico SOLO se il bookmaker offre una quota uguale o superiore alla nostra Quota Fair".
                            - 🟢 **Safe Pick (Basso Rischio):** Scegli una giocata base o Multigol molto coperta. Indica la Quota Fair.
                            - 🟡 **Combo Pick (Valore Tattico):** Usa obbligatoriamente uno dei mercati Combo (sezione 4). Spiega perché l'andamento del match favorisce questa combo. Indica la sua Quota Fair.
                            - 🔴 **Player Pick (Marcatore/Assist + 1X2):** Basandoti sulle formazioni lette e sull'andamento tattico, consiglia una giocata speciale (Es. "Lautaro Segna + 1"). Spiega logicamente la scelta. IMPORTANTE: Concludi questo paragrafo dicendo testualmente: *"Per scoprire la Quota Fair matematica esatta di questa giocata speciale, inserite il nome del giocatore nell'apposita sezione 'Player & Assist' del nostro software (Tab 4)!"*
-                           
+                        
                         ATTENZIONE: NON menzionare MAI angoli, tiri o cartellini. Scrivi da vero esperto di betting.
                         """
                         
-                        # 5. GENERA E MOSTRA
-                        with st.spinner("✍️ Il Figghiozzo sta studiando le statistiche avanzate, le Combo e i giocatori migliori per la partita..."):
-                            response = model.generate_content(prompt)
-                            st.success("✅ Analisi del Figghiozzo generata con successo!")
-                            st.markdown("---")
-                            st.markdown(response.text)
+                        # 5. INIZIALIZZA LA CHAT INVECE DELLA SINGOLA GENERAZIONE
+                        st.session_state.figghiozzo_chat = [{"role": "user", "parts": [prompt]}]
+                        
+                        # Ottieni la prima risposta
+                        chat_session = model.start_chat(history=[])
+                        response = chat_session.send_message(prompt)
+                        
+                        # Salva la risposta dell'AI
+                        st.session_state.figghiozzo_chat.append({"role": "model", "parts": [response.text]})
+                        st.success("✅ Analisi del Figghiozzo generata con successo!")
                         
                     except ImportError:
-                        st.error("🚨 Mancano le librerie. Aggiungi 'beautifulsoup4' al file requirements.txt e fai un Reboot dell'app da Streamlit.")
+                        st.error("🚨 Mancano le librerie. Aggiungi 'beautifulsoup4' e 'duckduckgo_search' al file requirements.txt e fai un Reboot.")
                     except Exception as e:
                         st.error(f"Errore nella generazione dell'analisi: {e}")
-                    except ImportError:
-                        st.error("🚨 Mancano le librerie. Aggiungi 'beautifulsoup4' al file requirements.txt e fai un Reboot dell'app da Streamlit.")
+
+        # --- SEZIONE DI RENDER DELLA CHAT INTERATTIVA ---
+        st.markdown("---")
+        
+        # Se c'è una conversazione attiva, mostrala
+        if "figghiozzo_chat" in st.session_state and len(st.session_state.figghiozzo_chat) > 0:
+            for message in st.session_state.figghiozzo_chat:
+                # Nascondiamo il super-prompt iniziale (il primo messaggio) per non sporcare l'interfaccia
+                if message["role"] == "user" and "Agisci come un Data Analyst calcistico" in message["parts"][0]:
+                    continue
+                
+                with st.chat_message("user" if message["role"] == "user" else "assistant"):
+                    st.markdown(message["parts"][0])
+            
+            # Input per rispondere al Figghiozzo
+            if user_input := st.chat_input("Fai una domanda al Figghiozzo su questa partita..."):
+                # Mostra subito il messaggio dell'utente a schermo
+                with st.chat_message("user"):
+                    st.markdown(user_input)
+                
+                # Aggiungi il messaggio alla history
+                st.session_state.figghiozzo_chat.append({"role": "user", "parts": [user_input]})
+                
+                # Chiama Gemini passandogli tutto lo storico
+                with st.spinner("Il Figghiozzo sta digitando..."):
+                    try:
+                        import google.generativeai as genai
+                        genai.configure(api_key=GEMINI_API_KEY)
+                        # Riconfiguriamo il modello al volo per la chat
+                        for m in genai.list_models():
+                            if 'generateContent' in m.supported_generation_methods and 'flash' in m.name:
+                                modello_valido = m.name
+                                break
+                        model = genai.GenerativeModel(modello_valido)
+                        
+                        # Ricrea l'oggetto chat di Gemini con lo storico salvato (escluso l'ultimissimo messaggio utente che invieremo ora)
+                        history_for_gemini = st.session_state.figghiozzo_chat[:-1] 
+                        chat_session = model.start_chat(history=history_for_gemini)
+                        
+                        # Invia il nuovo messaggio
+                        response = chat_session.send_message(user_input)
+                        
+                        # Salva e mostra la risposta
+                        st.session_state.figghiozzo_chat.append({"role": "model", "parts": [response.text]})
+                        with st.chat_message("assistant"):
+                            st.markdown(response.text)
+                            
                     except Exception as e:
-                        st.error(f"Errore nella generazione dell'analisi: {e}")
+                        st.error(f"Errore di connessione col Figghiozzo: {e}")
