@@ -12,3 +12,4 @@ google-generativeai
 cloudscraper
 beautifulsoup4
 altair<5
+selenium<4.10.0
