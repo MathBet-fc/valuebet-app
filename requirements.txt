@@ -2,7 +2,7 @@ requests
 pandas
 numpy
 understatapi
-streamlit
+streamlit>=1.28.0
 scikit-learn
 seaborn
 matplotlib
@@ -11,3 +11,4 @@ duckduckgo-search
 google-generativeai
 cloudscraper
 beautifulsoup4
+altair<5
