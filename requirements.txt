@@ -7,3 +7,7 @@ scikit-learn
 seaborn
 matplotlib
 pytest
+duckduckgo-search
+google-generativeai
+cloudscraper
+beautifulsoup4
