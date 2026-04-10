@@ -1,0 +1,13 @@
+requests
+pandas
+numpy
+understatapi
+streamlit
+scikit-learn
+seaborn
+matplotlib
+pytest
+ddgs
+google-genai
+cloudscraper
+beautifulsoup4
