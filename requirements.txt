@@ -11,3 +11,4 @@ ddgs
 google-genai
 cloudscraper
 beautifulsoup4
+xlsxwriter
